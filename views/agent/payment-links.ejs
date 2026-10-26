@@ -1,0 +1,30 @@
+<div class="page-head"><div><h1>Payment links</h1><p>Collect advances or full payments from customers by UPI, card or EMI.</p></div></div>
+<div class="split">
+  <div class="card flush">
+    <% if (!links.length) { %><div class="empty"><span class="big">🔗</span>No payment links yet.</div><% } else { %>
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>For</th><th>Customer</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
+      <% links.forEach(l => { %>
+        <tr>
+          <td><b><%= l.purpose %></b><br><small><a href="/pay/<%= l.code %>" target="_blank"><%= l.code %></a> · <%= fmtDate(l.created_at) %></small></td>
+          <td><%= l.customer_name || '—' %></td>
+          <td class="num"><%= inr(l.amount) %></td>
+          <td><span class="badge <%= l.status %>"><%= l.status %></span><% if (l.paid_at) { %><br><small><%= fmtDate(l.paid_at) %></small><% } %></td>
+          <td class="num">
+            <button class="btn btn-sm" data-copy="<%= base %>/pay/<%= l.code %>">Copy</button>
+            <% if (l.status === 'pending') { %><form method="post" action="/agent/payment-links/<%= l.id %>/expire" class="inline"><button class="btn btn-sm btn-ghost">Expire</button></form><% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </table></div>
+    <% } %>
+  </div>
+  <form class="card" method="post" action="/agent/payment-links">
+    <h3>New payment link</h3>
+    <div class="field"><label for="purpose">For</label><input id="purpose" name="purpose" placeholder="e.g. Advance for Kashmir trip" required></div>
+    <div class="field"><label for="customer_name">Customer name</label><input id="customer_name" name="customer_name"></div>
+    <div class="field"><label for="amount">Amount (₹)</label><input id="amount" type="number" min="1" name="amount" required></div>
+    <button class="btn btn-primary" <%= agency.status !== 'active' ? 'disabled' : '' %>>Create link</button>
+    <p class="muted" style="font-size:12px;margin:10px 0 0">Payments are simulated in this version. Connect Razorpay or Cashfree to go live.</p>
+  </form>
+</div>

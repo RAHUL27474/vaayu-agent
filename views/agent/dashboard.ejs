@@ -1,0 +1,69 @@
+<div class="page-head">
+  <div>
+    <h1>Namaste, <%= user.name.split(' ')[0] %> 👋</h1>
+    <p><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) %></p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/agent/flights">✈ Search flights</a>
+    <a class="btn" href="/agent/hotels">🏨 Search hotels</a>
+    <a class="btn btn-primary" href="/agent/packages">Browse packages</a>
+  </div>
+</div>
+
+<% if (agency.status !== 'active') { %>
+  <div class="alert warn">Your account is <b><%= agency.status %></b>. VaayuTrip is reviewing your details; you can explore, build quotes and set up your branding meanwhile. Booking unlocks after approval.</div>
+<% } %>
+<% if (!branded) { %>
+  <div class="alert info">Upload your logo in <a href="/agent/settings">Company &amp; branding</a> to send invoices under your own name. Until then, customers get a VaayuTrip invoice that includes your commission.</div>
+<% } %>
+
+<div class="grid grid-4" style="margin-bottom:20px">
+  <div class="stat"><div class="label">Wallet balance</div><div class="value"><%= inr(agency.wallet_balance) %></div><div class="sub"><a href="/agent/wallet">Top up →</a></div></div>
+  <div class="stat"><div class="label">Credit available</div><div class="value"><%= inr(agency.credit_limit - agency.credit_used) %></div><div class="sub">of <%= inr(agency.credit_limit) %> limit</div></div>
+  <div class="stat"><div class="label">Sales this month</div><div class="value"><%= inr(stats.sales) %></div><div class="sub"><%= stats.bookings %> booking<%= stats.bookings === 1 ? '' : 's' %></div></div>
+  <div class="stat"><div class="label">Your earnings this month</div><div class="value profit"><%= inr(stats.earnings) %></div><div class="sub"><%= openLeads %> open lead<%= openLeads === 1 ? '' : 's' %></div></div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card flush">
+    <div class="card-head"><h3>Recent quotes</h3><a href="/agent/quotes">All quotes</a></div>
+    <% if (!quotes.length) { %><div class="empty">No quotes yet. Start from a <a href="/agent/packages">package</a>.</div><% } else { %>
+    <table class="table" style="margin-top:10px">
+      <% quotes.forEach(q => { %>
+        <tr class="click" data-href="/agent/quotes/<%= q.id %>"><td><b><%= q.title %></b><br><small><%= q.code %></small></td><td><span class="badge <%= q.status %>"><%= q.status %></span></td></tr>
+      <% }) %>
+    </table>
+    <% } %>
+  </div>
+  <div class="card flush">
+    <div class="card-head"><h3>New leads</h3><a href="/agent/leads">All leads</a></div>
+    <% if (!leads.length) { %><div class="empty">No new leads. Share <a href="/agent/website">your website</a> to get enquiries.</div><% } else { %>
+    <table class="table" style="margin-top:10px">
+      <% leads.forEach(l => { %>
+        <tr><td><b><%= l.name %></b><br><small><%= l.destination || 'Any destination' %> · <%= l.source %></small></td><td class="num"><form method="post" action="/agent/leads/<%= l.id %>/quote"><button class="btn btn-sm">Create quote</button></form></td></tr>
+      <% }) %>
+    </table>
+    <% } %>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card flush">
+    <div class="card-head"><h3>Upcoming trips</h3><a href="/agent/bookings">All bookings</a></div>
+    <% if (!upcoming.length) { %><div class="empty">No upcoming trips.</div><% } else { %>
+    <table class="table" style="margin-top:10px">
+      <% upcoming.forEach(b => { %><tr class="click" data-href="/agent/bookings/<%= b.id %>"><td><b><%= b.title %></b><br><small><%= b.code %></small></td><td class="num"><%= fmtDate(b.travel_date) %></td></tr><% }) %>
+    </table>
+    <% } %>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>New from VaayuTrip</h3><a href="/agent/packages">All packages</a></div>
+    <% featured.forEach(p => { %>
+      <a href="/agent/packages/<%= p.id %>" style="display:flex;gap:12px;align-items:center;padding:8px 0;color:inherit">
+        <img src="<%= cover(p) %>" alt="" style="width:72px;height:52px;object-fit:cover;border-radius:8px">
+        <div style="flex:1"><b><%= p.title %></b><br><small><%= p.nights %>N · <%= p.destination %></small></div>
+        <div class="num"><small class="muted">from</small> <%= inr(p.price.net) %><small class="muted"> pp</small><br><small class="profit">+<%= inr(p.price.sell - p.price.net) %></small></div>
+      </a>
+    <% }) %>
+  </div>
+</div>

@@ -1,0 +1,35 @@
+<div class="page-head"><div><h1>Wallet &amp; credit</h1><p>Bookings are paid from your wallet first, then your credit line.</p></div></div>
+<div class="grid grid-3" style="margin-bottom:20px">
+  <div class="stat"><div class="label">Wallet balance</div><div class="value"><%= inr(agency.wallet_balance, { decimals: 2 }) %></div></div>
+  <div class="stat"><div class="label">Credit used</div><div class="value"><%= inr(agency.credit_used, { decimals: 2 }) %></div><div class="sub">of <%= inr(agency.credit_limit) %> limit</div></div>
+  <div class="stat"><div class="label">Available to book</div><div class="value"><%= inr(agency.wallet_balance + agency.credit_limit - agency.credit_used) %></div></div>
+</div>
+<div class="split">
+  <div class="card flush">
+    <div class="card-head"><h3>Transactions</h3></div>
+    <% if (!txns.length) { %><div class="empty">No transactions yet.</div><% } else { %>
+    <div class="table-wrap"><table class="table" style="margin-top:10px">
+      <thead><tr><th>Date</th><th>Details</th><th class="num">Amount</th><th class="num">Balance</th></tr></thead>
+      <% txns.forEach(t => { %>
+        <tr><td><%= fmtDate(t.created_at) %></td><td><span class="badge"><%= t.type %></span> <%= t.note || '' %><br><small><%= t.ref || '' %></small></td>
+        <td class="num" style="color:<%= t.amount < 0 ? 'var(--bad)' : 'var(--ok)' %>"><%= t.amount < 0 ? '−' : '+' %><%= inr(Math.abs(t.amount), { decimals: 2 }) %></td><td class="num"><%= inr(t.balance_after, { decimals: 2 }) %></td></tr>
+      <% }) %>
+    </table></div>
+    <% } %>
+  </div>
+  <div>
+    <form class="card" method="post" action="/agent/wallet/topup">
+      <h3>Add money</h3>
+      <p class="muted" style="font-size:13px">Transfer to VaayuTrip by NEFT/IMPS/UPI, then submit the reference number. We credit your wallet after verification.</p>
+      <div class="alert info" style="font-size:13px">A/c: <b><%= settings.legal_name %></b><br>HDFC Bank · A/c 50200012345678 · IFSC HDFC0001234<br>UPI: vaayutrip@hdfcbank</div>
+      <div class="field"><label for="amount">Amount (₹)</label><input id="amount" type="number" min="100" name="amount" required></div>
+      <div class="field"><label for="utr">UTR / reference no.</label><input id="utr" name="utr" required></div>
+      <button class="btn btn-primary" <%= agency.status !== 'active' ? 'disabled' : '' %>>Submit top-up</button>
+    </form>
+    <% if (requests.length) { %>
+      <div class="card flush"><div class="card-head"><h3>Top-up requests</h3></div>
+        <table class="table" style="margin-top:10px"><% requests.forEach(r => { %><tr><td><%= fmtDate(r.created_at) %><br><small><%= r.utr %></small></td><td class="num"><%= inr(r.amount) %></td><td><span class="badge <%= r.status %>"><%= r.status %></span></td></tr><% }) %></table>
+      </div>
+    <% } %>
+  </div>
+</div>

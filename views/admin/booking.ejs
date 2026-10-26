@@ -1,0 +1,52 @@
+<% const paid = booking.paid_wallet + booking.paid_credit; %>
+<a href="/admin/bookings">← All bookings</a>
+<div class="page-head" style="margin-top:10px">
+  <div><h1><%= booking.title %></h1><p><b><%= booking.code %></b> · <a href="/admin/agents/<%= booking.agency_id %>"><%= booking.agency_name %></a> · <span class="badge <%= booking.status %>"><%= booking.status.replace('_', ' ') %></span></p></div>
+</div>
+<div class="split">
+  <div>
+    <% if (full) { %>
+    <div class="card flush">
+      <div class="card-head"><h3>Services to fulfil</h3></div>
+      <table class="table" style="margin-top:10px">
+        <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Net</th></tr></thead>
+        <% full.priced.lines.filter(l => l.supplier === 'vaayu').forEach(l => { %><tr><td><b><%= l.title %></b><% if (l.description) { %><br><small><%= l.description %></small><% } %><br><span class="badge"><%= l.type %></span></td><td class="num"><%= l.qty %></td><td class="num"><%= inr(l.lineNet) %></td></tr><% }) %>
+      </table>
+      <% if (full.customer) { %><div style="padding:14px 20px;border-top:1px solid var(--line-2)"><b>Lead traveller:</b> <%= full.customer.name %> · <%= [full.customer.phone, full.customer.email].filter(Boolean).join(' · ') %> · <%= full.quote.adults %> adults<%= full.quote.children ? `, ${full.quote.children} children` : '' %></div><% } %>
+    </div>
+    <% } %>
+    <div class="card flush">
+      <div class="card-head"><h3>Invoices</h3></div>
+      <table class="table" style="margin-top:10px">
+        <% invoices.forEach(i => { %><tr class="click" data-href="/admin/invoices/<%= i.id %>"><td><b><%= i.number %></b></td><td><%= { customer_agent: "Agent's own invoice", customer_vaayu: 'VaayuTrip → customer', b2b: 'VaayuTrip → agent' }[i.kind] %></td><td class="num"><%= inr(i.total) %></td></tr><% }) %>
+      </table>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <dl class="kv">
+        <dt>Travel date</dt><dd><%= fmtDate(booking.travel_date) || '—' %></dd>
+        <dt>Booked</dt><dd><%= fmtDate(booking.created_at) %></dd>
+        <dt>Net (pre-tax)</dt><dd><%= inr(booking.total_net) %></dd>
+        <dt>Paid by agent</dt><dd><%= inr(paid) %> <small class="muted">(wallet <%= inr(booking.paid_wallet) %>, credit <%= inr(booking.paid_credit) %>)</small></dd>
+        <dt>Agent sold for</dt><dd><%= inr(booking.total_sell) %></dd>
+        <% if (booking.cancel_reason) { %><dt>Cancel reason</dt><dd><%= booking.cancel_reason %></dd><% } %>
+        <% if (booking.refund_amount != null) { %><dt>Refunded</dt><dd><%= inr(booking.refund_amount) %></dd><% } %>
+      </dl>
+    </div>
+    <% if (booking.status !== 'cancelled') { %>
+      <form class="card" method="post" action="/admin/bookings/<%= booking.id %>/cancel" data-confirm="Cancel this booking and refund the agent?">
+        <h3><%= booking.status === 'cancel_requested' ? 'Approve cancellation' : 'Cancel booking' %></h3>
+        <div class="field"><label for="refund">Refund to agent (₹)</label><input id="refund" type="number" min="0" max="<%= paid %>" step="0.01" name="refund" value="<%= paid %>"><div class="hint">Credit line is restored first, the rest goes to the wallet. Max <%= inr(paid) %>.</div></div>
+        <button class="btn btn-danger">Cancel &amp; refund</button>
+      </form>
+      <% if (booking.status === 'cancel_requested') { %>
+        <form class="card" method="post" action="/admin/bookings/<%= booking.id %>/reject-cancel">
+          <h3>Decline request</h3>
+          <div class="field"><label for="reason">Reason shown to agent</label><input id="reason" name="reason" placeholder="Non-refundable as per hotel policy"></div>
+          <button class="btn">Decline</button>
+        </form>
+      <% } %>
+    <% } %>
+  </div>
+</div>

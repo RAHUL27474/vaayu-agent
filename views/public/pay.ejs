@@ -1,0 +1,30 @@
+<div class="doc-wrap" style="max-width:520px">
+  <article class="doc" style="--doc-color: <%= site.brand_color || '#0b6fa4' %>;text-align:center">
+    <% if (site.logo_path) { %><img src="<%= site.logo_path %>" alt="<%= site.name %>" style="max-height:52px"><% } else { %><h2><%= site.name %></h2><% } %>
+    <p class="muted" style="margin-top:14px">Payment request<%= link.customer_name ? ` for ${link.customer_name}` : '' %></p>
+    <h2><%= link.purpose %></h2>
+    <div style="font-size:36px;font-weight:800;margin:8px 0 18px"><%= inr(link.amount) %></div>
+
+    <% if (link.status === 'paid') { %>
+      <div class="alert success">Paid on <%= fmtDate(link.paid_at) %>. Thank you!</div>
+    <% } else if (link.status === 'expired') { %>
+      <div class="alert error">This payment link has expired. Contact <%= site.name %> for a new one.</div>
+    <% } else { %>
+      <form method="post" action="/pay/<%= link.code %>">
+        <div class="radio-cards" style="text-align:left;margin-bottom:14px">
+          <label class="radio-card"><input type="radio" name="method" value="upi" checked> UPI<small class="muted">GPay, PhonePe, Paytm</small></label>
+          <label class="radio-card"><input type="radio" name="method" value="card"> Card / Netbanking<small class="muted">All major banks</small></label>
+        </div>
+        <button class="btn btn-accent btn-lg" style="width:100%">Pay <%= inr(link.amount) %></button>
+        <p class="muted" style="font-size:12px;margin-top:10px">Demo checkout: payment is simulated. Connect Razorpay or Cashfree for live payments.</p>
+      </form>
+      <details class="more" style="text-align:left;margin-top:12px">
+        <summary>EMI options</summary>
+        <table class="table" style="margin-top:8px">
+          <% emi.forEach(e => { %><tr><td><%= e.months %> months</td><td class="num"><b><%= inr(e.monthly) %></b>/mo</td><td class="num muted"><%= e.rate %>% p.a.</td></tr><% }) %>
+        </table>
+      </details>
+    <% } %>
+    <div class="doc-foot">Ref <%= link.code %> · <%= [site.phone, site.email].filter(Boolean).join(' · ') %></div>
+  </article>
+</div>

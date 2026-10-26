@@ -1,0 +1,105 @@
+<%#
+  Full package presentation, shared by the agent package page, quotes, the customer quote page and agent websites.
+  Expects: p = { route, highlights, days, stays, flights, inclusions[], exclusions[], policies, nights, departureCity }
+  Optional: showCategory (string), compact (bool)
+%>
+<%
+  const mealPlanNames = { EP: 'Room only', CP: 'Breakfast', MAP: 'Breakfast & dinner', AP: 'All meals' };
+  const slabs = (p.policies && p.policies.cancellation) || [];
+  const slabText = (s, i) => {
+    const prev = slabs[i - 1];
+    if (i === 0) return `${s.days}+ days before departure`;
+    if (s.days === 0) return `Less than ${prev.days} days / no-show`;
+    return `${s.days}–${prev.days - 1} days before departure`;
+  };
+%>
+<% if (p.route && p.route.length) { %>
+  <div class="route-line" style="margin-bottom:14px">
+    <% if (p.departureCity) { %><span class="muted" style="font-weight:500">From <%= p.departureCity %>:</span><% } %>
+    <% p.route.forEach((r, i) => { %><% if (i) { %><span class="arrow">→</span><% } %><span class="stop"><%= r.city %> <%= r.nights %>N</span><% }) %>
+  </div>
+<% } %>
+
+<% if (p.highlights && p.highlights.length) { %>
+  <div class="chips" style="margin-bottom:18px"><% p.highlights.forEach(hl => { %><span>✓ <%= hl %></span><% }) %></div>
+<% } %>
+
+<% if (p.days && p.days.length) { %>
+  <h2 style="margin-top:8px">Day-wise itinerary</h2>
+  <div>
+    <% p.days.forEach((d, i) => { %>
+      <div class="day">
+        <div class="num">DAY<b><%= i + 1 %></b></div>
+        <div>
+          <h3 style="margin-bottom:4px"><%= d.title %></h3>
+          <% if (d.description) { %><p style="margin:0 0 8px;white-space:pre-line"><%= d.description %></p><% } %>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:13px">
+            <span class="meal-tags"><span class="<%= d.meals && d.meals.b ? '' : 'off' %>">Breakfast</span><span class="<%= d.meals && d.meals.l ? '' : 'off' %>">Lunch</span><span class="<%= d.meals && d.meals.d ? '' : 'off' %>">Dinner</span></span>
+            <% if (d.overnight) { %><span class="muted">🌙 Overnight: <b><%= d.overnight %></b></span><% } %>
+          </div>
+          <% if (d.optional) { %><p class="muted" style="font-size:13px;margin:6px 0 0">Optional (own cost): <%= d.optional %></p><% } %>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
+
+<% if (p.stays && p.stays.length) { %>
+  <h2 style="margin-top:24px">Hotels<%= typeof showCategory !== 'undefined' && showCategory ? ` · ${showCategory}` : '' %></h2>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>City</th><th>Stay</th><th>Room</th><th>Meals</th><th class="num">Nights</th></tr></thead>
+    <% p.stays.forEach(s => { %>
+      <tr>
+        <td><b><%= s.city %></b></td>
+        <td><%= s.hotel %> <% if (s.stars) { %><span style="color:var(--accent)"><%= '★'.repeat(s.stars) %></span><% } %><br><small class="muted"><%= s.type %> · or similar</small></td>
+        <td><%= s.room || '—' %></td>
+        <td><span class="badge"><%= s.mealPlan %></span> <small class="muted"><%= mealPlanNames[s.mealPlan] %></small></td>
+        <td class="num"><%= s.nights %></td>
+      </tr>
+    <% }) %>
+  </table></div>
+<% } %>
+
+<% if (p.flights && p.flights.length) { %>
+  <h2 style="margin-top:24px">Flights <small class="muted" style="font-size:13px;font-weight:500">indicative schedule</small></h2>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Day</th><th>Flight</th><th>Route</th><th>Time</th><th>Baggage</th></tr></thead>
+    <% p.flights.forEach(f => { %>
+      <tr>
+        <td><%= f.day %><br><small class="muted" style="text-transform:capitalize"><%= f.leg %></small></td>
+        <td><b><%= f.airline %></b><br><small><%= f.flightNo %> · <%= f.cabin %></small></td>
+        <td><%= f.from %> → <%= f.to %></td>
+        <td><%= f.depart %> – <%= f.arrive %></td>
+        <td><%= f.baggage || '—' %></td>
+      </tr>
+    <% }) %>
+  </table></div>
+<% } %>
+
+<% if ((p.inclusions && p.inclusions.length) || (p.exclusions && p.exclusions.length)) { %>
+  <div class="grid grid-2" style="margin-top:20px">
+    <div><h3>✅ Included</h3><ul style="padding-left:18px"><% (p.inclusions || []).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+    <div><h3>❌ Not included</h3><ul style="padding-left:18px" class="muted"><% (p.exclusions || []).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+  </div>
+<% } %>
+
+<% if (p.policies && (typeof compact === 'undefined' || !compact)) { %>
+  <h2 style="margin-top:20px">Policies</h2>
+  <div class="grid grid-2">
+    <div>
+      <h3>Payment</h3>
+      <p><%= p.policies.advancePercent %>% advance to confirm<%= p.policies.balanceDays ? `; balance ${p.policies.balanceDays} days before travel` : '' %>.<% if (p.policies.payment) { %> <%= p.policies.payment %><% } %></p>
+      <% if (slabs.length) { %>
+        <h3>Cancellation charges</h3>
+        <table class="table" style="font-size:13px">
+          <% slabs.forEach((s, i) => { %><tr><td><%= slabText(s, i) %></td><td class="num"><b><%= s.percent %>%</b> of package cost</td></tr><% }) %>
+        </table>
+      <% } %>
+    </div>
+    <div>
+      <% if (p.policies.child) { %><h3>Children</h3><p style="white-space:pre-line"><%= p.policies.child %></p><% } %>
+      <% if (p.policies.notes) { %><h3>Important notes</h3><p style="white-space:pre-line" class="muted"><%= p.policies.notes %></p><% } %>
+      <% if (p.policies.terms) { %><h3>Terms</h3><p style="white-space:pre-line;font-size:13px" class="muted"><%= p.policies.terms %></p><% } %>
+    </div>
+  </div>
+<% } %>

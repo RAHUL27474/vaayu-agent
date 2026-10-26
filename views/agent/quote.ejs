@@ -1,0 +1,193 @@
+<%
+  const locked = ['booked', 'cancelled'].includes(quote.status);
+  const markupLabel = quote.markup_type === 'flat' ? `${inr(quote.markup_value)} flat` : `${quote.markup_value}%`;
+%>
+<a href="/agent/quotes">← All quotes</a>
+<div class="page-head" style="margin-top:10px">
+  <div>
+    <h1><%= quote.title %></h1>
+    <p><%= quote.code %> · <span class="badge <%= quote.status %>"><%= quote.status %></span><%= customer ? ` · ${customer.name}` : '' %><%= quote.travel_date ? ` · ${fmtDate(quote.travel_date)}` : '' %></p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/q/<%= quote.code %>" target="_blank">Preview customer view ↗</a>
+    <% if (quote.status === 'draft') { %><form method="post" action="/agent/quotes/<%= quote.id %>/send"><button class="btn">Mark as sent</button></form><% } %>
+    <% if (!locked) { %>
+      <form method="post" action="/agent/quotes/<%= quote.id %>/book" data-confirm="Book now? <%= inr(netPayable.total) %> (net + GST) will be paid to VaayuTrip from your wallet/credit.">
+        <button class="btn btn-accent" <%= agency.status !== 'active' || !items.length ? 'disabled' : '' %>>Book now · pay <%= inr(netPayable.total) %></button>
+      </form>
+    <% } else if (booking) { %>
+      <a class="btn btn-primary" href="/agent/bookings/<%= booking.id %>">View booking <%= booking.code %></a>
+    <% } %>
+  </div>
+</div>
+
+<div class="split">
+  <div>
+    <form class="card flush" id="items" method="post" action="/agent/quotes/<%= quote.id %>/items">
+      <div class="card-head"><h3>Items &amp; your prices</h3><span class="muted">Leave "Your price" blank to use your <%= markupLabel %> markup</span></div>
+      <div class="table-wrap" style="margin-top:10px">
+        <table class="table">
+          <thead><tr><th>Item</th><th class="num">Net</th><th class="num" style="width:130px">Your price</th><th class="num" style="width:86px">Qty</th><th class="num">Total</th><th class="num">You earn</th><th></th></tr></thead>
+          <tbody>
+            <% if (!priced.lines.length) { %><tr><td colspan="7" class="empty">No items yet. Add a package, flight or hotel, or your own service below.</td></tr><% } %>
+            <% priced.lines.forEach(l => { %>
+              <tr>
+                <td>
+                  <b><%= l.title %></b>
+                  <% if (l.description) { %><br><small><%= l.description %></small><% } %>
+                  <br><span class="badge <%= l.supplier === 'agent' ? 'info' : '' %>" style="margin-top:4px"><%= l.supplier === 'agent' ? 'Your service' : l.type %></span>
+                </td>
+                <td class="num"><%= l.supplier === 'agent' ? '—' : inr(l.unitNet) %></td>
+                <td class="num">
+                  <% if (locked) { %><%= inr(l.unitSell) %><% } else { %>
+                  <input type="number" step="1" min="<%= l.supplier === 'agent' ? 0 : l.unitNet %>" name="sell_<%= l.id %>" value="<%= l.overridden || l.supplier === 'agent' ? l.unitSell : '' %>" placeholder="<%= Math.round(l.unitSell) %>" style="text-align:right">
+                  <% } %>
+                </td>
+                <td class="num"><% if (locked) { %><%= l.qty %><% } else { %><input type="number" min="1" name="qty_<%= l.id %>" value="<%= l.qty %>" style="text-align:right"><% } %></td>
+                <td class="num"><b><%= inr(l.lineSell) %></b></td>
+                <td class="num profit"><%= inr(l.commission) %></td>
+                <td class="num"><% if (!locked) { %><button class="btn btn-ghost btn-sm btn-danger" formnovalidate formaction="/agent/quotes/<%= quote.id %>/items/<%= l.id %>/delete" title="Remove" aria-label="Remove">✕</button><% } %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <% if (!locked && priced.lines.length) { %><div style="padding:12px 20px;border-top:1px solid var(--line-2);text-align:right"><button class="btn btn-primary">Update prices</button></div><% } %>
+    </form>
+
+    <% if (!locked) { %>
+      <div class="grid grid-2">
+        <form class="card" method="post" action="/agent/quotes/<%= quote.id %>/items/custom">
+          <h3>Add your own service</h3>
+          <p class="muted" style="font-size:13px">Guide, local tour, visa help, decoration… Billed only on your branded invoice; 100% yours.</p>
+          <div class="field"><label for="c-title">Service</label><input id="c-title" name="title" required placeholder="e.g. Private photographer, 2 hours"></div>
+          <div class="field"><label for="c-desc">Details</label><input id="c-desc" name="description"></div>
+          <div class="row">
+            <div class="field"><label for="c-price">Price</label><input id="c-price" type="number" min="0" name="price" required></div>
+            <div class="field"><label for="c-qty">Qty</label><input id="c-qty" type="number" min="1" name="qty" value="1"></div>
+          </div>
+          <button class="btn">Add service</button>
+        </form>
+        <div class="card">
+          <h3>Add from VaayuTrip</h3>
+          <p class="muted" style="font-size:13px">Search, then choose this quote in the "Add" menu.</p>
+          <div class="grid grid-2" style="gap:10px">
+            <a class="btn" href="/agent/flights">✈ Flights</a>
+            <a class="btn" href="/agent/hotels">🏨 Hotels</a>
+            <a class="btn" href="/agent/transfers">🚕 Transfers</a>
+            <a class="btn" href="/agent/insurance">🛡 Insurance</a>
+          </div>
+        </div>
+      </div>
+    <% } %>
+
+    <% if (pkgView) { %>
+      <details class="card more" style="padding:16px 20px">
+        <summary>Package details shown to the customer · <%= pkgView.party.category %>, <%= pkgView.party.rooms %> room<%= pkgView.party.rooms > 1 ? 's' : '' %><%= pkgView.party.withFlights ? ', with flights' : '' %></summary>
+        <div style="margin-top:14px"><%- include('../partials/package-full', { p: pkgView, showCategory: pkgView.party.category }) %></div>
+      </details>
+    <% } %>
+
+    <div class="card" id="share">
+      <div class="card-head"><h3>Share &amp; collect payment</h3></div>
+      <div class="field">
+        <label>Customer link</label>
+        <div style="display:flex;gap:8px"><input type="text" readonly value="<%= shareUrl %>"><button class="btn" type="button" data-copy="<%= shareUrl %>">Copy</button></div>
+        <div class="hint">Shows the quote with <%= quote.invoice_mode === 'agent' ? 'your branding' : 'VaayuTrip branding and your name as the agent' %>, EMI options and an Accept button.
+          <a href="https://wa.me/?text=<%= encodeURIComponent(`Hi${customer ? ' ' + customer.name : ''}, here is your quote for ${quote.title}: ${shareUrl}`) %>" target="_blank" rel="noopener">Send on WhatsApp ↗</a></div>
+      </div>
+      <form method="post" action="/agent/quotes/<%= quote.id %>/payment-link" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+        <div style="flex:1;min-width:160px"><label for="pl-amount">Payment link amount</label><input id="pl-amount" type="number" min="1" name="amount" value="<%= Math.round(customerTotal.total) %>"></div>
+        <button class="btn" <%= agency.status !== 'active' ? 'disabled' : '' %>>Create payment link</button>
+      </form>
+      <% if (links.length) { %>
+        <table class="table" style="margin-top:12px">
+          <% links.forEach(p => { %><tr><td><a href="/pay/<%= p.code %>" target="_blank"><%= p.code %></a></td><td class="num"><%= inr(p.amount) %></td><td><span class="badge <%= p.status %>"><%= p.status %></span></td><td class="num"><button class="btn btn-sm" type="button" data-copy="<%= shareUrl.replace(/\/q\/.*/, '/pay/' + p.code) %>">Copy link</button></td></tr><% }) %>
+        </table>
+      <% } %>
+    </div>
+
+    <div class="card flush">
+      <div class="card-head"><h3>Invoices</h3>
+        <form method="post" action="/agent/quotes/<%= quote.id %>/invoice"><button class="btn btn-primary btn-sm" <%= agency.status !== 'active' || !items.length ? 'disabled' : '' %>>Issue <%= quote.invoice_mode === 'agent' ? 'my branded' : 'VaayuTrip' %> invoice</button></form>
+      </div>
+      <% if (!invoices.length) { %><div class="empty">No invoices yet.</div><% } else { %>
+        <table class="table" style="margin-top:10px">
+          <% invoices.forEach(i => { %>
+            <tr class="click" data-href="/agent/invoices/<%= i.id %>"><td><b><%= i.number %></b><br><small><%= fmtDate(i.created_at) %></small></td>
+            <td><%= { customer_agent: 'Your branded invoice', customer_vaayu: 'VaayuTrip invoice to customer', b2b: 'VaayuTrip → you (net)' }[i.kind] %></td><td class="num"><%= inr(i.total) %></td></tr>
+          <% }) %>
+        </table>
+      <% } %>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h3>Summary</h3>
+      <table class="totals">
+        <tr><td class="muted">VaayuTrip net</td><td class="num"><%= inr(priced.net) %></td></tr>
+        <tr><td class="muted">Your commission</td><td class="num profit">+ <%= inr(priced.vaayuCommission) %></td></tr>
+        <% if (priced.agentItemsTotal) { %><tr><td class="muted">Your own services</td><td class="num profit">+ <%= inr(priced.agentItemsTotal) %></td></tr><% } %>
+        <tr><td>Customer subtotal</td><td class="num"><%= inr(customerTotal.subtotal) %></td></tr>
+        <tr><td class="muted">GST <%= customerTotal.taxRate %>%</td><td class="num"><%= inr(customerTotal.tax) %></td></tr>
+        <% if (customerTotal.tcs) { %><tr><td class="muted">TCS <%= customerTotal.tcsRate %>% (international)</td><td class="num"><%= inr(customerTotal.tcs) %></td></tr><% } %>
+        <tr class="grand"><td>Customer pays</td><td class="num"><%= inr(customerTotal.total) %></td></tr>
+      </table>
+      <hr>
+      <table class="totals">
+        <tr><td>You pay VaayuTrip</td><td class="num"><b><%= inr(netPayable.total) %></b></td></tr>
+        <tr><td class="muted" colspan="2" style="font-size:12px">Net <%= inr(netPayable.subtotal) %> + GST <%= inr(netPayable.tax) %></td></tr>
+        <tr><td><b>Your earning</b></td><td class="num profit" style="font-size:18px"><%= inr(priced.commission) %></td></tr>
+      </table>
+      <% if (quote.emi_enabled && customerTotal.total) { %><p class="muted" style="font-size:12.5px;margin:12px 0 0">Customer EMI from <b><%= inr(emi[emi.length - 1].monthly) %>/month</b> (12 months)</p><% } %>
+    </div>
+
+    <form class="card" method="post" action="/agent/quotes/<%= quote.id %>">
+      <h3>Quote details</h3>
+      <div class="field"><label for="title">Title</label><input id="title" name="title" value="<%= quote.title %>"></div>
+      <div class="field"><label for="customer_id">Customer</label>
+        <select id="customer_id" name="customer_id"><option value="">—</option><% customers.forEach(c => { %><option value="<%= c.id %>" <%= c.id === quote.customer_id ? 'selected' : '' %>><%= c.name %></option><% }) %></select>
+        <div class="hint"><a href="/agent/customers">Add a new customer</a></div>
+      </div>
+      <div class="field"><label for="travel_date">Travel date</label><input id="travel_date" type="date" name="travel_date" value="<%= quote.travel_date || '' %>"></div>
+      <div class="row">
+        <div class="field"><label for="adults">Adults</label><input id="adults" type="number" min="1" name="adults" value="<%= quote.adults %>"></div>
+        <div class="field"><label for="children">Children</label><input id="children" type="number" min="0" name="children" value="<%= quote.children %>"></div>
+      </div>
+
+      <h3 style="margin-top:8px">Your commission</h3>
+      <div class="row">
+        <div class="field"><label for="markup_type">Markup</label>
+          <select id="markup_type" name="markup_type" <%= locked ? 'disabled' : '' %>><option value="percent" <%= quote.markup_type === 'percent' ? 'selected' : '' %>>Percent of net</option><option value="flat" <%= quote.markup_type === 'flat' ? 'selected' : '' %>>Flat amount</option></select>
+        </div>
+        <div class="field"><label for="markup_value">Value</label><input id="markup_value" type="number" min="0" step="0.5" name="markup_value" value="<%= quote.markup_value %>" <%= locked ? 'disabled' : '' %>></div>
+      </div>
+      <div class="hint" style="margin:-6px 0 14px">Applies to lines without your own price.</div>
+
+      <h3>Customer invoice</h3>
+      <div class="radio-cards" style="grid-template-columns:1fr">
+        <label class="radio-card <%= branded ? '' : 'disabled' %>">
+          <input type="radio" name="invoice_mode" value="agent" <%= quote.invoice_mode === 'agent' ? 'checked' : '' %> <%= branded ? '' : 'disabled' %>>
+          My company's invoice
+          <small class="muted"><%= branded ? `${agency.name} name, logo and GSTIN, with all your edited items.` : 'Upload your logo in Company & branding to enable.' %></small>
+        </label>
+        <label class="radio-card">
+          <input type="radio" name="invoice_mode" value="vaayu" <%= quote.invoice_mode === 'vaayu' ? 'checked' : '' %>>
+          VaayuTrip invoice
+          <small class="muted">Issued by VaayuTrip, naming you as the agent. Your commission is included in the total.</small>
+          <span class="check" style="margin-top:8px"><input type="checkbox" name="show_service_fee" value="1" <%= quote.show_service_fee ? 'checked' : '' %>> <small>Show my commission as a separate "service fee" line</small></span>
+        </label>
+      </div>
+      <% if (quote.invoice_mode === 'vaayu' && priced.hasAgentItems) { %><div class="alert warn" style="margin-top:10px;font-size:13px">Your own services aren't included on a VaayuTrip invoice; the customer sees them listed separately on the quote.</div><% } %>
+
+      <div class="field" style="margin-top:14px"><label class="check"><input type="checkbox" name="emi_enabled" value="1" <%= quote.emi_enabled ? 'checked' : '' %>> Show EMI options to the customer</label></div>
+      <div class="field"><label for="notes">Notes for customer</label><textarea id="notes" name="notes" placeholder="Validity, cancellation policy, special requests…"><%= quote.notes || '' %></textarea></div>
+      <button class="btn btn-primary" style="width:100%">Save details</button>
+    </form>
+
+    <% if (quote.status !== 'booked') { %>
+      <form method="post" action="/agent/quotes/<%= quote.id %>/delete" data-confirm="Delete this quote?"><button class="btn btn-danger btn-sm">Delete quote</button></form>
+    <% } %>
+  </div>
+</div>

@@ -1,0 +1,46 @@
+<div class="page-head"><div><h1>Leads</h1><p>Enquiries from your website, the API, and ones you add yourself.</p></div></div>
+<div class="tabs">
+  <a href="/agent/leads" class="<%= !status ? 'active' : '' %>">All</a>
+  <% statuses.forEach(s => { %><a href="/agent/leads?status=<%= s %>" class="<%= status === s ? 'active' : '' %>" style="text-transform:capitalize"><%= s %> <small class="muted"><%= counts[s] || 0 %></small></a><% }) %>
+</div>
+<div class="split">
+  <div class="card flush">
+    <% if (!leads.length) { %><div class="empty"><span class="big">🎯</span>No leads here. Share <a href="/agent/website">your website</a> to start receiving enquiries.</div><% } else { %>
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Lead</th><th>Trip</th><th>Status</th><th></th></tr></thead>
+      <% leads.forEach(l => { %>
+        <tr>
+          <td><b><%= l.name %></b><br><small><%= l.phone || '' %> <%= l.email || '' %></small><br><span class="badge"><%= l.source %></span> <small class="muted"><%= fmtDate(l.created_at) %></small></td>
+          <td><%= l.package_title || l.destination || '—' %><br><small><%= l.travel_date ? fmtDate(l.travel_date) : '' %><%= l.pax ? ` · ${l.pax} pax` : '' %><%= l.budget ? ` · budget ${inr(l.budget)}` : '' %></small><% if (l.notes) { %><br><small class="muted"><%= l.notes %></small><% } %></td>
+          <td>
+            <form method="post" action="/agent/leads/<%= l.id %>/status">
+              <select name="status" onchange="this.form.submit()" aria-label="Status"><% statuses.forEach(s => { %><option value="<%= s %>" <%= l.status === s ? 'selected' : '' %>><%= s %></option><% }) %></select>
+            </form>
+          </td>
+          <td class="num">
+            <form method="post" action="/agent/leads/<%= l.id %>/quote"><button class="btn btn-sm btn-primary">Create quote</button></form>
+            <% if (l.phone) { %><a class="btn btn-sm" style="margin-top:6px" href="https://wa.me/<%= l.phone.replace(/\D/g, '') %>" target="_blank" rel="noopener">WhatsApp</a><% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </table></div>
+    <% } %>
+  </div>
+  <form class="card" method="post" action="/agent/leads">
+    <h3>Add lead</h3>
+    <div class="field"><label for="l-name">Name</label><input id="l-name" name="name" required></div>
+    <div class="row">
+      <div class="field"><label for="l-phone">Phone</label><input id="l-phone" name="phone"></div>
+      <div class="field"><label for="l-email">Email</label><input id="l-email" type="email" name="email"></div>
+    </div>
+    <div class="field"><label for="l-pkg">Package</label><select id="l-pkg" name="package_id"><option value="">—</option><% packages.forEach(p => { %><option value="<%= p.id %>"><%= p.title %></option><% }) %></select></div>
+    <div class="field"><label for="l-dest">Destination</label><input id="l-dest" name="destination"></div>
+    <div class="row">
+      <div class="field"><label for="l-date">Travel date</label><input id="l-date" type="date" name="travel_date"></div>
+      <div class="field"><label for="l-pax">Pax</label><input id="l-pax" type="number" min="1" name="pax"></div>
+    </div>
+    <div class="field"><label for="l-budget">Budget (₹)</label><input id="l-budget" type="number" min="0" name="budget"></div>
+    <div class="field"><label for="l-notes">Notes</label><textarea id="l-notes" name="notes"></textarea></div>
+    <button class="btn btn-primary">Add lead</button>
+  </form>
+</div>

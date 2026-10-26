@@ -1,0 +1,13 @@
+<div class="page-head"><div><h1>Notifications</h1></div></div>
+<div class="card notice-list">
+  <% if (!items.length) { %><div class="empty"><span class="big">🔔</span>You're all caught up.</div><% } %>
+  <% items.forEach(n => { %>
+    <div class="n <%= n.is_read ? '' : 'unread' %>">
+      <div style="flex:1">
+        <b><%= n.title %></b>
+        <% if (n.body) { %><div class="muted"><%= n.body %></div><% } %>
+      </div>
+      <div class="num"><small class="muted"><%= fmtDate(n.created_at) %></small><% if (n.link) { %><br><a href="<%= n.link %>">Open →</a><% } %></div>
+    </div>
+  <% }) %>
+</div>

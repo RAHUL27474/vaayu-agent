@@ -1,0 +1,25 @@
+<div class="page-head">
+  <div><h1>Holiday packages</h1><p>Curated by VaayuTrip at agent net rates. Your default markup (<%= agency.markup_type === 'flat' ? inr(agency.markup_value) : agency.markup_value + '%' %>) is shown as your earning.</p></div>
+</div>
+<form class="card" method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:14px 16px">
+  <div style="flex:1;min-width:200px"><label for="q">Search</label><input id="q" type="search" name="q" value="<%= q %>" placeholder="Destination or package name"></div>
+  <div><label for="theme">Theme</label><select id="theme" name="theme"><option value="">All</option><% themes.forEach(t => { %><option <%= t === theme ? 'selected' : '' %>><%= t %></option><% }) %></select></div>
+  <button class="btn btn-primary">Filter</button>
+</form>
+<% if (!packages.length) { %><div class="card empty"><span class="big">🧳</span>No packages match your search.</div><% } %>
+<div class="pkg-grid">
+  <% packages.forEach(p => { %>
+    <a class="pkg" href="/agent/packages/<%= p.id %>" style="color:inherit;text-decoration:none">
+      <img src="<%= cover(p) %>" alt="" loading="lazy">
+      <div class="body">
+        <div class="meta"><%= p.nights %> nights · <%= p.destination %><%= p.theme ? ` · ${p.theme}` : '' %><%= p.package_type === 'fixed' ? ' · Group departure' : '' %></div>
+        <h3><%= p.title %></h3>
+        <p class="muted" style="font-size:13px;margin:0"><%= p.summary %></p>
+        <div class="price">
+          <div><small class="muted">From, net per person</small><br><b><%= inr(p.price.net) %></b></div>
+          <div class="num"><small class="muted">You earn pp</small><br><span class="profit"><%= inr(p.price.sell - p.price.net) %></span></div>
+        </div>
+      </div>
+    </a>
+  <% }) %>
+</div>

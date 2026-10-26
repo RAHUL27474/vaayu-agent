@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>VaayuTrip Agent</title>
+  <link rel="icon" href="/img/vaayutrip-mark.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<%
+  const isAdmin = user && user.role === 'admin';
+  const navItem = (href, icon, label, extra) => {
+    const home = isAdmin ? '/admin' : '/agent';
+    const active = href === home ? (path === home || path === home + '/') : (path === href || path.startsWith(href + '/'));
+    return `<a href="${href}" class="${active ? 'active' : ''}"><span class="ico">${icon}</span>${label}${extra ? `<span class="count">${extra}</span>` : ''}</a>`;
+  };
+%>
+<div class="shell">
+  <aside class="sidebar" id="sidebar">
+    <a class="logo" href="<%= isAdmin ? '/admin' : '/agent' %>">
+      <img src="/img/vaayutrip-mark.svg" alt="">
+      <span>VaayuTrip<small><%= isAdmin ? 'Admin console' : 'Agent portal' %></small></span>
+    </a>
+    <nav class="nav">
+    <% if (isAdmin) { %>
+      <%- navItem('/admin', '◧', 'Dashboard') %>
+      <div class="nav-section">Catalogue</div>
+      <%- navItem('/admin/packages', '🧳', 'Packages') %>
+      <div class="nav-section">Partners</div>
+      <%- navItem('/admin/agents', '🏢', 'Agents') %>
+      <%- navItem('/admin/topups', '⬆', 'Top-up requests', typeof pendingTopups !== 'undefined' && pendingTopups ? pendingTopups : '') %>
+      <div class="nav-section">Operations</div>
+      <%- navItem('/admin/bookings', '📋', 'Bookings') %>
+      <%- navItem('/admin/invoices', '🧾', 'Invoices') %>
+      <%- navItem('/admin/notifications', '🔔', 'Notifications', unread || '') %>
+      <%- navItem('/admin/settings', '⚙', 'Settings') %>
+    <% } else { %>
+      <%- navItem('/agent', '◧', 'Dashboard') %>
+      <div class="nav-section">Book</div>
+      <%- navItem('/agent/packages', '🧳', 'Holiday packages') %>
+      <%- navItem('/agent/flights', '✈', 'Flights') %>
+      <%- navItem('/agent/hotels', '🏨', 'Hotels') %>
+      <%- navItem('/agent/transfers', '🚕', 'Transfers & cabs') %>
+      <%- navItem('/agent/insurance', '🛡', 'Travel insurance') %>
+      <div class="nav-section">Sell</div>
+      <%- navItem('/agent/leads', '🎯', 'Leads') %>
+      <%- navItem('/agent/customers', '👥', 'Customers') %>
+      <%- navItem('/agent/quotes', '📝', 'Quotes') %>
+      <%- navItem('/agent/bookings', '📋', 'Bookings') %>
+      <div class="nav-section">Money</div>
+      <%- navItem('/agent/wallet', '👛', 'Wallet & credit') %>
+      <%- navItem('/agent/invoices', '🧾', 'Invoices') %>
+      <%- navItem('/agent/payment-links', '🔗', 'Payment links') %>
+      <div class="nav-section">Grow</div>
+      <%- navItem('/agent/website', '🌐', 'My website') %>
+      <%- navItem('/agent/api', '⌁', 'API access') %>
+      <%- navItem('/agent/notifications', '🔔', 'Notifications', unread || '') %>
+      <%- navItem('/agent/settings', '⚙', 'Company & branding') %>
+    <% } %>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="menu-toggle" onclick="document.body.classList.toggle('nav-open')" aria-label="Menu">☰</button>
+      <% if (agency) { %>
+        <div class="agency-chip">
+          <% if (agency.logo_path) { %><img src="<%= agency.logo_path %>" alt="<%= agency.name %>"><% } else { %><%= agency.name %><% } %>
+          <% if (agency.status !== 'active') { %><span class="badge <%= agency.status %>"><%= agency.status %></span><% } %>
+        </div>
+      <% } else { %>
+        <div class="agency-chip">VaayuTrip HQ</div>
+      <% } %>
+      <div class="spacer"></div>
+      <% if (agency) { %>
+        <div class="wallet">Wallet <b><%= inr(agency.wallet_balance) %></b> · Credit available <b><%= inr(agency.credit_limit - agency.credit_used) %></b></div>
+      <% } %>
+      <a class="bell" href="<%= isAdmin ? '/admin' : '/agent' %>/notifications" aria-label="Notifications">🔔<% if (unread) { %><span class="dot"><%= unread %></span><% } %></a>
+      <span class="muted"><%= user.name %></span>
+      <form method="post" action="/logout" class="inline"><button class="btn btn-sm">Log out</button></form>
+    </header>
+    <main class="content">
+      <% flash.forEach(f => { %><div class="alert <%= f.type %>"><%= f.message %></div><% }) %>
+      <%- body %>
+    </main>
+  </div>
+</div>
+<script src="/js/app.js"></script>
+</body>
+</html>

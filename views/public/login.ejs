@@ -1,0 +1,36 @@
+<div class="auth" style="min-height:calc(100vh - 70px)">
+  <div class="art">
+    <div>
+      <h2>Sell more trips with less work.</h2>
+      <ul>
+        <li>Ready-to-sell packages at agent net rates</li>
+        <li>Your commission, your price</li>
+        <li>Invoices with your own logo</li>
+        <li>Your own travel website, free</li>
+      </ul>
+    </div>
+    <small style="color:#7dd3fc">VaayuTrip · B2B travel platform</small>
+  </div>
+  <div class="form">
+    <div>
+      <h1>Log in</h1>
+      <p class="muted">Agents and VaayuTrip team members.</p>
+      <form method="post" action="/login">
+        <input type="hidden" name="next" value="<%= next %>">
+        <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= email %>" required autofocus></div>
+        <div class="field"><label for="password">Password</label><input id="password" type="password" name="password" required></div>
+        <button class="btn btn-primary btn-lg" style="width:100%">Log in</button>
+      </form>
+      <p style="margin-top:18px" class="muted">New agent? <a href="/signup">Create a partner account</a></p>
+      <details class="more" style="margin-top:24px">
+        <summary>Demo accounts</summary>
+        <table class="table" style="margin-top:8px;font-size:13px">
+          <tr><td>VaayuTrip admin</td><td><code>admin@vaayutrip.com</code> / <code>admin123</code></td></tr>
+          <tr><td>Agent with own branding</td><td><code>agent@skyline.com</code> / <code>agent123</code></td></tr>
+          <tr><td>Agent without branding</td><td><code>agent@ravitours.com</code> / <code>agent123</code></td></tr>
+          <tr><td>Agent awaiting approval</td><td><code>agent@wanderlust.in</code> / <code>agent123</code></td></tr>
+        </table>
+      </details>
+    </div>
+  </div>
+</div>

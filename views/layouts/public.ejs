@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>VaayuTrip for Travel Agents</title>
+  <meta name="description" content="VaayuTrip is the B2B travel platform for Indian travel agents: ready-made holiday packages, flights, hotels, branded invoices and your own website.">
+  <link rel="icon" href="/img/vaayutrip-mark.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body style="background:#fff">
+<% if (typeof bare === 'undefined' || !bare) { %>
+<nav class="site-nav">
+  <a class="logo" href="/"><img src="/img/vaayutrip-logo.svg" alt="VaayuTrip"></a>
+  <div class="links">
+    <a href="/#features">Features</a>
+    <a href="/#invoices">Branded invoices</a>
+    <a href="/#how">How it works</a>
+    <% if (user) { %>
+      <a class="btn btn-primary" href="<%= user.role === 'admin' ? '/admin' : '/agent' %>">Open portal</a>
+    <% } else { %>
+      <a href="/login">Log in</a>
+      <a class="btn btn-primary" href="/signup">Become a partner</a>
+    <% } %>
+  </div>
+</nav>
+<% } %>
+<% if (typeof bare === 'undefined' || !bare) flash.forEach(f => { %><div class="section" style="padding-top:0;padding-bottom:0"><div class="alert <%= f.type %>"><%= f.message %></div></div><% }) %>
+<%- body %>
+<% if (typeof bare === 'undefined' || !bare) { %>
+<footer class="site-footer">
+  <div class="inner">
+    <div>
+      <img src="/img/vaayutrip-mark.svg" alt="" style="height:28px;vertical-align:middle"> <b style="color:#fff">VaayuTrip</b>
+      <div style="margin-top:8px"><%= settings.legal_name %> · GSTIN <%= settings.gstin %></div>
+      <div><%= settings.address %></div>
+    </div>
+    <div>
+      <div><a href="mailto:<%= settings.email %>"><%= settings.email %></a></div>
+      <div><%= settings.phone %></div>
+      <div style="margin-top:8px">© <%= new Date().getFullYear() %> VaayuTrip</div>
+    </div>
+  </div>
+</footer>
+<% } %>
+<script src="/js/app.js"></script>
+</body>
+</html>

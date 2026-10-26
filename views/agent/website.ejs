@@ -1,0 +1,21 @@
+<div class="page-head">
+  <div><h1>My website</h1><p>A ready-made travel website with your brand, VaayuTrip packages at your prices, and an enquiry form that feeds your leads.</p></div>
+  <% if (agency.status === 'active' && agency.website_enabled) { %><a class="btn btn-primary" href="<%= siteUrl %>" target="_blank">Open my website ↗</a><% } %>
+</div>
+<% if (agency.status !== 'active') { %><div class="alert warn">Your website goes live once VaayuTrip approves your account.</div><% } %>
+<div class="split">
+  <form class="card" method="post" action="/agent/website">
+    <label class="check" style="margin-bottom:16px"><input type="checkbox" name="website_enabled" value="1" <%= agency.website_enabled ? 'checked' : '' %>> Website is live</label>
+    <div class="field"><label for="tagline">Headline</label><input id="tagline" name="website_tagline" value="<%= agency.website_tagline || '' %>" placeholder="Holidays by <%= agency.name %>"></div>
+    <div class="field"><label for="about">About your agency</label><textarea id="about" name="website_about" placeholder="Tell travellers why they should book with you."><%= agency.website_about || '' %></textarea></div>
+    <p class="muted" style="font-size:13px">Logo, colours, phone and address come from <a href="/agent/settings">Company &amp; branding</a>. Package prices use your default markup (<%= agency.markup_type === 'flat' ? inr(agency.markup_value) : agency.markup_value + '%' %>).</p>
+    <button class="btn btn-primary">Save website</button>
+  </form>
+  <div class="card">
+    <h3>Your link</h3>
+    <div style="display:flex;gap:8px"><input type="text" readonly value="<%= siteUrl %>"><button class="btn" data-copy="<%= siteUrl %>">Copy</button></div>
+    <p class="muted" style="margin-top:10px;font-size:13px">Put it in your Instagram bio, WhatsApp Business profile and Google Business listing.</p>
+    <hr>
+    <div class="stat" style="box-shadow:none"><div class="label">Website enquiries so far</div><div class="value"><%= leads %></div><div class="sub"><a href="/agent/leads">View leads →</a></div></div>
+  </div>
+</div>

@@ -1,0 +1,58 @@
+<div class="page-head"><div><h1>Company &amp; branding</h1><p>Used on your invoices, quotes, website and payment pages.</p></div></div>
+<form method="post" action="/agent/settings" enctype="multipart/form-data">
+  <div class="split">
+    <div>
+      <div class="card">
+        <h3>Company</h3>
+        <div class="row">
+          <div class="field"><label for="name">Brand name</label><input id="name" name="name" value="<%= agency.name %>" required></div>
+          <div class="field"><label for="legal_name">Legal name</label><input id="legal_name" name="legal_name" value="<%= agency.legal_name || '' %>" placeholder="As registered"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="gstin">GSTIN</label><input id="gstin" name="gstin" value="<%= agency.gstin || '' %>"></div>
+          <div class="field"><label for="pan">PAN</label><input id="pan" name="pan" value="<%= agency.pan || '' %>"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" value="<%= agency.phone || '' %>"></div>
+          <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= agency.email || '' %>"></div>
+        </div>
+        <div class="field"><label for="address">Address</label><input id="address" name="address" value="<%= agency.address || '' %>"></div>
+        <div class="field"><label for="city">City</label><input id="city" name="city" value="<%= agency.city || '' %>"></div>
+      </div>
+      <div class="card">
+        <h3>Default commission</h3>
+        <p class="muted" style="font-size:13px">Applied to new quotes, your website and API prices. You can change it on any quote.</p>
+        <div class="row">
+          <div class="field"><label for="markup_type">Type</label><select id="markup_type" name="markup_type"><option value="percent" <%= agency.markup_type === 'percent' ? 'selected' : '' %>>Percent of net</option><option value="flat" <%= agency.markup_type === 'flat' ? 'selected' : '' %>>Flat ₹ per booking</option></select></div>
+          <div class="field"><label for="markup_value">Value</label><input id="markup_value" type="number" min="0" step="0.5" name="markup_value" value="<%= agency.markup_value %>"></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h3>Branding</h3>
+        <div class="field">
+          <label>Logo</label>
+          <div style="border:1px dashed #cbd5e1;border-radius:10px;padding:16px;text-align:center;margin-bottom:10px;background:#fafbfd">
+            <% if (agency.logo_path) { %><img src="<%= agency.logo_path %>" alt="Logo" style="max-height:64px"><% } else { %><span class="muted">No logo yet</span><% } %>
+          </div>
+          <input type="file" name="logo" accept="image/png,image/jpeg,image/webp">
+          <div class="hint">PNG, JPG or WebP, up to 2 MB. A wide logo on a transparent background works best.</div>
+          <% if (agency.logo_path) { %><label class="check" style="margin-top:8px"><input type="checkbox" name="remove_logo" value="1"> Remove logo</label><% } %>
+        </div>
+        <div class="field"><label for="brand_color">Brand colour</label><input id="brand_color" type="color" name="brand_color" value="<%= agency.brand_color || '#0e7490' %>"></div>
+        <div class="alert <%= branded ? 'success' : 'info' %>" style="font-size:13px">
+          <%= branded ? 'Branded invoices are on: customers can receive invoices under your name and logo.' : "Add a logo to issue invoices under your own brand. Until then, customers get VaayuTrip invoices that include your commission." %>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Verification</h3>
+        <dl class="kv">
+          <dt>Account</dt><dd><span class="badge <%= agency.status %>"><%= agency.status %></span></dd>
+          <dt>KYC</dt><dd><span class="badge <%= agency.kyc_status %>"><%= agency.kyc_status %></span></dd>
+        </dl>
+      </div>
+      <button class="btn btn-primary btn-lg" style="width:100%">Save changes</button>
+    </div>
+  </div>
+</form>

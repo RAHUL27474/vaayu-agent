@@ -1,0 +1,27 @@
+<div class="page-head">
+  <div><h1>Packages</h1><p>Build detailed packages (route, itinerary, hotels by category, flights, seasonal rates, policies) and publish them to every active agent.</p></div>
+  <a class="btn btn-primary" href="/admin/packages/new">+ New package</a>
+</div>
+<% if (demoCount) { %>
+  <div class="alert info" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <span><%= demoCount %> demo package<%= demoCount > 1 ? 's are' : ' is' %> loaded so you can try the portal. Remove them when you start adding your own; quotes already made keep their copy.</span>
+    <form method="post" action="/admin/packages/remove-demo" data-confirm="Remove all <%= demoCount %> demo packages? Agents will no longer see them."><button class="btn btn-sm">Remove demo packages</button></form>
+  </div>
+<% } %>
+<div class="card flush">
+  <% if (!packages.length) { %><div class="empty"><span class="big">🧳</span><b>No packages yet.</b><br>Create your first package: add the route, day-wise itinerary, hotels per category, flights, per-person rates and policies, then publish it to agents.<br><a class="btn btn-primary" style="margin-top:12px" href="/admin/packages/new">+ New package</a></div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Package</th><th>Type</th><th>Categories</th><th>Status</th><th class="num">From (net pp)</th><th class="num">Quotes</th></tr></thead>
+    <% packages.forEach(p => { %>
+      <tr class="click" data-href="/admin/packages/<%= p.id %>">
+        <td style="display:flex;gap:12px;align-items:center"><img src="<%= cover(p) %>" alt="" style="width:56px;height:40px;object-fit:cover;border-radius:6px"><div><b><%= p.title %></b><br><small><%= p.nights %>N · <%= p.destination %><%= p.is_international ? ' · International' : '' %></small></div></td>
+        <td><%= p.package_type === 'fixed' ? `Fixed departure (${p.departures} dates)` : 'Customisable' %></td>
+        <td><%= p.categories.join(', ') || '—' %></td>
+        <td><span class="badge <%= p.status %>"><%= p.status %></span><% if (p.problems.length && p.status !== 'published') { %><br><small class="muted"><%= p.problems.length %> to fix</small><% } %></td>
+        <td class="num"><%= p.from ? inr(p.from) : '—' %></td>
+        <td class="num"><%= p.quotes %></td>
+      </tr>
+    <% }) %>
+  </table></div>
+  <% } %>
+</div>

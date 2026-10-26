@@ -1,0 +1,71 @@
+<section class="hero">
+  <div class="inner">
+    <div>
+      <span class="badge info" style="text-transform:none;margin-bottom:14px">For travel agents across India</span>
+      <h1>Your travel business, <em>powered by VaayuTrip</em>.</h1>
+      <p class="lead">Ready-made holiday packages at agent net rates, plus flights, hotels, transfers and insurance. Add your commission, send quotes and invoices with your own logo, and get your own travel website.</p>
+      <div class="actions" style="margin-top:24px">
+        <a class="btn btn-accent btn-lg" href="/signup">Become a partner, free</a>
+        <a class="btn btn-lg" href="/login">Log in</a>
+      </div>
+      <p class="muted" style="margin-top:18px"><%= stats.packages %> packages live · <%= stats.agents %> partner agencies</p>
+    </div>
+    <div class="panel">
+      <div class="card-head"><h3>Quote preview</h3><span class="badge ok">Your logo</span></div>
+      <table class="table">
+        <tr><td>Goa Beach Escape, 4N</td><td class="num">₹27,800 <small class="muted">net</small></td></tr>
+        <tr><td>Your commission (12%)</td><td class="num profit">+ ₹3,336</td></tr>
+        <tr><td>Honeymoon decoration (your service)</td><td class="num">+ ₹2,500</td></tr>
+        <tr><td><b>Customer pays</b></td><td class="num"><b>₹33,636</b> <small class="muted">+ GST</small></td></tr>
+      </table>
+      <p class="muted" style="margin:12px 0 0;font-size:13px">EMI from ₹5,850/month · Shareable link · Payment link</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="features">
+  <h2 class="big">Everything you need to sell travel</h2>
+  <p class="center">One login for inventory, sales, money and marketing, built for small and growing agencies.</p>
+  <div class="grid grid-3">
+    <div class="feature"><div class="ico">🧳</div><h3>Packages at net rates</h3><p class="muted">Curated domestic and international packages from the VaayuTrip team. Customise every component before you quote.</p></div>
+    <div class="feature"><div class="ico">✈</div><h3>Flights, hotels, cabs, insurance</h3><p class="muted">Search and add any component to a quote, mixed with your own services.</p></div>
+    <div class="feature"><div class="ico">💸</div><h3>Your commission, your way</h3><p class="muted">Set a percentage or flat markup, or price each line yourself. You always see your earnings.</p></div>
+    <div class="feature"><div class="ico">🧾</div><h3>Branded invoices</h3><p class="muted">Bill customers under your own name and logo, or use a VaayuTrip invoice that already includes your commission.</p></div>
+    <div class="feature"><div class="ico">🌐</div><h3>Your own website</h3><p class="muted">A ready travel website with your branding and prices. Every enquiry lands in your leads.</p></div>
+    <div class="feature"><div class="ico">👛</div><h3>Wallet, credit &amp; payment links</h3><p class="muted">Book from your wallet or credit line. Collect from customers with payment links and EMI options.</p></div>
+  </div>
+</section>
+
+<section class="section" id="invoices" style="background:var(--bg);max-width:none">
+  <div style="max-width:1200px;margin:0 auto" class="grid grid-2">
+    <div>
+      <h2 class="big" style="text-align:left">Two ways to bill your customer</h2>
+      <p class="muted" style="font-size:16px">You choose per quote.</p>
+      <ol class="steps" style="margin-top:20px">
+        <li><b>Your own invoice.</b> Your company name, logo, GSTIN and colours, with your edited items and prices. VaayuTrip stays invisible to your customer.</li>
+        <li><b>VaayuTrip invoice.</b> No logo yet? Send a VaayuTrip tax invoice that names you as the booking agent and already includes your commission, either built into the prices or shown as a service fee.</li>
+        <li><b>B2B invoice.</b> Every booking also gets a VaayuTrip invoice to you at net rates, for your accounts.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Featured packages</h3>
+      <% packages.forEach(p => { %>
+        <div style="display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-2)">
+          <img src="<%= cover(p) %>" alt="" style="width:64px;height:48px;object-fit:cover;border-radius:6px">
+          <div><b><%= p.title %></b><br><small><%= p.nights %> nights · <%= p.destination %></small></div>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="how">
+  <h2 class="big">Start selling in a day</h2>
+  <div class="grid grid-4" style="margin-top:28px">
+    <div class="feature"><h3>1. Sign up</h3><p class="muted">Create your agency account.</p></div>
+    <div class="feature"><h3>2. Get verified</h3><p class="muted">We approve your KYC, usually within a working day.</p></div>
+    <div class="feature"><h3>3. Add your brand</h3><p class="muted">Upload your logo and set your default commission.</p></div>
+    <div class="feature"><h3>4. Quote &amp; book</h3><p class="muted">Send quotes, collect payment, book from your wallet.</p></div>
+  </div>
+  <div style="text-align:center;margin-top:32px"><a class="btn btn-accent btn-lg" href="/signup">Create your free account</a></div>
+</section>

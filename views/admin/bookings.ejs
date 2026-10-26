@@ -1,0 +1,24 @@
+<div class="page-head"><div><h1>Bookings</h1><p>All agent bookings across the network.</p></div></div>
+<div class="tabs">
+  <% [['', 'All'], ['confirmed', 'Confirmed'], ['cancel_requested', 'Cancellation requests'], ['cancelled', 'Cancelled']].forEach(([s, label]) => { %>
+    <a href="/admin/bookings<%= s ? '?status=' + s : '' %>" class="<%= status === s ? 'active' : '' %>"><%= label %></a>
+  <% }) %>
+</div>
+<div class="card flush">
+  <% if (!bookings.length) { %><div class="empty">No bookings here.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Booking</th><th>Agent</th><th>Customer</th><th>Travel</th><th>Status</th><th class="num">Net (pre-tax)</th><th class="num">Paid incl. GST</th></tr></thead>
+    <% bookings.forEach(b => { %>
+      <tr class="click" data-href="/admin/bookings/<%= b.id %>">
+        <td><b><%= b.title %></b><br><small><%= b.code %> · <%= fmtDate(b.created_at) %></small></td>
+        <td><%= b.agency_name %></td>
+        <td><%= b.customer_name || '—' %></td>
+        <td><%= fmtDate(b.travel_date) || '—' %></td>
+        <td><span class="badge <%= b.status %>"><%= b.status.replace('_', ' ') %></span></td>
+        <td class="num"><%= inr(b.total_net) %></td>
+        <td class="num"><%= inr(b.paid_wallet + b.paid_credit) %></td>
+      </tr>
+    <% }) %>
+  </table></div>
+  <% } %>
+</div>

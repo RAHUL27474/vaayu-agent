@@ -1,0 +1,262 @@
+// SQLite via Node's built-in driver (no native modules to compile).
+const path = require('path');
+const fs = require('fs');
+const { DatabaseSync } = require('node:sqlite');
+
+const DATA_DIR = path.join(__dirname, '..', 'data');
+fs.mkdirSync(DATA_DIR, { recursive: true });
+const DB_FILE = process.env.DB_FILE || path.join(DATA_DIR, 'vaayutrip.db');
+
+const db = new DatabaseSync(DB_FILE);
+db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+
+CREATE TABLE IF NOT EXISTS agencies (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  legal_name TEXT,
+  gstin TEXT,
+  pan TEXT,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  city TEXT,
+  logo_path TEXT,
+  brand_color TEXT DEFAULT '#0e7490',
+  status TEXT NOT NULL DEFAULT 'pending',          -- pending | active | suspended
+  kyc_status TEXT NOT NULL DEFAULT 'pending',      -- pending | verified | rejected
+  wallet_balance REAL NOT NULL DEFAULT 0,
+  credit_limit REAL NOT NULL DEFAULT 0,
+  credit_used REAL NOT NULL DEFAULT 0,
+  markup_type TEXT NOT NULL DEFAULT 'percent',     -- percent | flat
+  markup_value REAL NOT NULL DEFAULT 10,
+  website_enabled INTEGER NOT NULL DEFAULT 1,
+  website_tagline TEXT,
+  website_about TEXT,
+  api_key TEXT UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY,
+  role TEXT NOT NULL,                              -- admin | agent
+  agency_id INTEGER REFERENCES agencies(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  phone TEXT,
+  password_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS packages (
+  id INTEGER PRIMARY KEY,
+  title TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  destination TEXT NOT NULL,
+  nights INTEGER NOT NULL DEFAULT 3,
+  theme TEXT,
+  summary TEXT,
+  itinerary TEXT,                                  -- one day per line
+  inclusions TEXT,
+  exclusions TEXT,
+  image_url TEXT,
+  status TEXT NOT NULL DEFAULT 'draft',            -- draft | published
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS package_items (
+  id INTEGER PRIMARY KEY,
+  package_id INTEGER NOT NULL REFERENCES packages(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,                              -- hotel | flight | transfer | activity | insurance | visa | meal | other
+  title TEXT NOT NULL,
+  description TEXT,
+  net_price REAL NOT NULL,                         -- what the agent pays VaayuTrip, per booking
+  sort INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS customers (
+  id INTEGER PRIMARY KEY,
+  agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  city TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS leads (
+  id INTEGER PRIMARY KEY,
+  agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  package_id INTEGER REFERENCES packages(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  destination TEXT,
+  travel_date TEXT,
+  pax INTEGER,
+  budget REAL,
+  source TEXT NOT NULL DEFAULT 'manual',           -- manual | website | api
+  status TEXT NOT NULL DEFAULT 'new',              -- new | contacted | quoted | won | lost
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS quotes (
+  id INTEGER PRIMARY KEY,
+  agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL,
+  package_id INTEGER REFERENCES packages(id) ON DELETE SET NULL,
+  code TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  travel_date TEXT,
+  adults INTEGER NOT NULL DEFAULT 2,
+  children INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'draft',            -- draft | sent | accepted | booked | cancelled
+  markup_type TEXT NOT NULL DEFAULT 'percent',
+  markup_value REAL NOT NULL DEFAULT 10,
+  invoice_mode TEXT NOT NULL DEFAULT 'vaayu',      -- agent (agent-branded) | vaayu (VaayuTrip-branded)
+  show_service_fee INTEGER NOT NULL DEFAULT 0,     -- vaayu mode: show agent commission as its own line
+  notes TEXT,
+  emi_enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS quote_items (
+  id INTEGER PRIMARY KEY,
+  quote_id INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  supplier TEXT NOT NULL DEFAULT 'vaayu',          -- vaayu (bought from VaayuTrip) | agent (agent's own service)
+  net_price REAL NOT NULL DEFAULT 0,               -- unit cost from VaayuTrip (0 for agent's own items)
+  sell_price REAL,                                 -- unit price override; NULL = net + quote markup
+  qty INTEGER NOT NULL DEFAULT 1,
+  sort INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS bookings (
+  id INTEGER PRIMARY KEY,
+  agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+  quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  code TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  travel_date TEXT,
+  status TEXT NOT NULL DEFAULT 'confirmed',        -- confirmed | cancel_requested | cancelled
+  total_net REAL NOT NULL,                         -- VaayuTrip net, before tax
+  total_sell REAL NOT NULL,                        -- agent's selling price, before tax
+  paid_wallet REAL NOT NULL DEFAULT 0,
+  paid_credit REAL NOT NULL DEFAULT 0,
+  cancel_reason TEXT,
+  refund_amount REAL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id INTEGER PRIMARY KEY,
+  agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+  quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL,
+  booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
+  number TEXT UNIQUE NOT NULL,
+  kind TEXT NOT NULL,                              -- customer_agent | customer_vaayu | b2b (VaayuTrip -> agent)
+  data TEXT NOT NULL,                              -- JSON snapshot: seller, buyer, lines, totals
+  total REAL NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS wallet_txns (
+  id INTEGER PRIMARY KEY,
+  agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,                              -- topup | booking | refund | adjustment | credit_repay
+  amount REAL NOT NULL,                            -- + credit to wallet, - debit
+  balance_after REAL NOT NULL,
+  ref TEXT,
+  note TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS topup_requests (
+  id INTEGER PRIMARY KEY,
+  agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+  amount REAL NOT NULL,
+  utr TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',          -- pending | approved | rejected
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS payment_links (
+  id INTEGER PRIMARY KEY,
+  agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+  quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL,
+  code TEXT UNIQUE NOT NULL,
+  purpose TEXT NOT NULL,
+  amount REAL NOT NULL,
+  customer_name TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',          -- pending | paid | expired
+  paid_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY,
+  agency_id INTEGER REFERENCES agencies(id) ON DELETE CASCADE,  -- NULL = for VaayuTrip admins
+  title TEXT NOT NULL,
+  body TEXT,
+  link TEXT,
+  is_read INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+`);
+
+const one = (sql, ...params) => db.prepare(sql).get(...params);
+const all = (sql, ...params) => db.prepare(sql).all(...params);
+const run = (sql, ...params) => db.prepare(sql).run(...params);
+
+// Additive migrations: new columns are added to existing databases on start-up.
+function addColumn(table, column, definition) {
+  if (!all(`PRAGMA table_info(${table})`).some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+addColumn('packages', 'package_type', "TEXT NOT NULL DEFAULT 'customizable'");  // customizable | fixed
+addColumn('packages', 'is_international', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('packages', 'departure_city', 'TEXT');
+addColumn('packages', 'details', 'TEXT');                                         // JSON, see src/packages.js
+addColumn('quotes', 'package_snapshot', 'TEXT');                                  // JSON frozen at quote time
+addColumn('quotes', 'is_international', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('quotes', 'infants', 'INTEGER NOT NULL DEFAULT 0');
+
+function tx(fn) {
+  db.exec('BEGIN');
+  try {
+    const result = fn();
+    db.exec('COMMIT');
+    return result;
+  } catch (e) {
+    db.exec('ROLLBACK');
+    throw e;
+  }
+}
+
+function getSettings() {
+  return Object.fromEntries(all('SELECT key, value FROM settings').map((r) => [r.key, r.value]));
+}
+
+function setSetting(key, value) {
+  run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, value);
+}
+
+function notify(agencyId, title, body, link) {
+  run('INSERT INTO notifications (agency_id, title, body, link) VALUES (?, ?, ?, ?)', agencyId ?? null, title, body || null, link || null);
+}
+
+module.exports = { db, one, all, run, tx, getSettings, setSetting, notify, DB_FILE };

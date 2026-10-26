@@ -1,0 +1,23 @@
+<div class="page-head"><div><h1>Customers</h1><p>Your client book: contacts, trips and spend.</p></div></div>
+<div class="split">
+  <div class="card flush">
+    <form method="get" style="padding:14px 16px;display:flex;gap:8px"><input type="search" name="q" value="<%= q %>" placeholder="Search name, phone or email"><button class="btn">Search</button></form>
+    <% if (!customers.length) { %><div class="empty"><span class="big">👥</span>No customers yet.</div><% } else { %>
+    <table class="table">
+      <thead><tr><th>Name</th><th>Contact</th><th class="num">Trips</th><th class="num">Spend</th></tr></thead>
+      <% customers.forEach(c => { %>
+        <tr class="click" data-href="/agent/customers/<%= c.id %>"><td><b><%= c.name %></b><br><small><%= c.city || '' %></small></td><td><%= c.phone || '' %><br><small><%= c.email || '' %></small></td><td class="num"><%= c.trips %></td><td class="num"><%= inr(c.spend) %></td></tr>
+      <% }) %>
+    </table>
+    <% } %>
+  </div>
+  <form class="card" method="post" action="/agent/customers">
+    <h3>Add customer</h3>
+    <div class="field"><label for="name">Name</label><input id="name" name="name" required></div>
+    <div class="field"><label for="phone">Phone</label><input id="phone" type="tel" name="phone"></div>
+    <div class="field"><label for="email">Email</label><input id="email" type="email" name="email"></div>
+    <div class="field"><label for="city">City</label><input id="city" name="city"></div>
+    <div class="field"><label for="notes">Notes</label><textarea id="notes" name="notes" placeholder="Preferences, anniversaries, passport expiry…"></textarea></div>
+    <button class="btn btn-primary">Add customer</button>
+  </form>
+</div>

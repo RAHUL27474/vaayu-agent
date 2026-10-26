@@ -1,0 +1,19 @@
+<section class="section" style="max-width:640px">
+  <h1>Become a VaayuTrip partner</h1>
+  <p class="muted">Free to join. We verify every agency before it can book; this usually takes one working day.</p>
+  <form method="post" action="/signup" class="card">
+    <div class="row">
+      <div class="field"><label for="agency">Agency name</label><input id="agency" name="agency" value="<%= form.agency || '' %>" required></div>
+      <div class="field"><label for="city">City</label><input id="city" name="city" value="<%= form.city || '' %>"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="name">Your name</label><input id="name" name="name" value="<%= form.name || '' %>" required></div>
+      <div class="field"><label for="phone">Mobile</label><input id="phone" type="tel" name="phone" value="<%= form.phone || '' %>"></div>
+    </div>
+    <div class="field"><label for="email">Work email</label><input id="email" type="email" name="email" value="<%= form.email || '' %>" required></div>
+    <div class="field"><label for="gstin">GSTIN <span class="muted">(optional)</span></label><input id="gstin" name="gstin" value="<%= form.gstin || '' %>"></div>
+    <div class="field"><label for="password">Password</label><input id="password" type="password" name="password" minlength="8" required><div class="hint">At least 8 characters.</div></div>
+    <button class="btn btn-primary btn-lg">Create account</button>
+    <p class="muted" style="margin:14px 0 0">Already a partner? <a href="/login">Log in</a></p>
+  </form>
+</section>

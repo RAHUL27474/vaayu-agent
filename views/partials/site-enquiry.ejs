@@ -1,0 +1,16 @@
+<form method="post" action="/site/<%= site.slug %>/enquire" id="enquire">
+  <h3><%= pkg ? 'Get this holiday' : 'Tell us about your trip' %></h3>
+  <% if (pkg) { %><input type="hidden" name="package_id" value="<%= pkg.id %>"><% } %>
+  <div class="field"><label for="e-name">Name</label><input id="e-name" name="name" required></div>
+  <div class="row">
+    <div class="field"><label for="e-phone">Phone</label><input id="e-phone" type="tel" name="phone" required></div>
+    <div class="field"><label for="e-email">Email</label><input id="e-email" type="email" name="email"></div>
+  </div>
+  <div class="row">
+    <% if (!pkg) { %><div class="field"><label for="e-dest">Destination</label><input id="e-dest" name="destination" placeholder="e.g. Kashmir"></div><% } %>
+    <div class="field"><label for="e-date">Travel date</label><input id="e-date" type="date" name="travel_date"></div>
+    <div class="field"><label for="e-pax">Travellers</label><input id="e-pax" type="number" min="1" name="pax" value="2"></div>
+  </div>
+  <div class="field"><label for="e-msg">Anything else?</label><textarea id="e-msg" name="message" placeholder="Budget, hotel preferences, occasion…"></textarea></div>
+  <button class="btn btn-primary btn-lg" style="width:100%;background:<%= site.brand_color %>;border-color:<%= site.brand_color %>">Request a call back</button>
+</form>

@@ -1,0 +1,84 @@
+<%
+  const brandColor = kind === 'customer_agent' ? (agency.brand_color || '#0b6fa4') : '#0b6fa4';
+%>
+<div class="doc-wrap">
+  <article class="doc" style="--doc-color: <%= brandColor %>">
+    <header class="doc-head">
+      <div>
+        <% if (doc.seller.logo) { %><img src="<%= doc.seller.logo %>" alt="<%= doc.seller.name %>"><% } else { %><h2 style="margin:0"><%= doc.seller.name %></h2><% } %>
+        <div style="margin-top:8px;font-size:13px" class="muted"><%= [doc.seller.phone, doc.seller.email].filter(Boolean).join(' · ') %></div>
+      </div>
+      <div class="title">
+        <h1>QUOTATION</h1>
+        <div><b><%= quote.code %></b></div>
+        <div class="muted"><%= fmtDate(quote.updated_at) %></div>
+        <div style="margin-top:6px"><span class="badge <%= quote.status %>"><%= quote.status %></span></div>
+      </div>
+    </header>
+
+    <h2 style="font-size:22px"><%= quote.title %></h2>
+    <p class="muted">
+      Prepared for <b><%= doc.buyer.name %></b>
+      <% if (quote.travel_date) { %> · Travel <%= fmtDate(quote.travel_date) %><% } %>
+      · <%= doc.meta.travellers %>
+      <% if (kind === 'customer_vaayu') { %><br>Your travel agent: <b><%= agency.name %></b><%= agency.phone ? ` (${agency.phone})` : '' %><% } %>
+    </p>
+
+    <% const empty = !doc.lines.length && !agentItems.length; %>
+    <% if (empty) { %><div class="alert info">Your travel agent is still preparing this quote. Please check back soon.</div><% } else { %>
+    <table class="lines">
+      <thead><tr><th>What's included</th><th class="num">Qty</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        <% doc.lines.forEach(l => { %>
+          <tr><td><b><%= l.title %></b><% if (l.description) { %><br><small><%= l.description %></small><% } %></td><td class="num"><%= l.qty %></td><td class="num"><%= inr(l.amount) %></td></tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <table class="doc-totals">
+      <tr><td>Subtotal</td><td class="num"><%= inr(doc.totals.subtotal) %></td></tr>
+      <tr><td>GST (<%= doc.totals.taxRate %>%)</td><td class="num"><%= inr(doc.totals.tax) %></td></tr>
+      <% if (doc.totals.tcs) { %><tr><td>TCS (<%= doc.totals.tcsRate %>%)</td><td class="num"><%= inr(doc.totals.tcs) %></td></tr><% } %>
+      <tr class="grand"><td><%= agentItems.length ? 'Total (VaayuTrip)' : 'Total' %></td><td class="num"><%= inr(doc.totals.total) %></td></tr>
+    </table>
+
+    <% if (agentItems.length) { %>
+      <h3 style="margin-top:24px">Services by <%= agency.name %></h3>
+      <table class="lines">
+        <tbody>
+          <% agentItems.forEach(l => { %><tr><td><b><%= l.title %></b><% if (l.description) { %><br><small><%= l.description %></small><% } %></td><td class="num"><%= l.qty %></td><td class="num"><%= inr(l.lineSell) %></td></tr><% }) %>
+        </tbody>
+      </table>
+      <table class="doc-totals"><tr class="grand"><td>Trip total</td><td class="num"><%= inr(total) %></td></tr></table>
+    <% } %>
+
+    <% } %>
+
+    <% if (pkgView) { %>
+      <div style="margin-top:28px"><%- include('../partials/package-full', { p: pkgView, showCategory: pkgView.party.category }) %></div>
+    <% } %>
+
+    <% if (quote.notes) { %><div class="alert info" style="margin-top:20px;white-space:pre-line"><%= quote.notes %></div><% } %>
+
+    <% if (emi.length) { %>
+      <h3 style="margin-top:24px">Pay in easy instalments</h3>
+      <div class="grid grid-4">
+        <% emi.forEach(e => { %>
+          <div class="stat"><div class="label"><%= e.months %> months</div><div class="value" style="font-size:18px"><%= inr(e.monthly) %><small class="muted">/mo</small></div><div class="sub"><%= e.rate %>% p.a. · total <%= inr(e.total) %></div></div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <div class="actions no-print" style="margin-top:28px">
+      <% if (!empty && ['draft', 'sent'].includes(quote.status)) { %>
+        <form method="post" action="/q/<%= quote.code %>/accept"><button class="btn btn-primary btn-lg" style="background:<%= brandColor %>;border-color:<%= brandColor %>">Accept this quote</button></form>
+      <% } %>
+      <% if (payLink) { %><a class="btn btn-accent btn-lg" href="/pay/<%= payLink.code %>">Pay <%= inr(payLink.amount) %> now</a><% } %>
+      <button class="btn btn-lg" onclick="window.print()">Download PDF</button>
+    </div>
+
+    <footer class="doc-foot">
+      Prices are valid for 7 days and subject to availability at the time of booking.
+      <% if (kind === 'customer_vaayu') { %>Fulfilled by <%= settings.legal_name %> for <%= agency.name %>.<% } else { %>Issued by <%= agency.legal_name || agency.name %>.<% } %>
+    </footer>
+  </article>
+</div>

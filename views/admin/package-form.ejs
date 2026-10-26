@@ -1,0 +1,226 @@
+<%
+  const isNew = !pkg.id;
+  const e = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const opt = (list, val) => list.map((o) => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${e(v)}" ${String(v) === String(val) ? 'selected' : ''}>${e(l)}</option>`; }).join('');
+  const del = '<button type="button" class="btn btn-ghost btn-sm btn-danger" data-remove-row aria-label="Remove row">✕</button>';
+
+  const rowRoute = (i, r) => `<div class="rep-row grid-route" data-row>
+    <input name="route[${i}][city]" value="${e(r.city)}" placeholder="City, e.g. Srinagar" aria-label="City">
+    <input type="number" min="0" name="route[${i}][nights]" value="${e(r.nights)}" placeholder="Nights" aria-label="Nights">${del}</div>`;
+
+  const rowDay = (i, r) => { const m = r.meals || {}; return `<div class="rep-row" data-row>
+    <div class="grid-day">
+      <input name="days[${i}][title]" value="${e(r.title)}" placeholder="Day title, e.g. Arrive Srinagar, Dal Lake shikara" aria-label="Day title">
+      <input name="days[${i}][overnight]" value="${e(r.overnight)}" placeholder="Overnight at" aria-label="Overnight">
+      <span class="meals"><label class="check"><input type="checkbox" name="days[${i}][b]" value="1" ${m.b ? 'checked' : ''}>B</label><label class="check"><input type="checkbox" name="days[${i}][l]" value="1" ${m.l ? 'checked' : ''}>L</label><label class="check"><input type="checkbox" name="days[${i}][d]" value="1" ${m.d ? 'checked' : ''}>D</label></span>
+      ${del}
+    </div>
+    <textarea name="days[${i}][description]" placeholder="What happens today: transfers, sightseeing, timings, drive distance" aria-label="Description" style="min-height:70px;margin-top:8px">${e(r.description)}</textarea>
+    <input name="days[${i}][optional]" value="${e(r.optional)}" placeholder="Optional at own cost, e.g. Gondola phase 2 (₹1,900)" aria-label="Optional activities" style="margin-top:8px">
+  </div>`; };
+
+  const rowStay = (i, r) => `<div class="rep-row grid-stay" data-row>
+    <select name="stays[${i}][category]" aria-label="Category">${opt(categories, r.category)}</select>
+    <input name="stays[${i}][city]" value="${e(r.city)}" placeholder="City" aria-label="City">
+    <input name="stays[${i}][hotel]" value="${e(r.hotel)}" placeholder="Hotel name (or similar)" aria-label="Hotel">
+    <select name="stays[${i}][type]" aria-label="Type">${opt(stayTypes, r.type)}</select>
+    <select name="stays[${i}][stars]" aria-label="Stars">${opt([[0, '—'], [2, '2★'], [3, '3★'], [4, '4★'], [5, '5★']], r.stars)}</select>
+    <input name="stays[${i}][room]" value="${e(r.room)}" placeholder="Room type" aria-label="Room type">
+    <select name="stays[${i}][mealPlan]" aria-label="Meal plan">${opt(Object.entries(mealPlans).map(([k]) => [k, k]), r.mealPlan || 'CP')}</select>
+    <input type="number" min="1" name="stays[${i}][nights]" value="${e(r.nights)}" placeholder="N" aria-label="Nights">${del}</div>`;
+
+  const rowFlight = (i, r) => `<div class="rep-row grid-flight" data-row>
+    <select name="flights[${i}][leg]" aria-label="Leg">${opt([['onward', 'Onward'], ['internal', 'Internal'], ['return', 'Return']], r.leg)}</select>
+    <input type="number" min="1" name="flights[${i}][day]" value="${e(r.day)}" placeholder="Day" aria-label="Day">
+    <input name="flights[${i}][airline]" value="${e(r.airline)}" placeholder="Airline" aria-label="Airline">
+    <input name="flights[${i}][flightNo]" value="${e(r.flightNo)}" placeholder="Flight no." aria-label="Flight number">
+    <input name="flights[${i}][from]" value="${e(r.from)}" placeholder="From" maxlength="3" aria-label="From">
+    <input name="flights[${i}][to]" value="${e(r.to)}" placeholder="To" maxlength="3" aria-label="To">
+    <input type="time" name="flights[${i}][depart]" value="${e(r.depart)}" aria-label="Departs">
+    <input type="time" name="flights[${i}][arrive]" value="${e(r.arrive)}" aria-label="Arrives">
+    <input name="flights[${i}][baggage]" value="${e(r.baggage)}" placeholder="15kg + 7kg" aria-label="Baggage">${del}</div>`;
+
+  const rowRate = (i, r) => `<div class="rep-row grid-rate" data-row>
+    <select name="rates[${i}][category]" aria-label="Category">${opt(categories, r.category)}</select>
+    <input type="date" name="rates[${i}][from]" value="${e(r.from)}" aria-label="Valid from">
+    <input type="date" name="rates[${i}][to]" value="${e(r.to)}" aria-label="Valid to">
+    ${['twin', 'triple', 'single', 'cwb', 'cnb', 'infant'].map((k) => `<input type="number" min="0" name="rates[${i}][${k}]" value="${e(r[k])}" aria-label="${k}">`).join('')}${del}</div>`;
+
+  const rowAddon = (i, r) => `<div class="rep-row grid-addon" data-row>
+    <select name="addons[${i}][type]" aria-label="Type">${opt(addonTypes, r.type)}</select>
+    <input name="addons[${i}][title]" value="${e(r.title)}" placeholder="e.g. Gulmarg gondola phase 1+2" aria-label="Title">
+    <input name="addons[${i}][description]" value="${e(r.description)}" placeholder="Details" aria-label="Details">
+    <select name="addons[${i}][basis]" aria-label="Basis">${opt([['per_person', 'Per person'], ['per_booking', 'Per booking']], r.basis)}</select>
+    <select name="addons[${i}][optional]" aria-label="Optional">${opt([['1', 'Optional'], ['0', 'Always included']], r.optional === false ? '0' : '1')}</select>
+    <input type="number" min="0" name="addons[${i}][net]" value="${e(r.net)}" placeholder="Net ₹" aria-label="Net">${del}</div>`;
+
+  const rowDeparture = (i, r) => `<div class="rep-row grid-dep" data-row>
+    <input type="date" name="departures[${i}][date]" value="${e(r.date)}" aria-label="Date">
+    <input type="number" min="0" name="departures[${i}][seats]" value="${e(r.seats)}" placeholder="Seats" aria-label="Seats">
+    <input type="hidden" name="departures[${i}][booked]" value="${e(r.booked || 0)}">
+    <span class="muted">${r.booked ? `${r.booked} booked` : ''}</span>${del}</div>`;
+
+  const rowCancel = (i, r) => `<div class="rep-row grid-cancel" data-row>
+    <span>If cancelled</span><input type="number" min="0" name="cancel[${i}][days]" value="${e(r.days)}" aria-label="Days before departure"><span>or more days before departure, charge</span>
+    <input type="number" min="0" max="100" name="cancel[${i}][percent]" value="${e(r.percent)}" aria-label="Percent"><span>%</span>${del}</div>`;
+
+  const section = (key, fn, list, addLabel) => `<div data-rows="${key}">${list.map((r, i) => fn(i, r)).join('')}</div>
+    <template data-template="${key}">${fn('__i__', {})}</template>
+    <button type="button" class="btn btn-sm" data-add-row="${key}" style="margin-top:8px">+ ${addLabel}</button>`;
+%>
+<a href="/admin/packages">← All packages</a>
+<div class="page-head" style="margin-top:10px">
+  <div>
+    <h1><%= isNew ? 'New package' : pkg.title %></h1>
+    <% if (!isNew) { %><p><span class="badge <%= pkg.status %>"><%= pkg.status %></span> · <%= packageTypes[pkg.package_type] %><%= pkg.is_international ? ' · International' : '' %></p><% } %>
+  </div>
+  <% if (!isNew) { %>
+    <div class="actions">
+      <a class="btn" href="/admin/packages/<%= pkg.id %>/preview">Preview as agent</a>
+      <form method="post" action="/admin/packages/<%= pkg.id %>/duplicate"><button class="btn">Duplicate</button></form>
+      <% if (pkg.status === 'published') { %>
+        <form method="post" action="/admin/packages/<%= pkg.id %>/status"><input type="hidden" name="status" value="draft"><button class="btn">Unpublish</button></form>
+      <% } else { %>
+        <form method="post" action="/admin/packages/<%= pkg.id %>/status"><input type="hidden" name="status" value="published"><button class="btn btn-accent" <%= problems.length ? 'disabled' : '' %>>Publish to agents</button></form>
+      <% } %>
+    </div>
+  <% } %>
+</div>
+
+<form method="post" action="<%= isNew ? '/admin/packages' : `/admin/packages/${pkg.id}` %>" id="pkg-form" enctype="multipart/form-data">
+<div class="split split-editor">
+  <div>
+    <div class="card" id="basics">
+      <h2>1. Basics</h2>
+      <div class="field"><label for="title">Package name</label><input id="title" name="title" value="<%= pkg.title || '' %>" required placeholder="e.g. Kashmir Paradise with Houseboat"></div>
+      <div class="row">
+        <div class="field"><label for="destination">Main destination</label><input id="destination" name="destination" value="<%= pkg.destination || '' %>" required></div>
+        <div class="field"><label for="theme">Theme</label><input id="theme" name="theme" value="<%= pkg.theme || '' %>" list="themes" placeholder="Honeymoon, Family…"></div>
+        <div class="field"><label for="departure_city">Starts / ends in</label><input id="departure_city" name="departure_city" value="<%= pkg.departure_city || '' %>" placeholder="e.g. Srinagar airport"></div>
+      </div>
+      <datalist id="themes"><option>Beach</option><option>Mountains</option><option>Heritage</option><option>Nature</option><option>Honeymoon</option><option>Family</option><option>Adventure</option><option>Pilgrimage</option><option>Wildlife</option><option>International</option></datalist>
+      <div class="row">
+        <div class="field"><label for="package_type">Package type</label><select id="package_type" name="package_type"><%- opt(Object.entries(packageTypes), pkg.package_type) %></select></div>
+        <div class="field"><label for="nights">Nights</label><input id="nights" type="number" min="1" name="nights" value="<%= pkg.nights %>"><div class="hint">Auto-calculated from the route when filled.</div></div>
+        <div class="field"><label class="check" style="margin-top:28px"><input type="checkbox" name="is_international" value="1" <%= pkg.is_international ? 'checked' : '' %>> International (adds TCS on customer invoices)</label></div>
+      </div>
+      <div class="field"><label for="summary">Short description</label><textarea id="summary" name="summary" style="min-height:70px"><%= pkg.summary || '' %></textarea></div>
+      <div class="field"><label for="highlights">Highlights <span class="muted">(one per line)</span></label><textarea id="highlights" name="highlights" placeholder="1 night in a deluxe houseboat&#10;Gulmarg gondola day trip"><%= d.highlights.join('\n') %></textarea></div>
+      <h3 style="margin-top:6px">Photos</h3>
+      <div class="row">
+        <div class="field">
+          <label for="cover_file">Cover photo</label>
+          <% if (pkg.image_url) { %><img src="<%= pkg.image_url %>" alt="" class="photo-thumb"><label class="check" style="font-size:13px"><input type="checkbox" name="remove_cover" value="1"> Remove cover</label><% } %>
+          <input id="cover_file" type="file" name="cover_file" accept="image/jpeg,image/png,image/webp">
+          <div class="hint">JPG, PNG or WebP up to 5 MB, landscape works best. No photo = a generated cover with the destination name.</div>
+        </div>
+        <div class="field">
+          <label for="gallery_files">Add gallery photos</label>
+          <input id="gallery_files" type="file" name="gallery_files" accept="image/jpeg,image/png,image/webp" multiple>
+          <div class="hint">Select up to 12 at once.</div>
+        </div>
+      </div>
+      <% if (d.gallery.length) { %><div class="thumbs"><% d.gallery.forEach(src => { %><img src="<%= src %>" alt="" class="photo-thumb"><% }) %></div><% } %>
+      <details class="more" style="margin-bottom:14px"><summary>Use image links instead / remove gallery photos</summary>
+        <div class="field" style="margin-top:10px"><label for="image_url">Cover image link</label><input id="image_url" type="url" name="image_url" value="<%= pkg.image_url || '' %>" placeholder="https://…"></div>
+        <div class="field"><label for="gallery">Gallery photos <span class="muted">(one link per line; delete a line to remove that photo)</span></label><textarea id="gallery" name="gallery" style="min-height:60px"><%= d.gallery.join('\n') %></textarea></div>
+      </details>
+      <p class="muted" style="font-size:12.5px">Use photos you own or have licensed.</p>
+    </div>
+
+    <div class="card" id="route">
+      <h2>2. Route</h2>
+      <p class="muted">Cities in order with nights in each, e.g. Srinagar 2N → Pahalgam 2N → Gulmarg 1N.</p>
+      <%- section('route', rowRoute, d.route, 'Add city') %>
+    </div>
+
+    <div class="card" id="itinerary">
+      <h2>3. Day-wise itinerary</h2>
+      <p class="muted">One row per day. Tick the meals included (B = breakfast, L = lunch, D = dinner).</p>
+      <%- section('days', rowDay, d.days, 'Add day') %>
+    </div>
+
+    <div class="card" id="hotels">
+      <h2>4. Hotels by category</h2>
+      <p class="muted">List the hotels for every category you sell (Standard / Deluxe / Premium / Luxury). Agents pick a category; customers see these hotels.</p>
+      <div class="rep-head grid-stay"><span>Category</span><span>City</span><span>Hotel</span><span>Type</span><span>Stars</span><span>Room</span><span>Meals</span><span>N</span><span></span></div>
+      <%- section('stays', rowStay, d.stays, 'Add hotel') %>
+      <p class="muted" style="font-size:12.5px;margin-top:8px">Meal plans: <%= Object.values(mealPlans).join(' · ') %></p>
+    </div>
+
+    <div class="card" id="flights">
+      <h2>5. Flights <span class="muted" style="font-size:13px;font-weight:500">(optional)</span></h2>
+      <p class="muted">Indicative flights shown on the itinerary. Agents can quote with or without flights.</p>
+      <div class="rep-head grid-flight"><span>Leg</span><span>Day</span><span>Airline</span><span>Flight</span><span>From</span><span>To</span><span>Departs</span><span>Arrives</span><span>Baggage</span><span></span></div>
+      <%- section('flights', rowFlight, d.flights, 'Add flight') %>
+      <div class="row" style="margin-top:14px">
+        <div class="field"><label for="fare_adult">Airfare net per adult (₹)</label><input id="fare_adult" type="number" min="0" name="fare_adult" value="<%= d.flightFares.adult || '' %>"></div>
+        <div class="field"><label for="fare_child">Per child (₹)</label><input id="fare_child" type="number" min="0" name="fare_child" value="<%= d.flightFares.child || '' %>"></div>
+        <div class="field"><label for="fare_infant">Per infant (₹)</label><input id="fare_infant" type="number" min="0" name="fare_infant" value="<%= d.flightFares.infant || '' %>"></div>
+      </div>
+      <label class="check"><input type="checkbox" name="flights_default" value="1" <%= d.flightsDefault ? 'checked' : '' %>> Include flights in quotes by default</label>
+    </div>
+
+    <div class="card" id="rates">
+      <h2>6. Land rates (net per person)</h2>
+      <p class="muted">Hotels, transfers and sightseeing per person, by category and season. Leave dates empty for "all year". Triple and single fall back to the twin rate when empty.</p>
+      <div class="rep-head grid-rate"><span>Category</span><span>From</span><span>To</span><span>Twin</span><span>Triple</span><span>Single</span><span>Child + bed</span><span>Child no bed</span><span>Infant</span><span></span></div>
+      <%- section('rates', rowRate, d.rates, 'Add rate / season') %>
+    </div>
+
+    <div class="card" id="addons">
+      <h2>7. Add-ons &amp; extras</h2>
+      <p class="muted">Activities, visa, insurance or special transfers. "Always included" extras are added to every quote; optional ones are ticked by the agent.</p>
+      <%- section('addons', rowAddon, d.addons, 'Add extra') %>
+    </div>
+
+    <div class="card" id="departures">
+      <h2>8. Fixed departures</h2>
+      <p class="muted">Only for fixed-departure (group) packages: dates and seats. Booked seats update automatically.</p>
+      <%- section('departures', rowDeparture, d.departures, 'Add departure') %>
+    </div>
+
+    <div class="card" id="incl">
+      <h2>9. Inclusions &amp; exclusions</h2>
+      <div class="row">
+        <div class="field"><label for="inclusions">Included <span class="muted">(one per line)</span></label><textarea id="inclusions" name="inclusions" style="min-height:150px"><%= pkg.inclusions || '' %></textarea></div>
+        <div class="field"><label for="exclusions">Not included <span class="muted">(one per line)</span></label><textarea id="exclusions" name="exclusions" style="min-height:150px"><%= pkg.exclusions || '' %></textarea></div>
+      </div>
+    </div>
+
+    <div class="card" id="policies">
+      <h2>10. Policies</h2>
+      <div class="row">
+        <div class="field"><label for="advance_percent">Advance to confirm (%)</label><input id="advance_percent" type="number" min="0" max="100" name="advance_percent" value="<%= d.policies.advancePercent %>"></div>
+        <div class="field"><label for="balance_days">Balance due (days before travel)</label><input id="balance_days" type="number" min="0" name="balance_days" value="<%= d.policies.balanceDays %>"></div>
+      </div>
+      <div class="field"><label for="payment_terms">Payment notes</label><input id="payment_terms" name="payment_terms" value="<%= d.policies.payment %>" placeholder="e.g. Flight tickets are issued only after full payment"></div>
+      <label>Cancellation charges</label>
+      <%- section('cancel', rowCancel, d.policies.cancellation, 'Add slab') %>
+      <div class="field" style="margin-top:14px"><label for="child_policy">Child policy</label><textarea id="child_policy" name="child_policy" style="min-height:60px"><%= d.policies.child %></textarea></div>
+      <div class="field"><label for="important_notes">Important notes</label><textarea id="important_notes" name="important_notes"><%= d.policies.notes %></textarea></div>
+      <div class="field"><label for="terms">Terms &amp; conditions</label><textarea id="terms" name="terms"><%= d.policies.terms %></textarea></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" style="position:sticky;top:76px">
+      <% if (pkg.image_url) { %><img src="<%= pkg.image_url %>" alt="" style="width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:12px"><% } %>
+      <button class="btn btn-primary btn-lg" style="width:100%"><%= isNew ? 'Create package' : 'Save package' %></button>
+      <% if (problems.length) { %>
+        <div class="alert warn" style="margin:14px 0 0;font-size:13px"><b>Before publishing:</b><ul style="margin:6px 0 0;padding-left:18px"><% problems.forEach(p => { %><li><%= p %></li><% }) %></ul></div>
+      <% } else if (!isNew) { %>
+        <div class="alert success" style="margin:14px 0 0;font-size:13px">Ready to publish.</div>
+      <% } %>
+      <nav class="section-nav">
+        <a href="#basics">1. Basics</a><a href="#route">2. Route</a><a href="#itinerary">3. Itinerary</a><a href="#hotels">4. Hotels</a><a href="#flights">5. Flights</a>
+        <a href="#rates">6. Land rates</a><a href="#addons">7. Add-ons</a><a href="#departures">8. Departures</a><a href="#incl">9. Inclusions</a><a href="#policies">10. Policies</a>
+      </nav>
+    </div>
+  </div>
+</div>
+</form>
+
+<% if (!isNew) { %>
+  <form method="post" action="/admin/packages/<%= pkg.id %>/delete" data-confirm="Delete this package? Existing quotes keep their copy of it."><button class="btn btn-danger btn-sm">Delete package</button></form>
+<% } %>

@@ -1,0 +1,11 @@
+<%# Adds a search result to a quote. The server re-runs the search, so prices can't be tampered with. %>
+<form method="post" action="/agent/quotes/add-item" class="add-to-quote">
+  <input type="hidden" name="kind" value="<%= kind %>">
+  <input type="hidden" name="result_id" value="<%= r.id %>">
+  <% Object.entries(params).forEach(([k, v]) => { %><input type="hidden" name="p_<%= k %>" value="<%= v %>"><% }) %>
+  <select name="quote_id" aria-label="Quote">
+    <option value="">+ New quote</option>
+    <% quotes.forEach(q => { %><option value="<%= q.id %>"><%= q.title.slice(0, 32) %> (<%= q.code %>)</option><% }) %>
+  </select>
+  <button class="btn btn-primary btn-sm">Add</button>
+</form>

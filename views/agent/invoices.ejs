@@ -1,0 +1,17 @@
+<div class="page-head"><div><h1>Invoices</h1><p>Invoices you issued to customers, and VaayuTrip's net invoices to you.</p></div></div>
+<div class="card flush">
+  <% if (!invoices.length) { %><div class="empty"><span class="big">🧾</span>No invoices yet. Issue one from any quote.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Number</th><th>Type</th><th>Billed to</th><th>Trip</th><th class="num">Total</th></tr></thead>
+    <% invoices.forEach(i => { %>
+      <tr class="click" data-href="/agent/invoices/<%= i.id %>">
+        <td><b><%= i.number %></b><br><small><%= fmtDate(i.created_at) %></small></td>
+        <td><span class="badge <%= i.kind === 'customer_agent' ? 'ok' : i.kind === 'b2b' ? '' : 'info' %>"><%= { customer_agent: 'Your brand', customer_vaayu: 'VaayuTrip → customer', b2b: 'VaayuTrip → you' }[i.kind] %></span></td>
+        <td><%= i.doc.buyer.legalName || i.doc.buyer.name %></td>
+        <td><%= i.doc.meta.trip %><br><small><%= i.quote_code || '' %></small></td>
+        <td class="num"><%= inr(i.total, { decimals: 2 }) %></td>
+      </tr>
+    <% }) %>
+  </table></div>
+  <% } %>
+</div>

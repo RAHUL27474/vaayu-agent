@@ -1,0 +1,75 @@
+<%
+  const kindLabel = { customer_agent: 'Tax invoice', customer_vaayu: 'Tax invoice', b2b: 'B2B tax invoice' }[inv.kind];
+%>
+<div class="doc-wrap">
+  <div class="doc-toolbar no-print">
+    <% if (typeof back !== 'undefined' && back) { %><a class="btn" href="<%= back %>">← Back</a><% } %>
+    <% if (typeof shareUrl !== 'undefined' && shareUrl) { %><button class="btn" data-copy="<%= shareUrl %>">Copy customer link</button><% } %>
+    <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
+  </div>
+
+  <article class="doc" style="--doc-color: <%= doc.seller.color || '#0b6fa4' %>">
+    <header class="doc-head">
+      <div>
+        <% if (doc.seller.logo) { %><img src="<%= doc.seller.logo %>" alt="<%= doc.seller.name %>"><% } else { %><h2 style="margin:0"><%= doc.seller.name %></h2><% } %>
+        <div style="margin-top:10px;font-size:13px">
+          <b><%= doc.seller.legalName %></b><br>
+          <% if (doc.seller.address) { %><%= doc.seller.address %><br><% } %>
+          <%= [doc.seller.phone, doc.seller.email].filter(Boolean).join(' · ') %>
+          <% if (doc.seller.gstin) { %><br>GSTIN: <%= doc.seller.gstin %><% } %>
+        </div>
+      </div>
+      <div class="title">
+        <h1><%= kindLabel.toUpperCase() %></h1>
+        <div><b>#<%= inv.number %></b></div>
+        <div class="muted">Date: <%= fmtDate(inv.created_at) %></div>
+        <div class="muted">Ref: <%= doc.meta.quoteCode %></div>
+      </div>
+    </header>
+
+    <section class="doc-parties">
+      <div>
+        <h4>Bill to</h4>
+        <b><%= doc.buyer.legalName || doc.buyer.name %></b><br>
+        <% if (doc.buyer.address) { %><%= doc.buyer.address %><br><% } %>
+        <%= [doc.buyer.phone, doc.buyer.email].filter(Boolean).join(' · ') %>
+        <% if (doc.buyer.gstin) { %><br>GSTIN: <%= doc.buyer.gstin %><% } %>
+      </div>
+      <div>
+        <h4>Trip</h4>
+        <b><%= doc.meta.trip %></b><br>
+        <% if (doc.meta.travelDate) { %>Travel date: <%= fmtDate(doc.meta.travelDate) %><br><% } %>
+        Travellers: <%= doc.meta.travellers %>
+        <% if (doc.meta.bookedThrough) { %><br>Booked through: <b><%= doc.meta.bookedThrough %></b><% } %>
+      </div>
+    </section>
+
+    <table class="lines">
+      <thead><tr><th style="width:36px">#</th><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
+      <tbody>
+        <% doc.lines.forEach((l, i) => { %>
+          <tr>
+            <td><%= i + 1 %></td>
+            <td><b><%= l.title %></b><% if (l.description) { %><br><small><%= l.description %></small><% } %></td>
+            <td class="num"><%= l.qty %></td>
+            <td class="num"><%= inr(l.unit, { decimals: 2 }) %></td>
+            <td class="num"><%= inr(l.amount, { decimals: 2 }) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <table class="doc-totals">
+      <tr><td>Subtotal</td><td class="num"><%= inr(doc.totals.subtotal, { decimals: 2 }) %></td></tr>
+      <tr><td>GST (<%= doc.totals.taxRate %>%)</td><td class="num"><%= inr(doc.totals.tax, { decimals: 2 }) %></td></tr>
+      <% if (doc.totals.tcs) { %><tr><td>TCS (<%= doc.totals.tcsRate %>%)</td><td class="num"><%= inr(doc.totals.tcs, { decimals: 2 }) %></td></tr><% } %>
+      <tr class="grand"><td>Total</td><td class="num"><%= inr(doc.totals.total, { decimals: 2 }) %></td></tr>
+    </table>
+
+    <footer class="doc-foot">
+      <% doc.notes.forEach(n => { %><p><%= n %></p><% }) %>
+      <p>This is a computer-generated invoice and does not require a signature.
+      Issued by <%= doc.seller.legalName.replace(/\.$/, '') %><%= inv.kind === 'customer_vaayu' && doc.meta.bookedThrough ? ` on behalf of your travel agent, ${doc.meta.bookedThrough}` : '' %>.</p>
+    </footer>
+  </article>
+</div>

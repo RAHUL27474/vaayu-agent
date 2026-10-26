@@ -1,0 +1,29 @@
+<div class="page-head"><div><h1>API access</h1><p>Show VaayuTrip packages on your own website or app at your prices, and send enquiries straight into your leads.</p></div></div>
+<div class="card">
+  <h3>Your API key</h3>
+  <% if (agency.api_key && agency.status === 'active') { %>
+    <div style="display:flex;gap:8px;max-width:640px"><input type="text" readonly value="<%= agency.api_key %>"><button class="btn" data-copy="<%= agency.api_key %>">Copy</button></div>
+    <form method="post" action="/agent/api/regenerate" data-confirm="Generate a new key? The current key will stop working immediately." style="margin-top:10px"><button class="btn btn-sm btn-danger">Regenerate key</button></form>
+    <p class="muted" style="font-size:13px;margin-top:10px">Keep this secret; use it from your server, not from browser code.</p>
+  <% } else { %>
+    <p class="muted">Your API key is issued once VaayuTrip approves your account.</p>
+  <% } %>
+</div>
+<div class="card">
+  <h3>Endpoints</h3>
+  <p>Base URL <code><%= base %></code> · send <code>Authorization: Bearer &lt;your key&gt;</code></p>
+  <table class="table">
+    <tr><td><code>GET /packages</code></td><td>All live packages with your selling price</td></tr>
+    <tr><td><code>GET /packages/:slug</code></td><td>One package with itinerary, inclusions and exclusions</td></tr>
+    <tr><td><code>POST /leads</code></td><td>Create a lead: <code>name</code>, <code>phone</code>, optional <code>email</code>, <code>package_slug</code>, <code>destination</code>, <code>travel_date</code>, <code>pax</code>, <code>budget</code>, <code>notes</code></td></tr>
+    <tr><td><code>GET /bookings</code></td><td>Your latest 100 bookings</td></tr>
+  </table>
+  <h3 style="margin-top:18px">Example</h3>
+  <pre style="background:#0c2233;color:#e2e8f0;padding:16px;border-radius:10px;overflow-x:auto;font-size:12.5px">curl <%= base %>/packages \
+  -H "Authorization: Bearer <%= agency.api_key || 'vt_live_...' %>"
+
+curl -X POST <%= base %>/leads \
+  -H "Authorization: Bearer <%= agency.api_key || 'vt_live_...' %>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Neha Joshi","phone":"+919988776655","package_slug":"kashmir-paradise","pax":4}'</pre>
+</div>

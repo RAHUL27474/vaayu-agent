@@ -1,0 +1,29 @@
+<div class="page-head"><div><h1>Hotels</h1><p>Hotels and resorts at agent net rates.</p></div></div>
+<form class="card" method="get">
+  <div class="row">
+    <div class="field"><label for="city">City</label><input id="city" name="city" value="<%= params.city %>" placeholder="e.g. Goa, Manali, Dubai" required></div>
+    <div class="field"><label for="checkin">Check-in</label><input id="checkin" type="date" name="checkin" value="<%= params.checkin %>"></div>
+    <div class="field"><label for="nights">Nights</label><input id="nights" type="number" min="1" name="nights" value="<%= params.nights || 3 %>"></div>
+    <div class="field"><label for="rooms">Rooms</label><input id="rooms" type="number" min="1" name="rooms" value="<%= params.rooms || 1 %>"></div>
+  </div>
+  <button class="btn btn-primary">Search hotels</button>
+</form>
+
+<% if (searched) { %>
+  <div class="card flush">
+    <div class="card-head" style="padding-bottom:12px"><h3><%= results.length %> hotels in <%= params.city %></h3><span class="muted">Sample inventory</span></div>
+    <% results.forEach(r => { %>
+      <div class="result">
+        <img src="<%= r.image %>" alt="" loading="lazy">
+        <div class="grow">
+          <b><%= r.name %></b> <span style="color:var(--accent)"><%= '★'.repeat(r.stars) %></span><br>
+          <small><%= r.area %> · <%= r.roomType %> · <%= r.meal %> · ⭐ <%= r.rating %></small><br>
+          <small class="muted"><%= r.amenities.join(' · ') %></small>
+        </div>
+        <div><span class="badge <%= r.refundable ? 'ok' : 'warn' %>"><%= r.refundable ? 'Free cancellation' : 'Non-refundable' %></span></div>
+        <div class="fare"><b><%= inr(r.net) %></b><small class="muted"><%= inr(r.ratePerNight) %>/night × <%= r.nights %>N × <%= r.rooms %>, net</small></div>
+        <%- include('../partials/add-to-quote', { kind, params, r, quotes }) %>
+      </div>
+    <% }) %>
+  </div>
+<% } %>

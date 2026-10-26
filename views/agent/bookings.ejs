@@ -1,0 +1,19 @@
+<div class="page-head"><div><h1>Bookings</h1><p>Confirmed trips, cancellations and refunds.</p></div></div>
+<div class="card flush">
+  <% if (!bookings.length) { %><div class="empty"><span class="big">📋</span>No bookings yet. Book a quote to see it here.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Booking</th><th>Customer</th><th>Travel</th><th>Status</th><th class="num">Paid to VaayuTrip</th><th class="num">Sold for</th><th class="num">Earning</th></tr></thead>
+    <% bookings.forEach(b => { %>
+      <tr class="click" data-href="/agent/bookings/<%= b.id %>">
+        <td><b><%= b.title %></b><br><small><%= b.code %> · <%= fmtDate(b.created_at) %></small></td>
+        <td><%= b.customer_name || '—' %></td>
+        <td><%= fmtDate(b.travel_date) || '—' %></td>
+        <td><span class="badge <%= b.status %>"><%= b.status.replace('_', ' ') %></span></td>
+        <td class="num"><%= inr(b.paid_wallet + b.paid_credit) %></td>
+        <td class="num"><%= inr(b.total_sell) %></td>
+        <td class="num profit"><%= b.status === 'cancelled' ? '—' : inr(b.total_sell - b.total_net) %></td>
+      </tr>
+    <% }) %>
+  </table></div>
+  <% } %>
+</div>

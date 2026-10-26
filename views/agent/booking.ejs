@@ -1,0 +1,50 @@
+<a href="/agent/bookings">← All bookings</a>
+<div class="page-head" style="margin-top:10px">
+  <div><h1><%= booking.title %></h1><p>Booking <b><%= booking.code %></b> · <span class="badge <%= booking.status %>"><%= booking.status.replace('_', ' ') %></span></p></div>
+  <div class="actions">
+    <% if (booking.quote_id) { %><a class="btn" href="/agent/quotes/<%= booking.quote_id %>">Open quote &amp; invoices</a><% } %>
+  </div>
+</div>
+<div class="split">
+  <div>
+    <% if (full) { %>
+    <div class="card flush">
+      <div class="card-head"><h3>Services</h3></div>
+      <table class="table" style="margin-top:10px">
+        <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Net</th><th class="num">Sold</th></tr></thead>
+        <% full.priced.lines.forEach(l => { %><tr><td><b><%= l.title %></b><% if (l.description) { %><br><small><%= l.description %></small><% } %></td><td class="num"><%= l.qty %></td><td class="num"><%= l.supplier === 'agent' ? '—' : inr(l.lineNet) %></td><td class="num"><%= inr(l.lineSell) %></td></tr><% }) %>
+      </table>
+    </div>
+    <% } %>
+    <div class="card flush">
+      <div class="card-head"><h3>Invoices</h3></div>
+      <table class="table" style="margin-top:10px">
+        <% invoices.forEach(i => { %><tr class="click" data-href="/agent/invoices/<%= i.id %>"><td><b><%= i.number %></b></td><td><%= { customer_agent: 'Your branded invoice', customer_vaayu: 'VaayuTrip invoice to customer', b2b: 'VaayuTrip → you (net)' }[i.kind] %></td><td class="num"><%= inr(i.total) %></td></tr><% }) %>
+      </table>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <dl class="kv">
+        <dt>Travel date</dt><dd><%= fmtDate(booking.travel_date) || '—' %></dd>
+        <dt>Booked on</dt><dd><%= fmtDate(booking.created_at) %></dd>
+        <dt>From wallet</dt><dd><%= inr(booking.paid_wallet) %></dd>
+        <dt>From credit</dt><dd><%= inr(booking.paid_credit) %></dd>
+        <dt>Sold for</dt><dd><%= inr(booking.total_sell) %> + GST</dd>
+        <dt>Your earning</dt><dd class="profit"><%= inr(booking.total_sell - booking.total_net) %></dd>
+        <% if (booking.refund_amount != null) { %><dt>Refunded</dt><dd><%= inr(booking.refund_amount) %></dd><% } %>
+        <% if (booking.cancel_reason) { %><dt>Cancel reason</dt><dd><%= booking.cancel_reason %></dd><% } %>
+      </dl>
+    </div>
+    <% if (booking.status === 'confirmed') { %>
+      <form class="card" method="post" action="/agent/bookings/<%= booking.id %>/cancel" data-confirm="Request cancellation of this booking?">
+        <h3>Request cancellation</h3>
+        <p class="muted" style="font-size:13px">VaayuTrip checks supplier policies and refunds to your wallet/credit.</p>
+        <div class="field"><label for="reason">Reason</label><input id="reason" name="reason" placeholder="e.g. Customer's plans changed"></div>
+        <button class="btn btn-danger">Request cancellation</button>
+      </form>
+    <% } else if (booking.status === 'cancel_requested') { %>
+      <div class="alert warn">Cancellation requested. VaayuTrip will confirm the refund shortly.</div>
+    <% } %>
+  </div>
+</div>
