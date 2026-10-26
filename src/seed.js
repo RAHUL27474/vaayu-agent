@@ -10,10 +10,8 @@ if (require.main === module && process.argv.includes('--reset')) {
   for (const f of [file, `${file}-wal`, `${file}-shm`]) fs.rmSync(f, { force: true });
 }
 
-const { one, run, tx, setSetting } = require('./db');
+const { one, run, tx, setSetting, UPLOADS_DIR: UPLOADS } = require('./db');
 const { hashPassword, code } = require('./util');
-
-const UPLOADS = path.join(__dirname, '..', 'public', 'uploads');
 
 const { CATALOGUE, insertPackage } = require('./sync-packages');
 

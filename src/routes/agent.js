@@ -2,7 +2,7 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
-const { one, all, run, tx, getSettings, notify } = require('../db');
+const { one, all, run, tx, getSettings, notify, UPLOADS_DIR } = require('../db');
 const { num, code, round2 } = require('../util');
 const { requireAgent, requireActiveAgency, h } = require('../auth');
 const svc = require('../services');
@@ -17,7 +17,7 @@ const LOGO_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.
 
 const upload = multer({
   storage: multer.diskStorage({
-    destination: path.join(__dirname, '..', '..', 'public', 'uploads'),
+    destination: UPLOADS_DIR,
     // Extension comes from the checked MIME type, never from the uploaded filename.
     filename: (req, file, cb) => cb(null, `${req.agency.slug}-logo-${Date.now()}${LOGO_TYPES[file.mimetype]}`),
   }),

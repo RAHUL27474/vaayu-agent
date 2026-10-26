@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const multer = require('multer');
-const { one, all, run, tx, notify, getSettings, setSetting } = require('../db');
+const { one, all, run, tx, notify, getSettings, setSetting, UPLOADS_DIR } = require('../db');
 const { num, uniqueSlug, round2 } = require('../util');
 const { requireAdmin, h } = require('../auth');
 const svc = require('../services');
@@ -14,9 +14,9 @@ const {
 const { priceQuote } = require('../pricing');
 const { CATALOGUE, slugOf } = require('../sync-packages');
 
-// Package photos: JPG/PNG/WebP up to 5 MB each, saved under public/uploads/packages.
+// Package photos: JPG/PNG/WebP up to 5 MB each, saved under <uploads>/packages.
 const PHOTO_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
-const PHOTO_DIR = path.join(__dirname, '..', '..', 'public', 'uploads', 'packages');
+const PHOTO_DIR = path.join(UPLOADS_DIR, 'packages');
 fs.mkdirSync(PHOTO_DIR, { recursive: true });
 const photoUpload = multer({
   storage: multer.diskStorage({

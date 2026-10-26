@@ -3,8 +3,12 @@ const path = require('path');
 const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+// Vercel's filesystem is read-only except /tmp, which is wiped on cold start (demo use only).
+const ON_VERCEL = Boolean(process.env.VERCEL);
+const DATA_DIR = process.env.DATA_DIR || (ON_VERCEL ? '/tmp/vaayutrip/data' : path.join(__dirname, '..', 'data'));
+const UPLOADS_DIR = process.env.UPLOADS_DIR || (ON_VERCEL ? '/tmp/vaayutrip/uploads' : path.join(__dirname, '..', 'public', 'uploads'));
 fs.mkdirSync(DATA_DIR, { recursive: true });
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 const DB_FILE = process.env.DB_FILE || path.join(DATA_DIR, 'vaayutrip.db');
 
 const db = new DatabaseSync(DB_FILE);
@@ -259,4 +263,4 @@ function notify(agencyId, title, body, link) {
   run('INSERT INTO notifications (agency_id, title, body, link) VALUES (?, ?, ?, ?)', agencyId ?? null, title, body || null, link || null);
 }
 
-module.exports = { db, one, all, run, tx, getSettings, setSetting, notify, DB_FILE };
+module.exports = { db, one, all, run, tx, getSettings, setSetting, notify, DB_FILE, DATA_DIR, UPLOADS_DIR };

@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const express = require('express');
 const cookieSession = require('cookie-session');
 
-const { one, getSettings } = require('./src/db');
+const { one, getSettings, DATA_DIR, UPLOADS_DIR } = require('./src/db');
 const { seed } = require('./src/seed');
 const { inr, fmtDate } = require('./src/util');
 const { AppError } = require('./src/services');
@@ -14,7 +14,7 @@ if (seed()) console.log('First run: demo data created.');
 // Session secret persisted so logins survive restarts; override with SESSION_SECRET in production.
 function sessionSecret() {
   if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
-  const file = path.join(__dirname, 'data', '.session-secret');
+  const file = path.join(DATA_DIR, '.session-secret');
   if (!fs.existsSync(file)) fs.writeFileSync(file, crypto.randomBytes(32).toString('hex'));
   return fs.readFileSync(file, 'utf8');
 }
@@ -25,6 +25,7 @@ app.set('views', path.join(__dirname, 'views'));
 app.disable('x-powered-by');
 
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
+app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '1h' }));
 // Package forms can have hundreds of fields (itinerary, hotels, rates…).
 app.use(express.urlencoded({ extended: true, limit: '2mb', parameterLimit: 10000 }));
 app.use(express.json({ limit: '1mb' }));
@@ -93,7 +94,10 @@ app.use((err, req, res, next) => {
   res.page('public/message', { title: 'Something went wrong', heading: 'Something went wrong', message: 'Please try again. If it keeps happening, contact support.' }, 'public');
 });
 
-const PORT = Number(process.env.PORT) || 3000;
-app.listen(PORT, () => console.log(`VaayuTrip Agent running at http://localhost:${PORT}`));
+// On Vercel the platform invokes the exported app; locally we listen ourselves.
+if (!process.env.VERCEL) {
+  const PORT = Number(process.env.PORT) || 3000;
+  app.listen(PORT, () => console.log(`VaayuTrip Agent running at http://localhost:${PORT}`));
+}
 
-module.exports = { app };
+module.exports = app;
