@@ -1,4 +1,4 @@
-<a href="/admin/agents">← All agents</a>
+<a href="/admin/agents"><%- icon('arrowLeft') %>All agents</a>
 <div class="page-head" style="margin-top:10px">
   <div style="display:flex;gap:14px;align-items:center">
     <% if (agent.logo_path) { %><img src="<%= agent.logo_path %>" alt="" style="height:44px;max-width:140px;object-fit:contain"><% } %>
@@ -11,7 +11,7 @@
     <% if (agent.status === 'active') { %>
       <form method="post" action="/admin/agents/<%= agent.id %>/status" data-confirm="Suspend this agency? Its users will be logged out and its website taken offline."><input type="hidden" name="status" value="suspended"><button class="btn btn-danger">Suspend</button></form>
     <% } %>
-    <% if (agent.status === 'active' && agent.website_enabled) { %><a class="btn" href="/site/<%= agent.slug %>" target="_blank">Agent website ↗</a><% } %>
+    <% if (agent.status === 'active' && agent.website_enabled) { %><a class="btn" href="/site/<%= agent.slug %>" target="_blank">Agent website<%- icon('external') %></a><% } %>
   </div>
 </div>
 

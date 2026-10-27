@@ -41,7 +41,7 @@
           <% } %>
           <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:13px">
             <span class="meal-tags"><span class="<%= d.meals && d.meals.b ? '' : 'off' %>">Breakfast</span><span class="<%= d.meals && d.meals.l ? '' : 'off' %>">Lunch</span><span class="<%= d.meals && d.meals.d ? '' : 'off' %>">Dinner</span></span>
-            <% if (d.overnight) { %><span class="muted">🌙 Overnight: <b><%= d.overnight %></b></span><% } %>
+            <% if (d.overnight) { %><span class="muted"><%- icon('moon') %> Overnight: <b><%= d.overnight %></b></span><% } %>
           </div>
           <% if (d.optional) { %><p class="muted" style="font-size:13px;margin:6px 0 0">Optional (own cost): <%= d.optional %></p><% } %>
         </div>
@@ -84,8 +84,8 @@
 
 <% if ((p.inclusions && p.inclusions.length) || (p.exclusions && p.exclusions.length)) { %>
   <div class="grid grid-2" style="margin-top:20px">
-    <div><h3>✅ Included</h3><ul style="padding-left:18px"><% (p.inclusions || []).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
-    <div><h3>❌ Not included</h3><ul style="padding-left:18px" class="muted"><% (p.exclusions || []).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+    <div><h3 class="h-ok"><%- icon('checkCircle') %>Included</h3><ul style="padding-left:18px"><% (p.inclusions || []).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+    <div><h3 class="h-bad"><%- icon('xCircle') %>Not included</h3><ul style="padding-left:18px" class="muted"><% (p.exclusions || []).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
   </div>
 <% } %>
 

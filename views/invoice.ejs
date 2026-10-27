@@ -3,7 +3,7 @@
 %>
 <div class="doc-wrap">
   <div class="doc-toolbar no-print">
-    <% if (typeof back !== 'undefined' && back) { %><a class="btn" href="<%= back %>">← Back</a><% } %>
+    <% if (typeof back !== 'undefined' && back) { %><a class="btn" href="<%= back %>"><%- icon('arrowLeft') %>Back</a><% } %>
     <% if (typeof shareUrl !== 'undefined' && shareUrl) { %><button class="btn" data-copy="<%= shareUrl %>">Copy customer link</button><% } %>
     <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
   </div>

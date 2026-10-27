@@ -1,7 +1,7 @@
 <%- include('../partials/site-nav', { site }) %>
 <% flash.forEach(f => { %><div class="section" style="padding-bottom:0"><div class="alert <%= f.type %>"><%= f.message %></div></div><% }) %>
 <section class="section">
-  <a href="/site/<%= site.slug %>">← All holidays</a>
+  <a href="/site/<%= site.slug %>"><%- icon('arrowLeft') %>All holidays</a>
   <div class="split" style="margin-top:16px">
     <div>
       <img src="<%= cover(pkg) %>" alt="<%= pkg.title %>" style="width:100%;max-height:380px;object-fit:cover;border-radius:14px">

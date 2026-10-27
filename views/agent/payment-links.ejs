@@ -1,7 +1,7 @@
 <div class="page-head"><div><h1>Payment links</h1><p>Collect advances or full payments from customers by UPI, card or EMI.</p></div></div>
 <div class="split">
   <div class="card flush">
-    <% if (!links.length) { %><div class="empty"><span class="big">🔗</span>No payment links yet.</div><% } else { %>
+    <% if (!links.length) { %><div class="empty"><span class="big"><%- icon('link') %></span>No payment links yet.</div><% } else { %>
     <div class="table-wrap"><table class="table">
       <thead><tr><th>For</th><th>Customer</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
       <% links.forEach(l => { %>

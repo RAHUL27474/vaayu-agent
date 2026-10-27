@@ -5,7 +5,7 @@
 </div>
 <div class="split">
   <div class="card flush">
-    <% if (!leads.length) { %><div class="empty"><span class="big">🎯</span>No leads here. Share <a href="/agent/website">your website</a> to start receiving enquiries.</div><% } else { %>
+    <% if (!leads.length) { %><div class="empty"><span class="big"><%- icon('target') %></span>No leads here. Share <a href="/agent/website">your website</a> to start receiving enquiries.</div><% } else { %>
     <div class="table-wrap"><table class="table">
       <thead><tr><th>Lead</th><th>Trip</th><th>Status</th><th></th></tr></thead>
       <% leads.forEach(l => { %>

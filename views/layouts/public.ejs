@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
   <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>VaayuTrip for Travel Agents</title>
   <meta name="description" content="VaayuTrip is the B2B travel platform for Indian travel agents: airfares, hotels, activities, transfers and visas at net rates for Dubai, Bali, Vietnam, Cambodia, the UK and Europe, to build your own packages, with branded invoices and your own website.">
   <link rel="icon" href="/img/vaayutrip-mark.svg">
@@ -10,23 +11,26 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body style="background:#fff">
+<body class="public">
 <% if (typeof bare === 'undefined' || !bare) { %>
-<nav class="site-nav">
+<header class="site-header">
+<nav class="site-nav" aria-label="Main">
   <a class="logo" href="/"><img src="/img/vaayutrip-logo.svg" alt="VaayuTrip"></a>
-  <div class="links">
+  <button class="icon-btn site-menu-toggle" type="button" data-site-menu aria-label="Menu" aria-expanded="false" aria-controls="site-menu"><%- icon('menu') %></button>
+  <div class="links site-menu" id="site-menu">
     <a href="/#features">Features</a>
     <a href="/#invoices">Branded invoices</a>
     <a href="/#how">How it works</a>
     <a href="/#faq">FAQ</a>
     <% if (user) { %>
-      <a class="btn btn-primary" href="<%= user.role === 'admin' ? '/admin' : '/agent' %>">Open portal</a>
+      <a class="btn btn-primary" href="<%= user.role === 'admin' ? '/admin' : user.role === 'backend' ? '/backend' : '/agent' %>">Open portal</a>
     <% } else { %>
-      <a href="/login">Log in</a>
+      <a href="/login" class="nav-login">Log in</a>
       <a class="btn btn-primary" href="/signup">Become a partner</a>
     <% } %>
   </div>
 </nav>
+</header>
 <% } %>
 <% if (typeof bare === 'undefined' || !bare) flash.forEach(f => { %><div class="section" style="padding-top:0;padding-bottom:0"><div class="alert <%= f.type %>"><%= f.message %></div></div><% }) %>
 <%- body %>

@@ -15,8 +15,8 @@
 <div class="page-head">
   <div><h1>Reports</h1><p>Your sales and earnings for <%= fmtDate(from) %> – <%= fmtDate(to) %>.</p></div>
   <div class="actions">
-    <a class="btn" href="/agent/reports/bookings.csv?<%= qs %>">⬇ Bookings CSV</a>
-    <a class="btn" href="/agent/reports/ledger.csv?<%= qs %>">⬇ Wallet ledger CSV</a>
+    <a class="btn" href="/agent/reports/bookings.csv?<%= qs %>"><%- icon('download') %>Bookings CSV</a>
+    <a class="btn" href="/agent/reports/ledger.csv?<%= qs %>"><%- icon('download') %>Wallet ledger CSV</a>
   </div>
 </div>
 

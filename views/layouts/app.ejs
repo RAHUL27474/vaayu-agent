@@ -3,107 +3,139 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a1d2e">
   <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>VaayuTrip Agent</title>
   <link rel="icon" href="/img/vaayutrip-mark.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
+<body class="app">
 <%
   const isAdmin = user && user.role === 'admin';
   const isBackend = user && user.role === 'backend';
   const home = isAdmin ? '/admin' : isBackend ? '/backend' : '/agent';
-  const navItem = (href, icon, label, extra) => {
-    const active = href === home ? (path === home || path === home + '/') : (path === href || path.startsWith(href + '/'));
-    return `<a href="${href}" class="${active ? 'active' : ''}"><span class="ico">${icon}</span>${label}${extra ? `<span class="count">${extra}</span>` : ''}</a>`;
-  };
+  const isActive = (href) => href === home ? (path === home || path === home + '/') : (path === href || path.startsWith(href + '/'));
+  const link = (href, ico, label, active, extra) =>
+    `<a href="${href}" class="${active ? 'active' : ''}" title="${label}"${active ? ' aria-current="page"' : ''}>${icon(ico)}<span class="lbl">${label}</span>${extra ? `<span class="count">${extra}</span>` : ''}</a>`;
+  const navItem = (href, ico, label, extra) => link(href, ico, label, isActive(href), extra);
+  const initials = user.name.replace(/\(.*\)/, '').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  const roleLabel = isAdmin ? 'VaayuTrip admin' : isBackend ? 'Backend team' : (agency ? agency.name : 'Agent');
 %>
+<a class="skip-link" href="#main">Skip to content</a>
 <div class="shell">
-  <aside class="sidebar" id="sidebar">
-    <a class="logo" href="<%= home %>">
-      <img src="/img/vaayutrip-mark.svg" alt="">
-      <span>VaayuTrip<small><%= isAdmin ? 'Admin console' : isBackend ? 'Backend portal' : 'Agent portal' %></small></span>
-    </a>
+  <aside class="sidebar" id="sidebar" aria-label="Main menu">
+    <div class="sidebar-head">
+      <a class="logo" href="<%= home %>">
+        <img src="/img/vaayutrip-mark.svg" alt="">
+        <span class="lbl">VaayuTrip<small><%= isAdmin ? 'Admin console' : isBackend ? 'Backend portal' : 'Agent portal' %></small></span>
+      </a>
+      <button class="icon-btn sidebar-close" type="button" data-nav-close aria-label="Close menu"><%- icon('x') %></button>
+    </div>
     <nav class="nav">
     <% if (isAdmin) { %>
-      <%- navItem('/admin', '◧', 'Dashboard') %>
+      <%- navItem('/admin', 'dashboard', 'Dashboard') %>
       <div class="nav-section">Monitor</div>
-      <%- navItem('/admin/log', '📜', 'Activity log') %>
-      <%- navItem('/backend', '🗂', 'Inventory (backend)') %>
-      <%- navItem('/admin/team', '👥', 'Team') %>
+      <%- navItem('/admin/log', 'activity', 'Activity log') %>
+      <%- navItem('/backend', 'layers', 'Inventory (backend)') %>
+      <%- navItem('/admin/team', 'users', 'Team') %>
       <div class="nav-section">Partners</div>
-      <%- navItem('/admin/agents', '🏢', 'Agents') %>
-      <%- navItem('/admin/topups', '⬆', 'Top-up requests', typeof pendingTopups !== 'undefined' && pendingTopups ? pendingTopups : '') %>
+      <%- navItem('/admin/agents', 'building', 'Agents') %>
+      <%- navItem('/admin/topups', 'topup', 'Top-up requests', typeof pendingTopups !== 'undefined' && pendingTopups ? pendingTopups : '') %>
       <div class="nav-section">Operations</div>
-      <%- navItem('/admin/bookings', '📋', 'Bookings') %>
-      <%- navItem('/admin/invoices', '🧾', 'Invoices') %>
-      <%- navItem('/admin/tickets', '💬', 'Support tickets', typeof openTickets !== 'undefined' && openTickets ? openTickets : '') %>
-      <%- navItem('/admin/offers', '🏷', 'Offers &amp; deals') %>
-      <%- navItem('/admin/notifications', '🔔', 'Notifications', unread || '') %>
-      <%- navItem('/admin/settings', '⚙', 'Settings') %>
+      <%- navItem('/admin/bookings', 'clipboard', 'Bookings') %>
+      <%- navItem('/admin/invoices', 'receipt', 'Invoices') %>
+      <%- navItem('/admin/tickets', 'message', 'Support tickets', typeof openTickets !== 'undefined' && openTickets ? openTickets : '') %>
+      <%- navItem('/admin/offers', 'tag', 'Offers &amp; deals') %>
+      <%- navItem('/admin/notifications', 'bell', 'Notifications', unread || '') %>
+      <%- navItem('/admin/settings', 'settings', 'Settings') %>
     <% } else if (isBackend) { %>
-      <%- navItem('/backend', '◧', 'Dashboard') %>
+      <%- navItem('/backend', 'dashboard', 'Dashboard') %>
       <div class="nav-section">Inventory</div>
       <% const navKind = typeof locals.navKind !== 'undefined' ? locals.navKind : ''; %>
-      <a href="/backend/products" class="<%= path === '/backend/products' && !navKind ? 'active' : '' %>"><span class="ico">🗂</span>All inventory</a>
+      <%- link('/backend/products', 'layers', 'All inventory', path === '/backend/products' && !navKind) %>
       <% Object.entries(locals.kindsNav || {}).forEach(([k, c]) => { %>
-        <a href="/backend/products?kind=<%= k %>" class="<%= navKind === k ? 'active' : '' %>"><span class="ico"><%= c.icon %></span><%= c.plural %></a>
+        <%- link(`/backend/products?kind=${k}`, c.icon, c.plural, navKind === k) %>
       <% }) %>
       <div class="nav-section">Tools</div>
-      <%- navItem('/backend/import', '⬆', 'Bulk import (CSV)') %>
+      <%- navItem('/backend/import', 'upload', 'Bulk import (CSV)') %>
     <% } else { %>
-      <%- navItem('/agent', '◧', 'Dashboard') %>
+      <%- navItem('/agent', 'dashboard', 'Dashboard') %>
       <div class="nav-section">Book from VaayuTrip</div>
-      <%- navItem('/agent/activities', '🎟', 'Activities') %>
-      <%- navItem('/agent/hotels', '🏨', 'Hotels') %>
-      <%- navItem('/agent/flights', '✈', 'Airfares') %>
-      <%- navItem('/agent/transfers', '🚕', 'Transfers') %>
-      <%- navItem('/agent/visas', '🛂', 'Visas') %>
-      <%- navItem('/agent/insurance', '🛡', 'Travel insurance') %>
+      <%- navItem('/agent/activities', 'ticket', 'Activities') %>
+      <%- navItem('/agent/hotels', 'bed', 'Hotels') %>
+      <%- navItem('/agent/flights', 'plane', 'Airfares') %>
+      <%- navItem('/agent/transfers', 'car', 'Transfers') %>
+      <%- navItem('/agent/visas', 'passport', 'Visas') %>
+      <%- navItem('/agent/insurance', 'shield', 'Travel insurance') %>
       <div class="nav-section">Sell</div>
-      <%- navItem('/agent/packages', '🧳', 'My packages') %>
-      <%- navItem('/agent/leads', '🎯', 'Leads') %>
-      <%- navItem('/agent/customers', '👥', 'Customers') %>
-      <%- navItem('/agent/quotes', '📝', 'Quotes') %>
-      <%- navItem('/agent/bookings', '📋', 'Bookings') %>
+      <%- navItem('/agent/packages', 'briefcase', 'My packages') %>
+      <%- navItem('/agent/leads', 'target', 'Leads') %>
+      <%- navItem('/agent/customers', 'users', 'Customers') %>
+      <%- navItem('/agent/quotes', 'file', 'Quotes') %>
+      <%- navItem('/agent/bookings', 'clipboard', 'Bookings') %>
       <div class="nav-section">Money</div>
-      <%- navItem('/agent/wallet', '👛', 'Wallet & credit') %>
-      <%- navItem('/agent/invoices', '🧾', 'Invoices') %>
-      <%- navItem('/agent/payment-links', '🔗', 'Payment links') %>
-      <%- navItem('/agent/reports', '📊', 'Reports') %>
+      <%- navItem('/agent/wallet', 'wallet', 'Wallet &amp; credit') %>
+      <%- navItem('/agent/invoices', 'receipt', 'Invoices') %>
+      <%- navItem('/agent/payment-links', 'link', 'Payment links') %>
+      <%- navItem('/agent/reports', 'chart', 'Reports') %>
       <div class="nav-section">Grow</div>
-      <%- navItem('/agent/website', '🌐', 'My website') %>
-      <%- navItem('/agent/api', '⌁', 'API access') %>
-      <%- navItem('/agent/offers', '🏷', 'Offers &amp; deals') %>
-      <%- navItem('/agent/notifications', '🔔', 'Notifications', unread || '') %>
-      <%- navItem('/agent/support', '💬', 'Help &amp; support') %>
-      <%- navItem('/agent/settings', '⚙', 'Company & branding') %>
+      <%- navItem('/agent/website', 'globe', 'My website') %>
+      <%- navItem('/agent/api', 'code', 'API access') %>
+      <%- navItem('/agent/offers', 'tag', 'Offers &amp; deals') %>
+      <%- navItem('/agent/notifications', 'bell', 'Notifications', unread || '') %>
+      <%- navItem('/agent/support', 'help', 'Help &amp; support') %>
+      <%- navItem('/agent/settings', 'settings', 'Company &amp; branding') %>
     <% } %>
     </nav>
   </aside>
+  <div class="backdrop" data-nav-close></div>
 
   <div class="main">
     <header class="topbar">
-      <button class="menu-toggle" onclick="document.body.classList.toggle('nav-open')" aria-label="Menu">☰</button>
+      <button class="icon-btn menu-toggle" type="button" data-nav-toggle aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><%- icon('menu') %></button>
       <% if (agency) { %>
-        <div class="agency-chip">
-          <% if (agency.logo_path) { %><img src="<%= agency.logo_path %>" alt="<%= agency.name %>"><% } else { %><%= agency.name %><% } %>
+        <a class="agency-chip" href="/agent/settings" title="Company &amp; branding">
+          <% if (agency.logo_path) { %><img src="<%= agency.logo_path %>" alt="<%= agency.name %>"><% } else { %><span class="agency-name"><%= agency.name %></span><% } %>
           <% if (agency.status !== 'active') { %><span class="badge <%= agency.status %>"><%= agency.status %></span><% } %>
-        </div>
+        </a>
       <% } else { %>
-        <div class="agency-chip">VaayuTrip HQ</div>
+        <div class="agency-chip"><span class="hq-tag"><%= isBackend ? 'Backend portal' : 'VaayuTrip HQ' %></span></div>
       <% } %>
       <div class="spacer"></div>
       <% if (agency) { %>
-        <div class="wallet">Wallet <b><%= inr(agency.wallet_balance) %></b> · Credit available <b><%= inr(agency.credit_limit - agency.credit_used) %></b></div>
+        <a class="balance" href="/agent/wallet"><span>Wallet</span><b><%= inr(agency.wallet_balance) %></b></a>
+        <a class="balance" href="/agent/wallet"><span>Credit available</span><b><%= inr(agency.credit_limit - agency.credit_used) %></b></a>
       <% } %>
-      <% if (!isBackend) { %><a class="bell" href="<%= home %>/notifications" aria-label="Notifications">🔔<% if (unread) { %><span class="dot"><%= unread %></span><% } %></a><% } %>
-      <span class="muted"><%= user.name %></span>
-      <form method="post" action="/logout" class="inline"><button class="btn btn-sm">Log out</button></form>
+      <% if (!isBackend) { %><a class="icon-btn bell" href="<%= home %>/notifications" aria-label="Notifications<%= unread ? ` (${unread} unread)` : '' %>"><%- icon('bell') %><% if (unread) { %><span class="dot"><%= unread %></span><% } %></a><% } %>
+      <details class="user-menu" data-dropdown>
+        <summary aria-label="Account menu">
+          <span class="avatar"><%= initials %></span>
+          <span class="who"><b><%= user.name.replace(/\s*\(.*\)/, '') %></b><small><%= roleLabel %></small></span>
+          <%- icon('chevron', 'caret') %>
+        </summary>
+        <div class="menu" role="menu">
+          <div class="menu-head"><b><%= user.name %></b><small><%= user.email %></small></div>
+          <% if (agency) { %>
+            <div class="menu-balances">
+              <div><span>Wallet</span><b><%= inr(agency.wallet_balance) %></b></div>
+              <div><span>Credit available</span><b><%= inr(agency.credit_limit - agency.credit_used) %></b></div>
+            </div>
+            <a href="/agent/settings"><%- icon('settings') %>Company &amp; branding</a>
+            <a href="/agent/wallet"><%- icon('wallet') %>Wallet &amp; credit</a>
+            <a href="/agent/support"><%- icon('help') %>Help &amp; support</a>
+          <% } else if (isAdmin) { %>
+            <a href="/admin/settings"><%- icon('settings') %>Settings</a>
+            <a href="/admin/team"><%- icon('users') %>Team</a>
+          <% } else { %>
+            <a href="/backend/import"><%- icon('upload') %>Bulk import</a>
+          <% } %>
+          <form method="post" action="/logout"><button type="submit"><%- icon('logout') %>Log out</button></form>
+        </div>
+      </details>
     </header>
-    <main class="content">
-      <% flash.forEach(f => { %><div class="alert <%= f.type %>"><%= f.message %></div><% }) %>
+    <main class="content" id="main">
+      <% flash.forEach(f => { %><div class="alert <%= f.type %>" role="status"><%- icon(f.type === 'error' ? 'xCircle' : 'checkCircle') %><span><%= f.message %></span></div><% }) %>
       <%- body %>
     </main>
   </div>

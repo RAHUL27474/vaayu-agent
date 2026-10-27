@@ -46,7 +46,7 @@
   </div>
   <div class="card flush">
     <div class="card-head"><h3>Awaiting approval</h3></div>
-    <% if (!pending.length) { %><div class="empty">None 🎉</div><% } else { %>
+    <% if (!pending.length) { %><div class="empty">Nothing waiting for approval.</div><% } else { %>
     <table class="table" style="margin-top:10px">
       <% pending.forEach(a => { %><tr class="click" data-href="/admin/agents/<%= a.id %>"><td><b><%= a.name %></b><br><small><%= a.city || '' %> · <%= fmtDate(a.created_at) %></small></td><td class="num"><span class="badge pending">Review</span></td></tr><% }) %>
     </table>

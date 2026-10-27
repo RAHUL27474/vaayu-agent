@@ -1,9 +1,9 @@
 <% const cfg = f.kind ? kinds[f.kind] : null; %>
 <div class="page-head">
-  <div><h1><%= cfg ? `${cfg.icon} ${cfg.plural}` : 'All inventory' %></h1><p>Net prices are what agents pay VaayuTrip. Drafts are hidden from agents until published.</p></div>
+  <div><h1><%= cfg ? cfg.plural : 'All inventory' %></h1><p>Net prices are what agents pay VaayuTrip. Drafts are hidden from agents until published.</p></div>
   <div class="actions">
-    <a class="btn" href="/backend/import">⬆ Bulk import</a>
-    <a class="btn btn-primary" href="/backend/products/new<%= f.kind ? `?kind=${f.kind}` : '' %>">+ Add <%= cfg ? cfg.label.toLowerCase() : 'inventory' %></a>
+    <a class="btn" href="/backend/import"><%- icon('upload') %>Bulk import</a>
+    <a class="btn btn-primary" href="/backend/products/new<%= f.kind ? `?kind=${f.kind}` : '' %>"><%- icon('plus') %>Add <%= cfg ? cfg.label.toLowerCase() : 'inventory' %></a>
   </div>
 </div>
 <form class="card" method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:14px 16px">
@@ -15,13 +15,13 @@
   <% if (f.kind || f.dest || f.status || f.q) { %><a class="btn btn-ghost" href="/backend/products">Clear</a><% } %>
 </form>
 <div class="card flush">
-  <% if (!products.length) { %><div class="empty"><span class="big">🗂</span>Nothing here yet. <a href="/backend/products/new<%= f.kind ? `?kind=${f.kind}` : '' %>">Add the first one</a> or <a href="/backend/import">import a CSV</a>.</div><% } else { %>
+  <% if (!products.length) { %><div class="empty"><span class="big"><%- icon('layers') %></span>Nothing here yet. <a href="/backend/products/new<%= f.kind ? `?kind=${f.kind}` : '' %>">Add the first one</a> or <a href="/backend/import">import a CSV</a>.</div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Item</th><% if (!f.kind) { %><th>Type</th><% } %><th>Price basis</th><th class="num">Net</th><th>Status</th><th>Last updated</th><th class="num">Bookings</th></tr></thead>
     <% products.forEach(p => { %>
       <tr class="click" data-href="/backend/products/<%= p.id %>">
         <td><b><%= p.title %></b><br><small><%= p.line %></small></td>
-        <% if (!f.kind) { %><td><%= kinds[p.kind].icon %> <%= kinds[p.kind].label %></td><% } %>
+        <% if (!f.kind) { %><td><span class="kind-tag"><%- icon(kinds[p.kind].icon) %><%= kinds[p.kind].label %></span></td><% } %>
         <td><%= p.price_basis === 'per_group' ? `Per group of ${p.group_size}` : basisLabels[p.price_basis] %></td>
         <td class="num"><%= inr(p.net_adult) %><% if (p.price_basis === 'per_person' && p.net_child != null) { %><br><small class="muted">child <%= inr(p.net_child) %></small><% } %></td>
         <td><span class="badge <%= p.status %>"><%= p.status %></span></td>

@@ -3,7 +3,7 @@
 <div class="page-head">
   <div>
     <h1><%= ticket.subject %></h1>
-    <p><a href="<%= back %>">← All tickets</a> · <%= ticket.code %><% if (isAdminView) { %> · <a href="/admin/agents/<%= ticket.agency_id %>"><%= ticket.agency_name %></a><% } %>
+    <p><a href="<%= back %>"><%- icon('arrowLeft') %>All tickets</a> · <%= ticket.code %><% if (isAdminView) { %> · <a href="/admin/agents/<%= ticket.agency_id %>"><%= ticket.agency_name %></a><% } %>
       <% if (ticket.booking_code) { %> · Booking <a href="<%= isAdminView ? '/admin' : '/agent' %>/bookings/<%= ticket.booking_id %>"><%= ticket.booking_code %></a><% } %>
       · <span class="badge <%= ticket.status %>"><%= ticket.status %></span></p>
   </div>

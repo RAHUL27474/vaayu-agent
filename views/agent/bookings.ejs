@@ -1,6 +1,6 @@
 <div class="page-head"><div><h1>Bookings</h1><p>Confirmed trips, cancellations and refunds.</p></div></div>
 <div class="card flush">
-  <% if (!bookings.length) { %><div class="empty"><span class="big">📋</span>No bookings yet. Book a quote to see it here.</div><% } else { %>
+  <% if (!bookings.length) { %><div class="empty"><span class="big"><%- icon('clipboard') %></span>No bookings yet. Book a quote to see it here.</div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Booking</th><th>Customer</th><th>Travel</th><th>Status</th><th class="num">Paid to VaayuTrip</th><th class="num">Sold for</th><th class="num">Earning</th></tr></thead>
     <% bookings.forEach(b => { %>

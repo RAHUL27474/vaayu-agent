@@ -7,6 +7,7 @@ const cookieSession = require('cookie-session');
 const { one, getSettings, DATA_DIR, UPLOADS_DIR } = require('./src/db');
 const { seed } = require('./src/seed');
 const { inr, fmtDate } = require('./src/util');
+const { icon } = require('./src/icons');
 const { AppError } = require('./src/services');
 
 if (seed()) console.log('First run: demo data created.');
@@ -36,6 +37,7 @@ app.use(cookieSession({ name: 'vt_sess', secret: sessionSecret(), sameSite: 'lax
 app.use((req, res, next) => {
   res.locals.inr = inr;
   res.locals.fmtDate = fmtDate;
+  res.locals.icon = icon;
   // Package image, or a generated cover card with the destination name when none is uploaded.
   res.locals.cover = (p) => p.image_url || `/cover/${encodeURIComponent(p.destination || p.title || 'Holiday')}.svg`;
   res.locals.path = req.path;

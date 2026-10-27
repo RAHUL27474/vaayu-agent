@@ -1,13 +1,13 @@
 <div class="page-head">
   <div>
-    <h1>Namaste, <%= user.name.split(' ')[0] %> 👋</h1>
+    <h1>Namaste, <%= user.name.split(' ')[0] %></h1>
     <p><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) %></p>
   </div>
   <div class="actions">
-    <a class="btn" href="/agent/flights">✈ Airfares</a>
-    <a class="btn" href="/agent/hotels">🏨 Hotels</a>
-    <a class="btn" href="/agent/activities">🎟 Activities</a>
-    <a class="btn btn-primary" href="/agent/packages/new">+ Build a package</a>
+    <a class="btn" href="/agent/flights"><%- icon('plane') %>Airfares</a>
+    <a class="btn" href="/agent/hotels"><%- icon('bed') %>Hotels</a>
+    <a class="btn" href="/agent/activities"><%- icon('ticket') %>Activities</a>
+    <a class="btn btn-primary" href="/agent/packages/new"><%- icon('plus') %>Build a package</a>
   </div>
 </div>
 

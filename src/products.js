@@ -35,18 +35,18 @@ const MEAL_PLANS = { EP: 'Room only', CP: 'Breakfast', MAP: 'Breakfast & dinner'
  */
 const KINDS = {
   activity: {
-    label: 'Activity', plural: 'Activities', path: 'activities', icon: '🎟', basis: ['per_person', 'per_group'],
+    label: 'Activity', plural: 'Activities', path: 'activities', icon: 'ticket', basis: ['per_person', 'per_group'],
     categories: ['Sightseeing tour', 'Attraction tickets', 'Adventure', 'Water sports', 'Culture & heritage', 'Nature & wildlife', 'Food & nightlife', 'Shows & experiences', 'Day trip', 'Cruise'],
     fields: [],
   },
   hotel: {
-    label: 'Hotel', plural: 'Hotels', path: 'hotels', icon: '🏨', basis: ['per_room_night'],
+    label: 'Hotel', plural: 'Hotels', path: 'hotels', icon: 'bed', basis: ['per_room_night'],
     categories: ['Hotel', 'Resort', 'Villa', 'Boutique hotel', 'Apartment'],
     fields: [['stars', 'Stars', 'select', ['3', '4', '5']], ['room', 'Room type', 'text'], ['mealPlan', 'Meal plan', 'select', Object.keys(MEAL_PLANS)],
       ['area', 'Area / address', 'text'], ['maxGuests', 'Max guests per room', 'number']],
   },
   flight: {
-    label: 'Airfare', plural: 'Airfares', path: 'flights', icon: '✈', basis: ['per_person'],
+    label: 'Airfare', plural: 'Airfares', path: 'flights', icon: 'plane', basis: ['per_person'],
     categories: ['Economy', 'Premium economy', 'Business'],
     fields: [['airline', 'Airline', 'text'], ['flightNo', 'Flight no.', 'text'], ['from', 'From (airport code)', 'text'], ['to', 'To (airport code)', 'text'],
       ['depart', 'Departs', 'time'], ['arrive', 'Arrives', 'time'], ['trip', 'Fare type', 'select', ['oneway', 'return']],
@@ -54,18 +54,18 @@ const KINDS = {
       ['baggage', 'Baggage', 'text'], ['stops', 'Stops', 'select', ['Non-stop', '1 stop', '2 stops']], ['refundable', 'Refundable', 'select', ['No', 'Yes']]],
   },
   transfer: {
-    label: 'Transfer', plural: 'Transfers', path: 'transfers', icon: '🚕', basis: ['per_group', 'per_person'],
+    label: 'Transfer', plural: 'Transfers', path: 'transfers', icon: 'car', basis: ['per_group', 'per_person'],
     categories: ['Airport transfer', 'Intercity transfer', 'Car with driver', 'Rail', 'Ferry'],
     fields: [['vehicle', 'Vehicle / class', 'text'], ['luggage', 'Luggage allowed', 'text']],
   },
   visa: {
-    label: 'Visa', plural: 'Visas', path: 'visas', icon: '🛂', basis: ['per_person'],
+    label: 'Visa', plural: 'Visas', path: 'visas', icon: 'passport', basis: ['per_person'],
     categories: ['e-Visa', 'Visa on arrival', 'Sticker visa', 'Visa assistance'],
     fields: [['processing', 'Processing time', 'text'], ['validity', 'Validity / stay', 'text'], ['entries', 'Entries', 'select', ['Single', 'Multiple']],
       ['documents', 'Documents needed', 'textarea']],
   },
   insurance: {
-    label: 'Insurance', plural: 'Travel insurance', path: 'insurance', icon: '🛡', basis: ['per_person'],
+    label: 'Insurance', plural: 'Travel insurance', path: 'insurance', icon: 'shield', basis: ['per_person'],
     categories: ['Basic', 'Standard', 'Premium'],
     fields: [['cover', 'Medical cover', 'text'], ['maxDays', 'Trip length covered', 'text'], ['benefits', 'Other benefits', 'textarea']],
   },

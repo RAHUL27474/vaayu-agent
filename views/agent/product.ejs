@@ -13,7 +13,7 @@
   if (kind === 'insurance') facts.push(['Plan', p.category], ['Medical cover', d.cover], ['Trip length', d.maxDays], ['Other benefits', d.benefits]);
   facts.push([isHotel ? 'Check-in / out' : 'Pickup / meeting point', p.pickup], [kind === 'flight' ? 'Operates' : 'Timings', p.timing], ['Cancellation', p.cancellation]);
 %>
-<a href="/agent/<%= cfg.path %>?city=<%= encodeURIComponent(p.city) %>">← <%= cfg.plural %> in <%= p.city %></a>
+<a href="/agent/<%= cfg.path %>?city=<%= encodeURIComponent(p.city) %>"><%- icon('arrowLeft') %><%= cfg.plural %> in <%= p.city %></a>
 <div class="page-head" style="margin-top:10px">
   <div>
     <h1><%= p.title %></h1>
@@ -38,8 +38,8 @@
       </table>
       <% if (list(p.inclusions).length || list(p.exclusions).length) { %>
         <div class="grid grid-2" style="margin-top:16px">
-          <div><h3>✅ Included</h3><ul style="padding-left:18px"><% list(p.inclusions).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
-          <div><h3>❌ Not included</h3><ul style="padding-left:18px" class="muted"><% list(p.exclusions).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+          <div><h3 class="h-ok"><%- icon('checkCircle') %>Included</h3><ul style="padding-left:18px"><% list(p.inclusions).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+          <div><h3 class="h-bad"><%- icon('xCircle') %>Not included</h3><ul style="padding-left:18px" class="muted"><% list(p.exclusions).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
         </div>
       <% } %>
     </div>

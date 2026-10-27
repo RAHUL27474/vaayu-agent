@@ -61,9 +61,9 @@
 
   const section = (key, fn, list, addLabel) => `<div data-rows="${key}">${list.map((r, i) => fn(i, r)).join('')}</div>
     <template data-template="${key}">${fn('__i__', {})}</template>
-    <button type="button" class="btn btn-sm" data-add-row="${key}" style="margin-top:8px">+ ${addLabel}</button>`;
+    <button type="button" class="btn btn-sm" data-add-row="${key}" style="margin-top:8px">${icon('plus')}${addLabel}</button>`;
 %>
-<a href="<%= isNew ? '/agent/packages' : `/agent/packages/${pkg.id}` %>">← <%= isNew ? 'My packages' : pkg.title %></a>
+<a href="<%= isNew ? '/agent/packages' : `/agent/packages/${pkg.id}` %>"><%- icon('arrowLeft') %><%= isNew ? 'My packages' : pkg.title %></a>
 <div class="page-head" style="margin-top:10px">
   <div>
     <h1><%= isNew ? 'Build a package' : `Edit: ${pkg.title}` %></h1>

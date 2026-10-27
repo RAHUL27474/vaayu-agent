@@ -1,5 +1,5 @@
 <% const paid = booking.paid_wallet + booking.paid_credit; %>
-<a href="/admin/bookings">← All bookings</a>
+<a href="/admin/bookings"><%- icon('arrowLeft') %>All bookings</a>
 <div class="page-head" style="margin-top:10px">
   <div><h1><%= booking.title %></h1><p><b><%= booking.code %></b> · <a href="/admin/agents/<%= booking.agency_id %>"><%= booking.agency_name %></a> · <span class="badge <%= booking.status %>"><%= booking.status.replace('_', ' ') %></span></p></div>
 </div>

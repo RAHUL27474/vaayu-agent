@@ -1,7 +1,7 @@
 <div class="page-head">
   <div><h1>Quotes</h1><p>Build, share and convert quotes into bookings.</p></div>
   <details class="more">
-    <summary class="btn btn-primary" style="list-style:none">+ New blank quote</summary>
+    <summary class="btn btn-primary" style="list-style:none"><%- icon('plus') %>New blank quote</summary>
     <form class="card" method="post" action="/agent/quotes" style="position:absolute;right:28px;z-index:4;width:320px;margin-top:8px">
       <div class="field"><label for="nq-title">Title</label><input id="nq-title" name="title" placeholder="e.g. Manali family trip" required></div>
       <div class="field"><label for="nq-cust">Customer</label><select id="nq-cust" name="customer_id"><option value="">—</option><% customers.forEach(c => { %><option value="<%= c.id %>"><%= c.name %></option><% }) %></select></div>
@@ -16,7 +16,7 @@
   <% }) %>
 </div>
 <div class="card flush">
-  <% if (!quotes.length) { %><div class="empty"><span class="big">📝</span>No quotes here yet. Start from <a href="/agent/packages">one of your packages</a>, an <a href="/agent/activities">activity</a> or a <a href="/agent/flights">flight search</a>.</div><% } else { %>
+  <% if (!quotes.length) { %><div class="empty"><span class="big"><%- icon('file') %></span>No quotes here yet. Start from <a href="/agent/packages">one of your packages</a>, an <a href="/agent/activities">activity</a> or a <a href="/agent/flights">flight search</a>.</div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Quote</th><th>Customer</th><th>Travel</th><th>Status</th><th class="num">Customer price</th><th class="num">You earn</th></tr></thead>
     <% quotes.forEach(q => { %>

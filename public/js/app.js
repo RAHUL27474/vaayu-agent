@@ -68,3 +68,56 @@ document.querySelectorAll('select[data-tax-country]').forEach((sel) => {
 // Keep the current page's sidebar link visible when the menu is taller than the screen.
 const activeNav = document.querySelector('.sidebar .nav a.active');
 if (activeNav) activeNav.scrollIntoView({ block: 'nearest' });
+
+// Sidebar drawer on small screens: toggle, backdrop / close button / Escape / link click close it.
+const navToggle = document.querySelector('[data-nav-toggle]');
+const setNav = (open) => {
+  document.body.classList.toggle('nav-open', open);
+  if (navToggle) navToggle.setAttribute('aria-expanded', String(open));
+};
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-nav-toggle]')) setNav(!document.body.classList.contains('nav-open'));
+  else if (e.target.closest('[data-nav-close], .sidebar .nav a')) setNav(false);
+});
+
+// Public site menu on phones.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-site-menu]');
+  const header = document.querySelector('.site-header');
+  if (!header) return;
+  if (btn) {
+    const open = header.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  } else if (e.target.closest('.site-menu a')) header.classList.remove('open');
+});
+
+// Dropdowns (<details data-dropdown>) close on outside click; everything closes on Escape.
+document.addEventListener('click', (e) => {
+  document.querySelectorAll('details[data-dropdown][open]').forEach((d) => { if (!d.contains(e.target)) d.open = false; });
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  setNav(false);
+  document.querySelectorAll('details[data-dropdown][open]').forEach((d) => { d.open = false; });
+  const header = document.querySelector('.site-header.open');
+  if (header) header.classList.remove('open');
+});
+
+// Phones: plain data tables are shown as stacked cards. Label each cell with its column heading.
+// Tables with form fields, without a header, or marked .no-stack keep their layout (they scroll sideways).
+document.querySelectorAll('table.table').forEach((table) => {
+  const head = table.querySelector('thead tr');
+  if (table.querySelector('input:not([type=hidden]), select, textarea')) { table.classList.add('edit'); return; }
+  if (!head || table.classList.contains('no-stack')) return;
+  const labels = [...head.children].map((th) => th.textContent.trim());
+  if (labels.length < 2) return;
+  table.querySelectorAll('tbody tr, tr').forEach((tr) => {
+    if (tr.parentElement.tagName === 'THEAD') return;
+    let col = 0;
+    [...tr.children].forEach((td) => {
+      if (td.tagName === 'TD' && !td.hasAttribute('data-label')) td.setAttribute('data-label', labels[col] || '');
+      col += td.colSpan || 1;
+    });
+  });
+  table.classList.add('stack');
+});

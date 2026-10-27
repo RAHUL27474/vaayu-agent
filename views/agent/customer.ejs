@@ -1,4 +1,4 @@
-<a href="/agent/customers">← All customers</a>
+<a href="/agent/customers"><%- icon('arrowLeft') %>All customers</a>
 <div class="page-head" style="margin-top:10px"><div><h1><%= customer.name %></h1><p><%= [customer.phone, customer.email, customer.city].filter(Boolean).join(' · ') %></p></div></div>
 <div class="split">
   <div>

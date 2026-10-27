@@ -4,11 +4,11 @@
   const val = (v) => (v === null || v === undefined ? '' : v);
   const netLabel = { per_person: 'Net per adult (₹)', per_group: 'Net per group / vehicle (₹)', per_room_night: 'Net per room per night (₹)' };
 %>
-<a href="/backend/products?kind=<%= p.kind %>">← <%= cfg.plural %></a>
+<a href="/backend/products?kind=<%= p.kind %>"><%- icon('arrowLeft') %><%= cfg.plural %></a>
 <div class="page-head" style="margin-top:10px">
   <div>
     <h1><%= isNew ? `New ${cfg.label.toLowerCase()}` : p.title %></h1>
-    <% if (!isNew) { %><p><span class="badge <%= p.status %>"><%= p.status %></span> · <%= cfg.icon %> <%= cfg.label %> · <%= p.city %>, <%= p.country %> · in <%= p.packages %> agent package<%= p.packages === 1 ? '' : 's' %> · <%= p.bookings %> booking<%= p.bookings === 1 ? '' : 's' %></p><% } %>
+    <% if (!isNew) { %><p><span class="badge <%= p.status %>"><%= p.status %></span> · <%= cfg.label %> · <%= p.city %>, <%= p.country %> · in <%= p.packages %> agent package<%= p.packages === 1 ? '' : 's' %> · <%= p.bookings %> booking<%= p.bookings === 1 ? '' : 's' %></p><% } %>
   </div>
   <% if (!isNew) { %>
     <div class="actions">
@@ -23,7 +23,7 @@
 </div>
 <% if (isNew) { %>
   <div class="chips filter-chips" style="margin-bottom:14px">
-    <% Object.entries(kinds).forEach(([k, c]) => { %><a class="<%= k === p.kind ? 'on' : '' %>" href="/backend/products/new?kind=<%= k %>"><%= c.icon %> <%= c.label %></a><% }) %>
+    <% Object.entries(kinds).forEach(([k, c]) => { %><a class="<%= k === p.kind ? 'on' : '' %>" href="/backend/products/new?kind=<%= k %>"><%- icon(c.icon) %><%= c.label %></a><% }) %>
   </div>
 <% } %>
 

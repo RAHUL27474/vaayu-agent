@@ -1,7 +1,7 @@
 <div class="page-head"><div><h1>Offers &amp; deals</h1><p>Promotions shown to every agent on their dashboard and Offers page. Publishing one notifies all active agents.</p></div></div>
 <div class="split">
   <div class="card flush">
-    <% if (!offers.length) { %><div class="empty"><span class="big">🏷</span>No offers yet. Create one on the right.</div><% } else { %>
+    <% if (!offers.length) { %><div class="empty"><span class="big"><%- icon('tag') %></span>No offers yet. Create one on the right.</div><% } else { %>
     <div class="table-wrap"><table class="table">
       <thead><tr><th>Offer</th><th>Code</th><th>Valid till</th><th>Status</th><th></th></tr></thead>
       <% offers.forEach(o => { %>

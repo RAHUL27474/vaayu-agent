@@ -4,7 +4,7 @@
   const ownLines = calc.lines.filter(l => l.supplier === 'agent');
   const markup = priced.vaayuSell - priced.net;
 %>
-<a href="/agent/packages">← My packages</a>
+<a href="/agent/packages"><%- icon('arrowLeft') %>My packages</a>
 <div class="page-head" style="margin-top:10px">
   <div>
     <h1><%= pkg.title %></h1>

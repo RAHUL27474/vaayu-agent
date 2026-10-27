@@ -2,14 +2,14 @@
   const locked = ['booked', 'cancelled'].includes(quote.status);
   const markupLabel = quote.markup_type === 'flat' ? `${inr(quote.markup_value)} flat` : `${quote.markup_value}%`;
 %>
-<a href="/agent/quotes">← All quotes</a>
+<a href="/agent/quotes"><%- icon('arrowLeft') %>All quotes</a>
 <div class="page-head" style="margin-top:10px">
   <div>
     <h1><%= quote.title %></h1>
     <p><%= quote.code %> · <span class="badge <%= quote.status %>"><%= quote.status %></span><%= customer ? ` · ${customer.name}` : '' %><%= quote.travel_date ? ` · ${fmtDate(quote.travel_date)}` : '' %></p>
   </div>
   <div class="actions">
-    <a class="btn" href="/q/<%= quote.code %>" target="_blank">Preview customer view ↗</a>
+    <a class="btn" href="/q/<%= quote.code %>" target="_blank">Preview customer view<%- icon('external') %></a>
     <% if (quote.status === 'draft') { %><form method="post" action="/agent/quotes/<%= quote.id %>/send"><button class="btn">Mark as sent</button></form><% } %>
     <% if (!locked) { %>
       <form method="post" action="/agent/quotes/<%= quote.id %>/book" data-confirm="Book now? <%= inr(netPayable.total) %> (net + GST) will be paid to VaayuTrip from your wallet/credit.">
@@ -73,12 +73,12 @@
           <h3>Add from VaayuTrip</h3>
           <p class="muted" style="font-size:13px">Open any item, then choose this quote under "Add to a quote".</p>
           <div class="grid grid-2" style="gap:10px">
-            <a class="btn" href="/agent/flights">✈ Airfares</a>
-            <a class="btn" href="/agent/hotels">🏨 Hotels</a>
-            <a class="btn" href="/agent/activities">🎟 Activities</a>
-            <a class="btn" href="/agent/transfers">🚕 Transfers</a>
-            <a class="btn" href="/agent/visas">🛂 Visas</a>
-            <a class="btn" href="/agent/insurance">🛡 Insurance</a>
+            <a class="btn" href="/agent/flights"><%- icon('plane') %>Airfares</a>
+            <a class="btn" href="/agent/hotels"><%- icon('bed') %>Hotels</a>
+            <a class="btn" href="/agent/activities"><%- icon('ticket') %>Activities</a>
+            <a class="btn" href="/agent/transfers"><%- icon('car') %>Transfers</a>
+            <a class="btn" href="/agent/visas"><%- icon('passport') %>Visas</a>
+            <a class="btn" href="/agent/insurance"><%- icon('shield') %>Insurance</a>
           </div>
         </div>
       </div>
@@ -99,7 +99,7 @@
         <div class="hint">Shows the quote with <%= quote.invoice_mode === 'agent' ? 'your branding' : 'VaayuTrip branding and your name as the agent' %>, EMI options and an Accept button.
           <%# Opens a chat with the customer directly when we have their number (Indian 10-digit numbers get +91). %>
           <% const waDigits = customer && customer.phone ? customer.phone.replace(/\D/g, '') : ''; const waTo = waDigits.length === 10 ? `91${waDigits}` : waDigits; %>
-          <a href="https://wa.me/<%= waTo %>?text=<%= encodeURIComponent(`Hi${customer ? ' ' + customer.name : ''}, here is your quote for ${quote.title}: ${shareUrl}`) %>" target="_blank" rel="noopener">Send on WhatsApp<%= waTo ? ` to ${customer.phone}` : '' %> ↗</a></div>
+          <a href="https://wa.me/<%= waTo %>?text=<%= encodeURIComponent(`Hi${customer ? ' ' + customer.name : ''}, here is your quote for ${quote.title}: ${shareUrl}`) %>" target="_blank" rel="noopener">Send on WhatsApp<%= waTo ? ` to ${customer.phone}` : '' %><%- icon('external') %></a></div>
       </div>
       <form method="post" action="/agent/quotes/<%= quote.id %>/payment-link" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
         <div style="flex:1;min-width:160px"><label for="pl-amount">Payment link amount</label><input id="pl-amount" type="number" min="1" name="amount" value="<%= Math.round(customerTotal.total) %>"></div>

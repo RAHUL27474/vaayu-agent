@@ -5,7 +5,7 @@
   <% }) %>
 </div>
 <div class="card flush">
-  <% if (!tickets.length) { %><div class="empty"><span class="big">💬</span>No tickets.</div><% } else { %>
+  <% if (!tickets.length) { %><div class="empty"><span class="big"><%- icon('message') %></span>No tickets.</div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Ticket</th><th>Agent</th><th>Status</th><th class="num">Updated</th></tr></thead>
     <% tickets.forEach(t => { %>
