@@ -6,6 +6,7 @@ const { buildInvoice, emiPlans } = require('../pricing');
 const { h, homeFor } = require('../auth');
 const { parseDetails, present } = require('../packages');
 const { COUNTRIES, withTaxDoc, checkTax, removeDoc } = require('../kyc');
+const { DESTINATIONS, destinationOf } = require('../products');
 
 const router = express.Router();
 
@@ -19,26 +20,36 @@ router.get('/', h((req, res) => {
     flights: counts.flight || 0,
     cities: one("SELECT COUNT(DISTINCT city) AS n FROM products WHERE status = 'published'").n,
   };
-  res.page('public/home', { title: 'B2B travel platform for agents', activities, stats }, 'public');
+  // Cities and live items per destination for the destinations grid.
+  const byDest = Object.fromEntries(Object.keys(DESTINATIONS).map((d) => [d, { name: d, cities: new Set(), items: 0 }]));
+  for (const r of all("SELECT city, country, COUNT(*) AS n FROM products WHERE status = 'published' GROUP BY city, country")) {
+    const d = byDest[destinationOf(r.country)];
+    if (d) { d.cities.add(r.city); d.items += r.n; }
+  }
+  const destinations = Object.values(byDest).map((d) => ({ name: d.name, cities: [...d.cities], items: d.items }));
+  res.page('public/home', { title: 'B2B travel platform for agents', activities, stats, destinations }, 'public');
 }));
 
 // Generated cover card for packages and hotels without an uploaded photo.
-const COVER_PALETTES = [['#0b6fa4', '#0c2233'], ['#0f766e', '#042f2e'], ['#7c3aed', '#1e1b4b'], ['#c2410c', '#431407'], ['#be123c', '#4c0519'], ['#1d4ed8', '#172554'], ['#15803d', '#052e16'], ['#a16207', '#422006']];
+const COVER_PALETTES = [['#4f46e5', '#1e1b4b'], ['#0f766e', '#042f2e'], ['#7c3aed', '#2e1065'], ['#c2410c', '#431407'], ['#be123c', '#4c0519'], ['#1d4ed8', '#0f172a'], ['#047857', '#022c22'], ['#b45309', '#3b1d06']];
 router.get('/cover/:name.svg', (req, res) => {
   const name = String(req.params.name || 'Holiday').slice(0, 40);
   const esc = (s) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
   let hash = 0;
   for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
   const [c1, c2] = COVER_PALETTES[hash % COVER_PALETTES.length];
-  const size = name.length > 18 ? 52 : 68;
+  const size = name.length > 18 ? 56 : 76;
+  const cx = 860 + (hash % 180);
+  const y = 500 - size / 2;
   res.type('image/svg+xml').set('Cache-Control', 'public, max-age=86400').send(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
-<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>
-<rect width="1200" height="800" fill="url(#g)"/>
-<circle cx="${900 + (hash % 160)}" cy="${170 + (hash % 60)}" r="70" fill="#f59e0b" opacity=".85"/>
-<path d="M0 620 L${220 + (hash % 90)} ${400 + (hash % 50)} L420 560 L${640 + (hash % 80)} ${360 + (hash % 70)} L1200 650 L1200 800 L0 800 Z" fill="#fff" opacity=".12"/>
-<path d="M0 700 C200 650 400 740 600 700 S1000 650 1200 700 L1200 800 L0 800 Z" fill="#fff" opacity=".16"/>
-<text x="70" y="${470 - size}" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="800" fill="#fff">${esc(name)}</text>
-<text x="72" y="${470 - size + 52}" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" fill="#fff" opacity=".8" letter-spacing="3">VAAYUTRIP HOLIDAYS</text>
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>
+<radialGradient id="r" cx=".8" cy=".15" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>
+<rect width="1200" height="800" fill="url(#g)"/><rect width="1200" height="800" fill="url(#r)"/>
+<g fill="none" stroke="#fff" stroke-opacity=".09" stroke-width="2"><circle cx="${cx}" cy="180" r="140"/><circle cx="${cx}" cy="180" r="240"/><circle cx="${cx}" cy="180" r="340"/></g>
+<path d="M0 640 C220 590 420 680 640 630 S1020 570 1200 620 L1200 800 L0 800 Z" fill="#000" opacity=".18"/>
+<rect x="72" y="${y - size - 10}" width="48" height="5" rx="2.5" fill="#fbbf24"/>
+<text x="70" y="${y}" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="800" letter-spacing="-1" fill="#fff">${esc(name)}</text>
+<text x="72" y="${y + 50}" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="600" fill="#fff" opacity=".75" letter-spacing="4">VAAYUTRIP HOLIDAYS</text>
 </svg>`);
 });
 

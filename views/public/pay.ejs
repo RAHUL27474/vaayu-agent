@@ -1,5 +1,5 @@
 <div class="doc-wrap" style="max-width:520px">
-  <article class="doc" style="--doc-color: <%= site.brand_color || '#0b6fa4' %>;text-align:center">
+  <article class="doc" style="--doc-color: <%= site.brand_color || '#4f46e5' %>;text-align:center">
     <% if (site.logo_path) { %><img src="<%= site.logo_path %>" alt="<%= site.name %>" style="max-height:52px"><% } else { %><h2><%= site.name %></h2><% } %>
     <p class="muted" style="margin-top:14px">Payment request<%= link.customer_name ? ` for ${link.customer_name}` : '' %></p>
     <h2><%= link.purpose %></h2>

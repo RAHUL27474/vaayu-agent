@@ -1,12 +1,12 @@
 <section class="hero">
   <div class="inner">
     <div>
-      <span class="badge info" style="text-transform:none;margin-bottom:14px">Dubai · Bali · Vietnam · Cambodia · UK · Europe</span>
+      <span class="badge info" style="text-transform:none;margin-bottom:16px">B2B platform for travel agents · 6 international destinations</span>
       <h1>Your travel business, <em>powered by VaayuTrip</em>.</h1>
       <p class="lead">Airfares, hotels, activities, transfers, visas and travel insurance at agent net rates for Dubai, Bali, Vietnam, Cambodia, the UK and Europe. Build your own holiday packages from them, set your price, and send quotes and invoices with your own logo.</p>
       <div class="actions" style="margin-top:24px">
-        <a class="btn btn-accent btn-lg" href="/signup">Become a partner, free</a>
-        <a class="btn btn-lg" href="/login">Log in</a>
+        <a class="btn btn-primary btn-lg" href="/signup">Become a partner, free<%- icon('arrowRight') %></a>
+        <a class="btn btn-lg" href="/login">Log in to your portal</a>
       </div>
       <ul class="hero-points">
         <li>No joining fee</li>
@@ -38,6 +38,7 @@
 </section>
 
 <section class="section" id="features">
+  <span class="eyebrow">Platform</span>
   <h2 class="big">Everything you need to sell travel</h2>
   <p class="center">One login for inventory, sales, money and marketing, built for small and growing agencies.</p>
   <div class="grid grid-3">
@@ -50,9 +51,24 @@
   </div>
 </section>
 
+<section class="section" id="destinations" style="padding-top:0">
+  <span class="eyebrow">Destinations</span>
+  <h2 class="big">Six destinations, contracted by our team</h2>
+  <p class="center">Hotels, fares, sightseeing, transfers and visas in each, kept up to date by the VaayuTrip backend team.</p>
+  <div class="dest-grid">
+    <% destinations.forEach(d => { %>
+      <a class="dest" href="/signup">
+        <img src="<%= cover({ destination: d.name }) %>" alt="" loading="lazy">
+        <div class="cap"><small><%= d.items %> services to book</small><small><%= d.cities.length %> <%= d.cities.length === 1 ? 'city' : 'cities' %></small></div>
+      </a>
+    <% }) %>
+  </div>
+</section>
+
 <section class="section" id="invoices" style="background:var(--bg);max-width:none">
-  <div style="max-width:1200px;margin:0 auto" class="grid grid-2">
+  <div style="max-width:1240px;margin:0 auto" class="grid grid-2">
     <div>
+      <span class="eyebrow" style="text-align:left">Invoicing</span>
       <h2 class="big" style="text-align:left">Two ways to bill your customer</h2>
       <p class="muted" style="font-size:16px">You choose per quote.</p>
       <ol class="steps" style="margin-top:20px">
@@ -74,6 +90,7 @@
 </section>
 
 <section class="section" id="how">
+  <span class="eyebrow">How it works</span>
   <h2 class="big">Start selling in a day</h2>
   <div class="grid grid-4" style="margin-top:28px">
     <div class="feature"><h3>1. Sign up</h3><p class="muted">Create your agency account.</p></div>
@@ -81,12 +98,13 @@
     <div class="feature"><h3>3. Build your packages</h3><p class="muted">Pick our flights, hotels and activities for each day and set your price.</p></div>
     <div class="feature"><h3>4. Quote &amp; book</h3><p class="muted">Send branded quotes, collect payment, and book from your wallet.</p></div>
   </div>
-  <div style="text-align:center;margin-top:32px"><a class="btn btn-accent btn-lg" href="/signup">Create your free account</a></div>
+  <div style="text-align:center;margin-top:32px"><a class="btn btn-primary btn-lg" href="/signup">Create your free account</a></div>
 </section>
 
 <section class="section apply" id="apply">
   <div class="grid grid-2" style="align-items:start">
     <div>
+      <span class="eyebrow" style="text-align:left">Verification</span>
       <h2 class="big" style="text-align:left">What you need to apply</h2>
       <p class="muted" style="font-size:16px">We verify every agency before it can book, to keep the network trusted and invoices compliant.</p>
     </div>
@@ -114,6 +132,7 @@
 </section>
 
 <section class="section faq" id="faq">
+  <span class="eyebrow">FAQ</span>
   <h2 class="big">Questions agents ask</h2>
   <div class="faq-list">
     <details>
@@ -154,6 +173,6 @@
 <section class="cta-band">
   <div class="inner">
     <div><h2>Ready to sell more trips under your own brand?</h2><p>Set up takes ten minutes. We'll verify you within a working day.</p></div>
-    <a class="btn btn-accent btn-lg" href="/signup">Become a partner, free</a>
+    <a class="btn btn-lg" href="/signup">Become a partner, free<%- icon('arrowRight') %></a>
   </div>
 </section>
