@@ -60,7 +60,29 @@ router.get('/', h((req, res) => {
   const leads = all("SELECT * FROM leads WHERE agency_id = ? AND status = 'new' ORDER BY id DESC LIMIT 5", a);
   const upcoming = all("SELECT * FROM bookings WHERE agency_id = ? AND status = 'confirmed' AND travel_date >= date('now') ORDER BY travel_date LIMIT 5", a);
   const featured = all("SELECT * FROM packages WHERE status = 'published' ORDER BY updated_at DESC LIMIT 3").map((p) => ({ ...p, price: svc.packageSellPrice(req.agency, p) }));
-  res.page('agent/dashboard', { title: 'Dashboard', stats, openLeads, quotes, bookings, leads, upcoming, featured, branded: agencyHasBranding(req.agency) });
+  const branded = agencyHasBranding(req.agency);
+  // Last 6 calendar months, oldest first, including months without bookings.
+  const earned = Object.fromEntries(all(
+    `SELECT substr(created_at, 1, 7) AS month, SUM(total_sell - total_net) AS earnings, COUNT(*) AS n FROM bookings
+     WHERE agency_id = ? AND status != 'cancelled' AND created_at >= date('now', 'start of month', '-5 months') GROUP BY month`, a,
+  ).map((m) => [m.month, m]));
+  const chart = [...Array(6)].map((_, i) => {
+    const d = new Date();
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() - 5 + i);
+    const m = earned[d.toISOString().slice(0, 7)];
+    return { label: d.toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' }), value: m ? m.earnings : 0, note: m ? `${m.n} booking${m.n === 1 ? '' : 's'}` : 'no bookings' };
+  });
+  const hasQuote = quotes.length > 0;
+  const hasBooking = bookings.length > 0;
+  const checklist = [
+    { done: Boolean(req.agency.tax_doc), label: 'Upload your tax registration', href: '/agent/settings#tax' },
+    { done: req.agency.status === 'active', label: 'Get approved by VaayuTrip', href: '/agent/support' },
+    { done: branded, label: 'Add your logo for branded invoices', href: '/agent/settings' },
+    { done: hasQuote, label: 'Create your first quote', href: '/agent/packages' },
+    { done: hasBooking, label: 'Make your first booking', href: '/agent/quotes' },
+  ];
+  res.page('agent/dashboard', { title: 'Dashboard', stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers: liveOffers(2) });
 }));
 
 // ---------- packages from VaayuTrip ----------
@@ -105,6 +127,8 @@ router.get('/packages/:id', h((req, res, next) => {
     title: pkg.title, pkg, details, calc, priced, calculated: Object.keys(req.query).length > 0,
     view: present(pkg, details, calc.options.category, true),
     from: svc.packageSellPrice(req.agency, pkg), customers: customersOf(req.agency.id),
+    // The agent's own website only serves active agencies with the site switched on.
+    siteUrl: req.agency.status === 'active' && req.agency.website_enabled ? `${req.protocol}://${req.get('host')}/site/${req.agency.slug}/p/${pkg.slug}` : null,
   });
 }));
 
@@ -518,6 +542,144 @@ router.get('/notifications', h((req, res) => {
   run('UPDATE notifications SET is_read = 1 WHERE agency_id = ?', req.agency.id);
   res.locals.unread = 0;
   res.page('agent/notifications', { title: 'Notifications', items });
+}));
+
+// ---------- offers ----------
+
+const liveOffers = (limit = 50) => all(
+  "SELECT * FROM offers WHERE is_active = 1 AND (valid_until IS NULL OR valid_until >= date('now')) ORDER BY COALESCE(valid_until, '9999') , id DESC LIMIT ?", limit,
+);
+
+router.get('/offers', h((req, res) => {
+  res.page('agent/offers', { title: 'Offers & deals', offers: liveOffers() });
+}));
+
+// ---------- support ----------
+
+const TICKET_CATEGORIES = { booking: 'Booking or amendment', payment: 'Wallet, payment or refund', technical: 'Portal or website issue', general: 'Something else' };
+
+router.get('/support', h((req, res) => {
+  const tickets = all(
+    `SELECT t.*, (SELECT COUNT(*) FROM ticket_messages m WHERE m.ticket_id = t.id) AS messages
+     FROM tickets t WHERE t.agency_id = ? ORDER BY CASE t.status WHEN 'closed' THEN 1 ELSE 0 END, t.updated_at DESC`, req.agency.id,
+  );
+  const bookings = all('SELECT id, code, title FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 30', req.agency.id);
+  res.page('agent/support', { title: 'Help & support', tickets, bookings, categories: TICKET_CATEGORIES, settings: getSettings() });
+}));
+
+router.post('/support', h((req, res) => {
+  const subject = str(req.body.subject).slice(0, 140);
+  const body = str(req.body.body).slice(0, 4000);
+  if (!subject || !body) throw new svc.AppError('Add a subject and describe the issue.');
+  const category = TICKET_CATEGORIES[req.body.category] ? req.body.category : 'general';
+  const booking = num(req.body.booking_id) ? one('SELECT id FROM bookings WHERE id = ? AND agency_id = ?', num(req.body.booking_id), req.agency.id) : null;
+  const id = tx(() => {
+    const ticketId = run('INSERT INTO tickets (agency_id, code, subject, category, booking_id) VALUES (?, ?, ?, ?, ?)',
+      req.agency.id, code('T'), subject, category, booking ? booking.id : null).lastInsertRowid;
+    run('INSERT INTO ticket_messages (ticket_id, user_id, body) VALUES (?, ?, ?)', ticketId, req.user.id, body);
+    notify(null, 'New support ticket', `${req.agency.name}: ${subject}`, `/admin/tickets/${ticketId}`);
+    return ticketId;
+  });
+  req.flash('success', 'Ticket raised. Our team usually replies within a few working hours.');
+  res.redirect(`/agent/support/${id}`);
+}));
+
+router.get('/support/:id', h((req, res, next) => {
+  const ticket = one('SELECT t.*, b.code AS booking_code FROM tickets t LEFT JOIN bookings b ON b.id = t.booking_id WHERE t.id = ? AND t.agency_id = ?', num(req.params.id), req.agency.id);
+  if (!ticket) return next();
+  const messages = all('SELECT m.*, u.name AS author FROM ticket_messages m LEFT JOIN users u ON u.id = m.user_id WHERE m.ticket_id = ? ORDER BY m.id', ticket.id);
+  res.page('ticket', { title: `${ticket.code} · ${ticket.subject}`, ticket, messages, base: '/agent/support', back: '/agent/support' });
+}));
+
+router.post('/support/:id/reply', h((req, res, next) => {
+  const ticket = one('SELECT * FROM tickets WHERE id = ? AND agency_id = ?', num(req.params.id), req.agency.id);
+  if (!ticket) return next();
+  const body = str(req.body.body).slice(0, 4000);
+  const close = req.body.close === '1';
+  if (!body && !close) throw new svc.AppError('Write a message first.');
+  tx(() => {
+    if (body) run('INSERT INTO ticket_messages (ticket_id, user_id, body) VALUES (?, ?, ?)', ticket.id, req.user.id, body);
+    run("UPDATE tickets SET status = ?, updated_at = datetime('now') WHERE id = ?", close ? 'closed' : 'open', ticket.id);
+    if (body) notify(null, 'Ticket updated', `${req.agency.name}: ${ticket.subject}`, `/admin/tickets/${ticket.id}`);
+  });
+  req.flash('success', close ? 'Ticket closed. Reply any time to reopen it.' : 'Message sent.');
+  res.redirect(`/agent/support/${ticket.id}`);
+}));
+
+// ---------- reports ----------
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+// Period from ?from=&to= (YYYY-MM-DD, inclusive); defaults to the last 6 months.
+function reportPeriod(q) {
+  const today = new Date().toISOString().slice(0, 10);
+  const sixMonths = new Date(Date.now() - 182 * 864e5).toISOString().slice(0, 10);
+  const from = ISO_DATE.test(q.from) ? q.from : sixMonths;
+  const to = ISO_DATE.test(q.to) ? q.to : today;
+  return from <= to ? { from, to } : { from: to, to: from };
+}
+
+// Quotes a CSV cell; text starting with = + - @ is prefixed so spreadsheets don't run it as a formula.
+const csvCell = (v) => {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'number') return String(v);
+  const s = /^[=+\-@\t\r]/.test(String(v)) ? `'${v}` : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+function sendCsv(res, filename, header, rows) {
+  res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${filename}"` });
+  res.send(`﻿${[header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n')}\r\n`);
+}
+
+router.get('/reports', h((req, res) => {
+  const a = req.agency.id;
+  const { from, to } = reportPeriod(req.query);
+  const range = [a, from, to];
+  const inRange = "agency_id = ? AND date(created_at) BETWEEN ? AND ?";
+  const totals = one(
+    `SELECT COUNT(*) FILTER (WHERE status != 'cancelled') AS bookings,
+       COALESCE(SUM(total_sell) FILTER (WHERE status != 'cancelled'), 0) AS sales,
+       COALESCE(SUM(total_net) FILTER (WHERE status != 'cancelled'), 0) AS net,
+       COALESCE(SUM(total_sell - total_net) FILTER (WHERE status != 'cancelled'), 0) AS earnings,
+       COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled,
+       COALESCE(SUM(refund_amount) FILTER (WHERE status = 'cancelled'), 0) AS refunds
+     FROM bookings WHERE ${inRange}`, ...range,
+  );
+  const months = all(
+    `SELECT substr(created_at, 1, 7) AS month, COUNT(*) AS bookings, SUM(total_sell) AS sales, SUM(total_sell - total_net) AS earnings
+     FROM bookings WHERE ${inRange} AND status != 'cancelled' GROUP BY month ORDER BY month`, ...range,
+  );
+  const destinations = all(
+    `SELECT COALESCE(p.destination, 'Custom trips') AS destination, COUNT(*) AS bookings, SUM(b.total_sell) AS sales, SUM(b.total_sell - b.total_net) AS earnings
+     FROM bookings b LEFT JOIN quotes q ON q.id = b.quote_id LEFT JOIN packages p ON p.id = q.package_id
+     WHERE b.agency_id = ? AND date(b.created_at) BETWEEN ? AND ? AND b.status != 'cancelled'
+     GROUP BY 1 ORDER BY sales DESC LIMIT 8`, ...range,
+  );
+  const customers = all(
+    `SELECT c.id, c.name, COUNT(*) AS bookings, SUM(b.total_sell) AS sales
+     FROM bookings b JOIN customers c ON c.id = b.customer_id
+     WHERE b.agency_id = ? AND date(b.created_at) BETWEEN ? AND ? AND b.status != 'cancelled'
+     GROUP BY c.id ORDER BY sales DESC LIMIT 5`, ...range,
+  );
+  res.page('agent/reports', { title: 'Reports', from, to, totals, months, destinations, customers });
+}));
+
+router.get('/reports/bookings.csv', h((req, res) => {
+  const { from, to } = reportPeriod(req.query);
+  const rows = all(
+    `SELECT b.code, b.created_at, b.title, c.name AS customer, b.travel_date, b.status, b.total_net, b.total_sell, b.paid_wallet, b.paid_credit, b.refund_amount
+     FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id
+     WHERE b.agency_id = ? AND date(b.created_at) BETWEEN ? AND ? ORDER BY b.id`, req.agency.id, from, to,
+  );
+  sendCsv(res, `bookings_${from}_to_${to}.csv`,
+    ['Booking ID', 'Booked on', 'Trip', 'Customer', 'Travel date', 'Status', 'Net (VaayuTrip)', 'Selling price', 'Your earnings', 'Paid from wallet', 'Paid from credit', 'Refund'],
+    rows.map((b) => [b.code, b.created_at.slice(0, 10), b.title, b.customer, b.travel_date, b.status, b.total_net, b.total_sell, round2(b.total_sell - b.total_net), b.paid_wallet, b.paid_credit, b.refund_amount]));
+}));
+
+router.get('/reports/ledger.csv', h((req, res) => {
+  const { from, to } = reportPeriod(req.query);
+  const rows = all('SELECT * FROM wallet_txns WHERE agency_id = ? AND date(created_at) BETWEEN ? AND ? ORDER BY id', req.agency.id, from, to);
+  sendCsv(res, `wallet-ledger_${from}_to_${to}.csv`, ['Date', 'Type', 'Amount', 'Balance after', 'Reference', 'Note'],
+    rows.map((t) => [t.created_at.slice(0, 10), t.type, t.amount, t.balance_after, t.ref, t.note]));
 }));
 
 router.get('/settings', (req, res) => {

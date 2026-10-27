@@ -1,0 +1,14 @@
+<%# One offer as a coupon-style card. Locals: o (offers row) %>
+<div class="offer">
+  <div class="offer-main">
+    <b class="offer-title"><%= o.title %></b>
+    <% if (o.body) { %><p><%= o.body %></p><% } %>
+    <div class="offer-meta">
+      <% if (o.valid_until) { %><span>Valid till <%= fmtDate(o.valid_until) %></span><% } else { %><span>Ongoing</span><% } %>
+      <% if (o.link) { %><a href="<%= o.link %>">View details →</a><% } %>
+    </div>
+  </div>
+  <% if (o.code) { %>
+    <button type="button" class="offer-code" data-copy="<%= o.code %>" title="Copy code"><small>Code</small><%= o.code %></button>
+  <% } %>
+</div>

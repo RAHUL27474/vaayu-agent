@@ -23,6 +23,8 @@ const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.disable('x-powered-by');
+// Behind Vercel's proxy, so share links get the real https:// scheme and host.
+if (process.env.VERCEL) app.set('trust proxy', true);
 
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '1h' }));

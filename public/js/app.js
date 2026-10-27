@@ -64,3 +64,7 @@ document.querySelectorAll('select[data-tax-country]').forEach((sel) => {
   sel.addEventListener('change', sync);
   sync();
 });
+
+// Keep the current page's sidebar link visible when the menu is taller than the screen.
+const activeNav = document.querySelector('.sidebar .nav a.active');
+if (activeNav) activeNav.scrollIntoView({ block: 'nearest' });

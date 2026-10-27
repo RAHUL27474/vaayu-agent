@@ -54,6 +54,7 @@ const router = express.Router();
 router.use(requireAdmin);
 router.use((req, res, next) => {
   res.locals.pendingTopups = one("SELECT COUNT(*) AS n FROM topup_requests WHERE status = 'pending'").n;
+  res.locals.openTickets = one("SELECT COUNT(*) AS n FROM tickets WHERE status = 'open'").n;
   next();
 });
 
@@ -395,6 +396,72 @@ router.get('/notifications', h((req, res) => {
   run('UPDATE notifications SET is_read = 1 WHERE agency_id IS NULL');
   res.locals.unread = 0;
   res.page('agent/notifications', { title: 'Notifications', items });
+}));
+
+// ---------- offers ----------
+
+router.get('/offers', h((req, res) => {
+  const offers = all("SELECT *, (is_active = 1 AND (valid_until IS NULL OR valid_until >= date('now'))) AS live FROM offers ORDER BY id DESC");
+  res.page('admin/offers', { title: 'Offers & deals', offers });
+}));
+
+router.post('/offers', h((req, res) => {
+  const b = req.body;
+  const title = str(b.title).slice(0, 120);
+  if (!title) throw new svc.AppError('Give the offer a title.');
+  // Links stay inside the agent portal so an offer can't send agents to another site.
+  const link = str(b.link);
+  if (link && !/^\/agent(\/[\w\-/?=&.%]*)?$/.test(link)) throw new svc.AppError('Link must be a page in the agent portal, starting with /agent');
+  run('INSERT INTO offers (title, body, code, link, valid_until) VALUES (?, ?, ?, ?, ?)',
+    title, str(b.body).slice(0, 400) || null, str(b.code).toUpperCase().slice(0, 30) || null, link || null, /^\d{4}-\d{2}-\d{2}$/.test(b.valid_until) ? b.valid_until : null);
+  for (const a of all("SELECT id FROM agencies WHERE status = 'active'")) notify(a.id, 'New offer', title, '/agent/offers');
+  req.flash('success', 'Offer published to all active agents.');
+  res.redirect('/admin/offers');
+}));
+
+router.post('/offers/:id/toggle', h((req, res) => {
+  run('UPDATE offers SET is_active = 1 - is_active WHERE id = ?', num(req.params.id));
+  res.redirect('/admin/offers');
+}));
+
+router.post('/offers/:id/delete', h((req, res) => {
+  run('DELETE FROM offers WHERE id = ?', num(req.params.id));
+  req.flash('success', 'Offer deleted.');
+  res.redirect('/admin/offers');
+}));
+
+// ---------- support tickets ----------
+
+router.get('/tickets', h((req, res) => {
+  const status = ['open', 'answered', 'closed'].includes(req.query.status) ? req.query.status : '';
+  const tickets = all(
+    `SELECT t.*, a.name AS agency_name, (SELECT COUNT(*) FROM ticket_messages m WHERE m.ticket_id = t.id) AS messages
+     FROM tickets t JOIN agencies a ON a.id = t.agency_id ${status ? 'WHERE t.status = ?' : ''}
+     ORDER BY CASE t.status WHEN 'open' THEN 0 WHEN 'answered' THEN 1 ELSE 2 END, t.updated_at DESC`, ...(status ? [status] : []),
+  );
+  res.page('admin/tickets', { title: 'Support tickets', tickets, status });
+}));
+
+router.get('/tickets/:id', h((req, res, next) => {
+  const ticket = one('SELECT t.*, a.name AS agency_name, b.code AS booking_code FROM tickets t JOIN agencies a ON a.id = t.agency_id LEFT JOIN bookings b ON b.id = t.booking_id WHERE t.id = ?', num(req.params.id));
+  if (!ticket) return next();
+  const messages = all('SELECT m.*, u.name AS author FROM ticket_messages m LEFT JOIN users u ON u.id = m.user_id WHERE m.ticket_id = ? ORDER BY m.id', ticket.id);
+  res.page('ticket', { title: `${ticket.code} · ${ticket.subject}`, ticket, messages, base: '/admin/tickets', back: '/admin/tickets' });
+}));
+
+router.post('/tickets/:id/reply', h((req, res, next) => {
+  const ticket = one('SELECT * FROM tickets WHERE id = ?', num(req.params.id));
+  if (!ticket) return next();
+  const body = str(req.body.body).slice(0, 4000);
+  const close = req.body.close === '1';
+  if (!body && !close) throw new svc.AppError('Write a reply first.');
+  tx(() => {
+    if (body) run('INSERT INTO ticket_messages (ticket_id, user_id, from_admin, body) VALUES (?, ?, 1, ?)', ticket.id, req.user.id, body);
+    run("UPDATE tickets SET status = ?, updated_at = datetime('now') WHERE id = ?", close ? 'closed' : 'answered', ticket.id);
+    notify(ticket.agency_id, close ? 'Ticket closed' : 'Support replied', `${ticket.code}: ${ticket.subject}`, `/agent/support/${ticket.id}`);
+  });
+  req.flash('success', close ? 'Ticket closed.' : 'Reply sent.');
+  res.redirect(`/admin/tickets/${ticket.id}`);
 }));
 
 const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'tax_rate', 'tcs_rate', 'emi_rate'];

@@ -1,0 +1,21 @@
+<div class="page-head"><div><h1>Support tickets</h1><p>Questions and requests from agents. Open tickets are waiting on us.</p></div></div>
+<div class="chips" style="margin-bottom:16px">
+  <% [['', 'All'], ['open', 'Open'], ['answered', 'Answered'], ['closed', 'Closed']].forEach(([k, label]) => { %>
+    <a class="chip<%= status === k ? ' on' : '' %>" href="/admin/tickets<%= k ? `?status=${k}` : '' %>"><%= label %></a>
+  <% }) %>
+</div>
+<div class="card flush">
+  <% if (!tickets.length) { %><div class="empty"><span class="big">💬</span>No tickets.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Ticket</th><th>Agent</th><th>Status</th><th class="num">Updated</th></tr></thead>
+    <% tickets.forEach(t => { %>
+      <tr class="click" data-href="/admin/tickets/<%= t.id %>">
+        <td><b><%= t.subject %></b><br><small><%= t.code %> · <%= t.category %> · <%= t.messages %> message<%= t.messages === 1 ? '' : 's' %></small></td>
+        <td><%= t.agency_name %></td>
+        <td><span class="badge <%= t.status %>"><%= t.status %></span></td>
+        <td class="num"><small><%= fmtDate(t.updated_at) %></small></td>
+      </tr>
+    <% }) %>
+  </table></div>
+  <% } %>
+</div>

@@ -221,6 +221,39 @@ CREATE TABLE IF NOT EXISTS notifications (
   is_read INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Deals VaayuTrip promotes to all agents (shown on the dashboard and the Offers page).
+CREATE TABLE IF NOT EXISTS offers (
+  id INTEGER PRIMARY KEY,
+  title TEXT NOT NULL,
+  body TEXT,
+  code TEXT,                                       -- optional promo code agents quote to customers
+  link TEXT,                                       -- optional in-portal link, e.g. /agent/packages/goa-beach-escape
+  valid_until TEXT,                                -- YYYY-MM-DD, inclusive; NULL = no end date
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS tickets (
+  id INTEGER PRIMARY KEY,
+  agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+  code TEXT UNIQUE NOT NULL,
+  subject TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'general',        -- booking | payment | technical | general
+  booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'open',             -- open | answered | closed
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS ticket_messages (
+  id INTEGER PRIMARY KEY,
+  ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  from_admin INTEGER NOT NULL DEFAULT 0,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
 
 const one = (sql, ...params) => db.prepare(sql).get(...params);

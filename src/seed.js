@@ -10,8 +10,9 @@ if (require.main === module && process.argv.includes('--reset')) {
   for (const f of [file, `${file}-wal`, `${file}-shm`]) fs.rmSync(f, { force: true });
 }
 
-const { one, run, tx, setSetting, UPLOADS_DIR: UPLOADS } = require('./db');
-const { hashPassword, code } = require('./util');
+const { one, run, tx, setSetting, getSettings, UPLOADS_DIR: UPLOADS } = require('./db');
+const { hashPassword, code, round2 } = require('./util');
+const { taxRate } = require('./pricing');
 const { KYC_DIR } = require('./kyc');
 
 // One-page PDF showing a line of text, so the demo agency has a certificate to review.
@@ -72,8 +73,10 @@ function seed() {
       'Handpicked holidays from Mumbai since 2012', 'We design stress-free family holidays across India and abroad, with 24x7 support on every trip.',
       `vt_live_${code('K', 24).slice(2).toLowerCase()}`,
     ).lastInsertRowid;
+    run("UPDATE agencies SET pan = 'AAKFS5678K', tax_doc = 'demo-skyline-gst.pdf' WHERE id = ?", skyline);
+    fs.writeFileSync(path.join(KYC_DIR, 'demo-skyline-gst.pdf'), samplePdf('SAMPLE GST certificate - Skyline Holidays LLP, GSTIN 27AAKFS5678K1Z2 (demo data)'));
     run('INSERT INTO users (role, agency_id, name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?, ?)', 'agent', skyline, 'Priya Sharma', 'agent@skyline.com', '+91 98200 11111', hashPassword('agent123'));
-    run("INSERT INTO wallet_txns (agency_id, type, amount, balance_after, ref, note) VALUES (?, 'topup', 150000, 150000, 'UTR8812004411', 'Opening top-up')", skyline);
+    run("INSERT INTO wallet_txns (agency_id, type, amount, balance_after, ref, note, created_at) VALUES (?, 'topup', 150000, 150000, 'UTR8812004411', 'Opening top-up', datetime('now', '-6 months', '-12 days'))", skyline);
 
     const ravi = run(
       `INSERT INTO agencies (name, slug, phone, email, city, status, kyc_status, wallet_balance, credit_limit, markup_type, markup_value)
@@ -112,7 +115,61 @@ function seed() {
   });
   svc.addQuoteItem(quoteId, { type: 'other', title: 'Honeymoon cake & room decoration', description: 'Arranged by Skyline Holidays', supplier: 'agent', net: 0, sell: 2500 });
   run("UPDATE quotes SET status = 'sent', invoice_mode = 'agent' WHERE id = ?", quoteId);
+  seedBookingHistory(svc, skylineAgency);
+  seedOffersAndSupport(skylineAgency);
   return true;
+}
+
+function seedOffersAndSupport(agency) {
+  const offers = [
+    ['Kashmir winter special: ₹2,000 off per couple', 'On Kashmir Paradise with Houseboat for travel between 1 Dec and 28 Feb. Applied to the net rate at booking.', 'SNOW2K', '/agent/packages', "date('now', '+45 days')"],
+    ['Extra 2% commission on international packages', 'Book any international package this month and earn 2% over your usual markup, credited to your wallet after travel.', null, '/agent/packages', "date('now', 'start of month', '+1 month', '-1 day')"],
+    ['Free airport transfers in Goa', 'Private return airport transfers included on Goa Beach Escape bookings of 2 rooms or more.', 'GOAFREE', '/agent/packages', "date('now', '+30 days')"],
+  ];
+  for (const [title, body, promo, link, until] of offers) run(`INSERT INTO offers (title, body, code, link, valid_until) VALUES (?, ?, ?, ?, ${until})`, title, body, promo, link);
+
+  const user = one('SELECT id FROM users WHERE agency_id = ?', agency.id);
+  const booking = one('SELECT id, code FROM bookings WHERE agency_id = ? ORDER BY id LIMIT 1', agency.id);
+  const ticket = run(
+    "INSERT INTO tickets (agency_id, code, subject, category, booking_id, status, created_at, updated_at) VALUES (?, ?, 'Need ground-floor rooms for senior guests', 'booking', ?, 'answered', datetime('now', '-2 days'), datetime('now', '-1 day'))",
+    agency.id, code('T'), booking ? booking.id : null,
+  ).lastInsertRowid;
+  run("INSERT INTO ticket_messages (ticket_id, user_id, body, created_at) VALUES (?, ?, ?, datetime('now', '-2 days'))", ticket, user.id,
+    'Two of the Mehta family guests are above 70. Can you request ground-floor or lift-access rooms at all hotels on this trip?');
+  run("INSERT INTO ticket_messages (ticket_id, from_admin, body, created_at) VALUES (?, 1, ?, datetime('now', '-1 day'))", ticket,
+    "Done. All three hotels have confirmed ground-floor rooms, and we've added a note to the vouchers. Let us know if you need wheelchair assistance at the airport too.");
+}
+
+// Past bookings for Skyline, made through the normal booking flow and then backdated,
+// so the dashboard chart and reports have something to show.
+function seedBookingHistory(svc, agency) {
+  const mehta = one("SELECT id FROM customers WHERE name = 'Mehta Family'");
+  const kapoor = one("SELECT id FROM customers WHERE name = 'Ananya & Rohit Kapoor'");
+  const history = [
+    { monthsAgo: 5, slug: 'rajasthan-royal-trail', date: '2026-11-08', title: 'Rajasthan Royal Trail — Mehta family', customerId: mehta.id, adults: 4 },
+    { monthsAgo: 4, slug: 'kerala-backwaters-hills', date: '2026-12-12', title: 'Kerala Backwaters — Iyer anniversary', adults: 2 },
+    { monthsAgo: 3, slug: 'kashmir-paradise-with-houseboat', date: '2027-01-15', title: 'Kashmir with Houseboat — Sharma friends', adults: 3 },
+    { monthsAgo: 2, slug: 'goa-beach-escape', date: '2026-12-27', title: 'Goa New Year — college group', adults: 2 },
+    { monthsAgo: 1, slug: 'kerala-backwaters-hills', date: '2027-02-06', title: 'Kerala Backwaters — Kapoor parents', customerId: kapoor.id, adults: 2 },
+    { monthsAgo: 0, slug: 'goa-beach-escape', date: '2027-01-09', title: 'Goa Beach Escape — Nair family', adults: 2 },
+  ];
+  for (const h of history) {
+    const pkg = one('SELECT id FROM packages WHERE slug = ?', h.slug);
+    if (!pkg) continue;
+    const quoteId = svc.createQuoteFromPackage(agency, pkg.id, { title: h.title, customerId: h.customerId || null, category: 'Standard', date: h.date, rooms: Math.ceil(h.adults / 2), adults: h.adults });
+    // Top up exactly what the booking will cost so the demo wallet keeps its opening balance.
+    const net = svc.getQuote(quoteId, agency.id).priced.net;
+    const utr = `UTR${String(7700000000 + quoteId * 7919).slice(0, 10)}`;
+    svc.moveWallet(agency.id, 'topup', round2(net * (1 + taxRate(getSettings()) / 100)), utr, 'Bank transfer');
+    const bookingId = svc.bookQuote(agency.id, quoteId);
+    const when = `datetime('now', '-${h.monthsAgo} months', '-${3 + h.monthsAgo * 2} days')`;
+    const b = one('SELECT code FROM bookings WHERE id = ?', bookingId);
+    run(`UPDATE bookings SET created_at = ${when} WHERE id = ?`, bookingId);
+    run(`UPDATE quotes SET created_at = ${when}, updated_at = ${when} WHERE id = ?`, quoteId);
+    run(`UPDATE invoices SET created_at = ${when} WHERE booking_id = ?`, bookingId);
+    run(`UPDATE wallet_txns SET created_at = ${when} WHERE ref IN (?, ?)`, b.code, utr);
+  }
+  run("DELETE FROM notifications WHERE title IN ('New booking', 'Booking confirmed')");
 }
 
 module.exports = { seed };

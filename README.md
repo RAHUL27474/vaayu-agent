@@ -54,13 +54,23 @@ The portal ships with demo packages. Click **Remove demo packages** on the Packa
   10. policies (advance and balance terms, cancellation slabs, child policy, notes, terms)
 
   A package can't be published until rates, hotels and an itinerary are in place. Publishing notifies every active agent. Packages can be duplicated.
-- Agents: approve signups, verify KYC, suspend, set credit limits, adjust wallets.
+- Agents: approve signups, verify KYC, suspend, set credit limits, adjust wallets. View each agency's tax certificate; KYC can only be marked verified once a GSTIN or tax ID and a certificate are on file.
+- Offers & deals: publish promotions (with optional promo code, expiry and portal link) to every agent's dashboard. Pause or delete them any time.
+- Support tickets: reply to agents' tickets and close them; open tickets show a count in the menu.
 - Bookings: view every booking with lead-traveller details, approve or decline cancellations, refund to credit or wallet.
 - Wallet top-ups: verify the UTR and approve to credit the agent's wallet.
 - Invoices: all B2B, VaayuTrip-to-customer and agent-branded invoices.
 - Settings: company details printed on VaayuTrip invoices, GST rate, EMI interest rate.
 
+**Signup (`/signup`)**
+- Agencies pick their country of registration. Indian agencies must give a valid GSTIN (the PAN is read from it) and upload their GST certificate. Agencies abroad give their company tax ID (VAT, TRN, EIN, ABN…) and upload a tax registration certificate.
+- Certificates (PDF, JPG, PNG or WebP, up to 5 MB) are stored privately under the data directory, never in `public/`, and only admins can open them. Agents can update their tax details later under Company & branding, which sends KYC back for review.
+
 **Agent portal (`/agent`)**
+- Dashboard: a setup checklist until the agency is fully onboarded, live offers, and a 6-month earnings chart.
+- Reports: bookings, sales, net, earnings and margin for any date range, earnings by month, top destinations and top customers, plus CSV export of bookings and the wallet ledger.
+- Offers & deals, and Help & support (tickets with VaayuTrip, plus phone, WhatsApp and email contacts).
+- Package pages have a share bar that sends the package from the agent's own website on WhatsApp.
 - Book: holiday packages, flights, hotels, transfers and cabs, travel insurance.
 - Package calculator: choose hotel category, travel date (or fixed departure), rooms, adults, children with/without bed, infants, flights on/off and optional extras. It splits adults into twin/triple/single rooms (max 3 per room), applies the right season, and shows each line, the net, the agent's markup and the per-person price. Quotes keep a frozen copy of the itinerary, hotels, flights and policies, so later package edits don't change quotes already sent.
 - International packages add TCS (configurable, 2% by default from April 2026) to customer invoices. Fixed departures hold seats on booking and release them on cancellation.
@@ -69,7 +79,7 @@ The portal ships with demo packages. Click **Remove demo packages** on the Packa
   - **My company's invoice**: your name, logo, GSTIN and colour, with all your edited items. Needs a logo uploaded under Company & branding.
   - **VaayuTrip invoice**: for agents without branding. It's issued by VaayuTrip, names the agent as "Booked through", and its prices include the agent's commission. The commission can be built into the line prices or shown as a separate "Service fee" line.
   - Every booking also generates a **B2B invoice** from VaayuTrip to the agent at net rates.
-- Share link (`/q/<code>`) with EMI options and an Accept button, plus WhatsApp sharing and payment links (`/pay/<code>`).
+- Share link (`/q/<code>`) with EMI options and an Accept button, plus WhatsApp sharing (straight to the customer's number when it's on file) and payment links (`/pay/<code>`).
 - Book now: pays VaayuTrip net + GST, from the wallet first and then the credit line.
 - Bookings and cancellation requests, customers (CRM), and leads (manual, website, API) with one-click conversion to a quote.
 - Wallet & credit, invoices, payment links, notifications.

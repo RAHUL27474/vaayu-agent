@@ -1,0 +1,25 @@
+<%# Ticket conversation, shared by agents (/agent/support) and admins (/admin/tickets). Locals: ticket, messages, base, back %>
+<% const isAdminView = base.startsWith('/admin'); %>
+<div class="page-head">
+  <div>
+    <h1><%= ticket.subject %></h1>
+    <p><a href="<%= back %>">← All tickets</a> · <%= ticket.code %><% if (isAdminView) { %> · <a href="/admin/agents/<%= ticket.agency_id %>"><%= ticket.agency_name %></a><% } %>
+      <% if (ticket.booking_code) { %> · Booking <a href="<%= isAdminView ? '/admin' : '/agent' %>/bookings/<%= ticket.booking_id %>"><%= ticket.booking_code %></a><% } %>
+      · <span class="badge <%= ticket.status %>"><%= ticket.status %></span></p>
+  </div>
+</div>
+<div class="card thread">
+  <% messages.forEach(m => { %>
+    <div class="msg <%= m.from_admin ? 'from-admin' : 'from-agent' %>">
+      <div class="msg-head"><b><%= m.from_admin ? 'VaayuTrip support' : (m.author || 'Agent') %></b><small><%= fmtDate(m.created_at) %> <%= m.created_at.slice(11, 16) %> UTC</small></div>
+      <div class="msg-body"><%= m.body %></div>
+    </div>
+  <% }) %>
+</div>
+<form class="card" method="post" action="<%= base %>/<%= ticket.id %>/reply">
+  <div class="field"><label for="reply"><%= ticket.status === 'closed' ? 'Reply to reopen' : 'Reply' %></label><textarea id="reply" name="body" maxlength="4000"></textarea></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-primary">Send</button>
+    <% if (ticket.status !== 'closed') { %><button class="btn" name="close" value="1"><%= isAdminView ? 'Send & close' : 'Mark resolved' %></button><% } %>
+  </div>
+</form>

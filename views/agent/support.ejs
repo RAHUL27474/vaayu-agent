@@ -1,0 +1,39 @@
+<div class="page-head"><div><h1>Help &amp; support</h1><p>Raise a ticket for bookings, payments or anything else. You'll get a notification when we reply.</p></div></div>
+<div class="split">
+  <div>
+    <div class="card flush">
+      <div class="card-head" style="padding:18px 20px 0"><h3>Your tickets</h3></div>
+      <% if (!tickets.length) { %><div class="empty"><span class="big">💬</span>No tickets yet.</div><% } else { %>
+      <div class="table-wrap"><table class="table" style="margin-top:10px">
+        <% tickets.forEach(t => { %>
+          <tr class="click" data-href="/agent/support/<%= t.id %>">
+            <td><b><%= t.subject %></b><br><small><%= t.code %> · <%= categories[t.category] %> · <%= t.messages %> message<%= t.messages === 1 ? '' : 's' %></small></td>
+            <td><span class="badge <%= t.status %>"><%= t.status %></span></td>
+            <td class="num"><small><%= fmtDate(t.updated_at) %></small></td>
+          </tr>
+        <% }) %>
+      </table></div>
+      <% } %>
+    </div>
+    <form class="card" method="post" action="/agent/support">
+      <h3>Raise a ticket</h3>
+      <div class="row">
+        <div class="field"><label for="category">Topic</label><select id="category" name="category"><% Object.entries(categories).forEach(([k, v]) => { %><option value="<%= k %>"><%= v %></option><% }) %></select></div>
+        <div class="field"><label for="booking_id">Booking <span class="muted">(optional)</span></label><select id="booking_id" name="booking_id"><option value="">Not about a booking</option><% bookings.forEach(b => { %><option value="<%= b.id %>"><%= b.code %> · <%= b.title %></option><% }) %></select></div>
+      </div>
+      <div class="field"><label for="subject">Subject</label><input id="subject" name="subject" maxlength="140" required></div>
+      <div class="field"><label for="body">Details</label><textarea id="body" name="body" maxlength="4000" required placeholder="What happened, and what do you need from us?"></textarea></div>
+      <button class="btn btn-primary">Submit ticket</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Talk to us</h3>
+    <dl class="kv">
+      <% if (settings.phone) { %><dt>Phone</dt><dd><a href="tel:<%= settings.phone.replace(/[^\d+]/g, '') %>"><%= settings.phone %></a></dd><% } %>
+      <% if (settings.phone) { %><dt>WhatsApp</dt><dd><a href="https://wa.me/<%= settings.phone.replace(/\D/g, '') %>" target="_blank" rel="noopener">Chat on WhatsApp</a></dd><% } %>
+      <% if (settings.email) { %><dt>Email</dt><dd><a href="mailto:<%= settings.email %>"><%= settings.email %></a></dd><% } %>
+      <dt>Hours</dt><dd>Mon–Sat, 9:30 am – 7:30 pm IST</dd>
+    </dl>
+    <p class="muted" style="font-size:13px;margin:12px 0 0">For urgent on-trip issues, call us. Tickets are best for anything that needs a written record, like refunds and amendments.</p>
+  </div>
+</div>

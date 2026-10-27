@@ -14,6 +14,8 @@ router.get('/', h((req, res) => {
   const stats = {
     agents: one("SELECT COUNT(*) AS n FROM agencies WHERE status = 'active'").n,
     packages: one("SELECT COUNT(*) AS n FROM packages WHERE status = 'published'").n,
+    destinations: one("SELECT COUNT(DISTINCT destination) AS n FROM packages WHERE status = 'published'").n,
+    international: one("SELECT COUNT(*) AS n FROM packages WHERE status = 'published' AND is_international = 1").n,
   };
   res.page('public/home', { title: 'B2B travel platform for agents', packages, stats }, 'public');
 }));

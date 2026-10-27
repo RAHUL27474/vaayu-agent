@@ -13,8 +13,26 @@
 <% if (agency.status !== 'active') { %>
   <div class="alert warn">Your account is <b><%= agency.status %></b>. VaayuTrip is reviewing your details; you can explore, build quotes and set up your branding meanwhile. Booking unlocks after approval.</div>
 <% } %>
-<% if (!branded) { %>
-  <div class="alert info">Upload your logo in <a href="/agent/settings">Company &amp; branding</a> to send invoices under your own name. Until then, customers get a VaayuTrip invoice that includes your commission.</div>
+<% const doneCount = checklist.filter(c => c.done).length; %>
+<% if (doneCount < checklist.length) { %>
+  <div class="card setup">
+    <div class="card-head">
+      <h3>Get set up</h3>
+      <span class="muted" style="font-size:13px"><%= doneCount %> of <%= checklist.length %> done</span>
+    </div>
+    <div class="progress"><div style="width:<%= Math.round(doneCount / checklist.length * 100) %>%"></div></div>
+    <ol class="checklist">
+      <% checklist.forEach(c => { %>
+        <li class="<%= c.done ? 'done' : '' %>"><% if (c.done) { %><span><%= c.label %></span><% } else { %><a href="<%= c.href %>"><%= c.label %> →</a><% } %></li>
+      <% }) %>
+    </ol>
+  </div>
+<% } %>
+
+<% if (offers.length) { %>
+  <div class="offer-strip">
+    <% offers.forEach(o => { %><%- include('../partials/offer-card', { o }) %><% }) %>
+  </div>
 <% } %>
 
 <div class="grid grid-4" style="margin-bottom:20px">
@@ -22,6 +40,13 @@
   <div class="stat"><div class="label">Credit available</div><div class="value"><%= inr(agency.credit_limit - agency.credit_used) %></div><div class="sub">of <%= inr(agency.credit_limit) %> limit</div></div>
   <div class="stat"><div class="label">Sales this month</div><div class="value"><%= inr(stats.sales) %></div><div class="sub"><%= stats.bookings %> booking<%= stats.bookings === 1 ? '' : 's' %></div></div>
   <div class="stat"><div class="label">Your earnings this month</div><div class="value profit"><%= inr(stats.earnings) %></div><div class="sub"><%= openLeads %> open lead<%= openLeads === 1 ? '' : 's' %></div></div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h3>Your earnings, last 6 months</h3><a href="/agent/reports">Full reports</a></div>
+  <% if (!chart.some(c => c.value)) { %><div class="empty">Your commission from bookings will show here.</div><% } else { %>
+    <%- include('../partials/bar-chart', { bars: chart, format: (n) => n >= 1e5 ? `₹${(n / 1e5).toFixed(1)}L` : n >= 1e3 ? `₹${Math.round(n / 1e3)}k` : inr(n) }) %>
+  <% } %>
 </div>
 
 <div class="grid grid-2">

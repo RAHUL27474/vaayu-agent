@@ -35,6 +35,8 @@
       <div class="nav-section">Operations</div>
       <%- navItem('/admin/bookings', '📋', 'Bookings') %>
       <%- navItem('/admin/invoices', '🧾', 'Invoices') %>
+      <%- navItem('/admin/tickets', '💬', 'Support tickets', typeof openTickets !== 'undefined' && openTickets ? openTickets : '') %>
+      <%- navItem('/admin/offers', '🏷', 'Offers &amp; deals') %>
       <%- navItem('/admin/notifications', '🔔', 'Notifications', unread || '') %>
       <%- navItem('/admin/settings', '⚙', 'Settings') %>
     <% } else { %>
@@ -54,10 +56,13 @@
       <%- navItem('/agent/wallet', '👛', 'Wallet & credit') %>
       <%- navItem('/agent/invoices', '🧾', 'Invoices') %>
       <%- navItem('/agent/payment-links', '🔗', 'Payment links') %>
+      <%- navItem('/agent/reports', '📊', 'Reports') %>
       <div class="nav-section">Grow</div>
       <%- navItem('/agent/website', '🌐', 'My website') %>
       <%- navItem('/agent/api', '⌁', 'API access') %>
+      <%- navItem('/agent/offers', '🏷', 'Offers &amp; deals') %>
       <%- navItem('/agent/notifications', '🔔', 'Notifications', unread || '') %>
+      <%- navItem('/agent/support', '💬', 'Help &amp; support') %>
       <%- navItem('/agent/settings', '⚙', 'Company & branding') %>
     <% } %>
     </nav>

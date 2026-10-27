@@ -94,7 +94,9 @@
         <label>Customer link</label>
         <div style="display:flex;gap:8px"><input type="text" readonly value="<%= shareUrl %>"><button class="btn" type="button" data-copy="<%= shareUrl %>">Copy</button></div>
         <div class="hint">Shows the quote with <%= quote.invoice_mode === 'agent' ? 'your branding' : 'VaayuTrip branding and your name as the agent' %>, EMI options and an Accept button.
-          <a href="https://wa.me/?text=<%= encodeURIComponent(`Hi${customer ? ' ' + customer.name : ''}, here is your quote for ${quote.title}: ${shareUrl}`) %>" target="_blank" rel="noopener">Send on WhatsApp ↗</a></div>
+          <%# Opens a chat with the customer directly when we have their number (Indian 10-digit numbers get +91). %>
+          <% const waDigits = customer && customer.phone ? customer.phone.replace(/\D/g, '') : ''; const waTo = waDigits.length === 10 ? `91${waDigits}` : waDigits; %>
+          <a href="https://wa.me/<%= waTo %>?text=<%= encodeURIComponent(`Hi${customer ? ' ' + customer.name : ''}, here is your quote for ${quote.title}: ${shareUrl}`) %>" target="_blank" rel="noopener">Send on WhatsApp<%= waTo ? ` to ${customer.phone}` : '' %> ↗</a></div>
       </div>
       <form method="post" action="/agent/quotes/<%= quote.id %>/payment-link" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
         <div style="flex:1;min-width:160px"><label for="pl-amount">Payment link amount</label><input id="pl-amount" type="number" min="1" name="amount" value="<%= Math.round(customerTotal.total) %>"></div>

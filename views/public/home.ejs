@@ -1,14 +1,18 @@
 <section class="hero">
   <div class="inner">
     <div>
-      <span class="badge info" style="text-transform:none;margin-bottom:14px">For travel agents across India</span>
+      <span class="badge info" style="text-transform:none;margin-bottom:14px">For travel agents in India and abroad</span>
       <h1>Your travel business, <em>powered by VaayuTrip</em>.</h1>
       <p class="lead">Ready-made holiday packages at agent net rates, plus flights, hotels, transfers and insurance. Add your commission, send quotes and invoices with your own logo, and get your own travel website.</p>
       <div class="actions" style="margin-top:24px">
         <a class="btn btn-accent btn-lg" href="/signup">Become a partner, free</a>
         <a class="btn btn-lg" href="/login">Log in</a>
       </div>
-      <p class="muted" style="margin-top:18px"><%= stats.packages %> packages live · <%= stats.agents %> partner agencies</p>
+      <ul class="hero-points">
+        <li>No joining fee</li>
+        <li>Approval in about one working day</li>
+        <li>Your logo on every invoice</li>
+      </ul>
     </div>
     <div class="panel">
       <div class="card-head"><h3>Quote preview</h3><span class="badge ok">Your logo</span></div>
@@ -20,6 +24,15 @@
       </table>
       <p class="muted" style="margin:12px 0 0;font-size:13px">EMI from ₹5,850/month · Shareable link · Payment link</p>
     </div>
+  </div>
+</section>
+
+<section class="stats-strip" aria-label="VaayuTrip in numbers">
+  <div class="inner">
+    <div><b><%= stats.packages %></b><span>holiday packages at net rates</span></div>
+    <div><b><%= stats.destinations %></b><span>destinations in India and abroad</span></div>
+    <div><b><%= stats.international %></b><span>international itineraries</span></div>
+    <div><b><%= stats.agents %></b><span>partner agencies selling today</span></div>
   </div>
 </section>
 
@@ -63,9 +76,75 @@
   <h2 class="big">Start selling in a day</h2>
   <div class="grid grid-4" style="margin-top:28px">
     <div class="feature"><h3>1. Sign up</h3><p class="muted">Create your agency account.</p></div>
-    <div class="feature"><h3>2. Get verified</h3><p class="muted">We approve your KYC, usually within a working day.</p></div>
+    <div class="feature"><h3>2. Get verified</h3><p class="muted">We check your GSTIN or tax ID and approve you, usually within a working day.</p></div>
     <div class="feature"><h3>3. Add your brand</h3><p class="muted">Upload your logo and set your default commission.</p></div>
     <div class="feature"><h3>4. Quote &amp; book</h3><p class="muted">Send quotes, collect payment, book from your wallet.</p></div>
   </div>
   <div style="text-align:center;margin-top:32px"><a class="btn btn-accent btn-lg" href="/signup">Create your free account</a></div>
+</section>
+
+<section class="section apply" id="apply">
+  <div class="grid grid-2" style="align-items:start">
+    <div>
+      <h2 class="big" style="text-align:left">What you need to apply</h2>
+      <p class="muted" style="font-size:16px">We verify every agency before it can book, to keep the network trusted and invoices compliant.</p>
+    </div>
+    <div class="grid grid-2">
+      <div class="feature">
+        <div class="ico">🏢</div>
+        <h3>Agencies in India</h3>
+        <ul class="ticks">
+          <li>GSTIN of the agency</li>
+          <li>GST registration certificate (PDF or photo)</li>
+          <li>Work email and mobile number</li>
+        </ul>
+      </div>
+      <div class="feature">
+        <div class="ico">🌍</div>
+        <h3>Agencies outside India</h3>
+        <ul class="ticks">
+          <li>Company tax ID (VAT, TRN, EIN, ABN…)</li>
+          <li>Tax or company registration certificate</li>
+          <li>Work email and mobile number</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section faq" id="faq">
+  <h2 class="big">Questions agents ask</h2>
+  <div class="faq-list">
+    <details>
+      <summary>Is there a joining fee or a minimum business commitment?</summary>
+      <p>No. Joining is free and there are no monthly targets. You pay only for what you book, at net rates.</p>
+    </details>
+    <details>
+      <summary>How do I earn on each booking?</summary>
+      <p>You see the VaayuTrip net price and set your own markup, as a percentage or a flat amount per booking, or price each line yourself. The difference is your earning, and your Reports page tracks it month by month.</p>
+    </details>
+    <details>
+      <summary>Can my customer see VaayuTrip on the invoice?</summary>
+      <p>Not if you don't want them to. Once you add your logo, quotes and invoices go out under your own brand. Without a logo, customers get a VaayuTrip invoice that names you as the agent and already includes your commission.</p>
+    </details>
+    <details>
+      <summary>How do I pay for bookings?</summary>
+      <p>Top up your wallet by bank transfer or UPI and book instantly. Verified agencies can also get a credit line. Cancellation refunds go back to your wallet or credit.</p>
+    </details>
+    <details>
+      <summary>We're a travel agency outside India. Can we join?</summary>
+      <p>Yes. Sign up with your company's tax ID and registration certificate instead of a GSTIN. Your tax ID appears on the invoices we issue to you.</p>
+    </details>
+    <details>
+      <summary>What if something goes wrong on a trip?</summary>
+      <p>Raise a ticket from Help &amp; support in your portal for a written record, or call or WhatsApp our team for anything urgent.</p>
+    </details>
+  </div>
+</section>
+
+<section class="cta-band">
+  <div class="inner">
+    <div><h2>Ready to sell more trips under your own brand?</h2><p>Set up takes ten minutes. We'll verify you within a working day.</p></div>
+    <a class="btn btn-accent btn-lg" href="/signup">Become a partner, free</a>
+  </div>
 </section>

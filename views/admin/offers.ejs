@@ -1,0 +1,33 @@
+<div class="page-head"><div><h1>Offers &amp; deals</h1><p>Promotions shown to every agent on their dashboard and Offers page. Publishing one notifies all active agents.</p></div></div>
+<div class="split">
+  <div class="card flush">
+    <% if (!offers.length) { %><div class="empty"><span class="big">🏷</span>No offers yet. Create one on the right.</div><% } else { %>
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Offer</th><th>Code</th><th>Valid till</th><th>Status</th><th></th></tr></thead>
+      <% offers.forEach(o => { %>
+        <tr>
+          <td><b><%= o.title %></b><% if (o.body) { %><br><small><%= o.body %></small><% } %></td>
+          <td><% if (o.code) { %><code><%= o.code %></code><% } else { %>—<% } %></td>
+          <td><%= o.valid_until ? fmtDate(o.valid_until) : 'No end date' %></td>
+          <td><span class="badge <%= o.live ? 'active' : o.is_active ? 'expired' : '' %>"><%= o.live ? 'live' : o.is_active ? 'expired' : 'paused' %></span></td>
+          <td class="num" style="white-space:nowrap">
+            <form method="post" action="/admin/offers/<%= o.id %>/toggle" class="inline"><button class="btn btn-sm"><%= o.is_active ? 'Pause' : 'Resume' %></button></form>
+            <form method="post" action="/admin/offers/<%= o.id %>/delete" class="inline" data-confirm="Delete this offer?"><button class="btn btn-sm btn-danger">Delete</button></form>
+          </td>
+        </tr>
+      <% }) %>
+    </table></div>
+    <% } %>
+  </div>
+  <form class="card" method="post" action="/admin/offers">
+    <h3>New offer</h3>
+    <div class="field"><label for="o-title">Title</label><input id="o-title" name="title" maxlength="120" required placeholder="e.g. Kashmir winter: ₹2,000 off per couple"></div>
+    <div class="field"><label for="o-body">Details</label><textarea id="o-body" name="body" maxlength="400" placeholder="Who it's for, how it applies, any conditions"></textarea></div>
+    <div class="row">
+      <div class="field"><label for="o-code">Promo code <span class="muted">(optional)</span></label><input id="o-code" name="code" maxlength="30" style="text-transform:uppercase"></div>
+      <div class="field"><label for="o-until">Valid till <span class="muted">(optional)</span></label><input id="o-until" type="date" name="valid_until"></div>
+    </div>
+    <div class="field"><label for="o-link">Link <span class="muted">(optional)</span></label><input id="o-link" name="link" placeholder="/agent/packages" pattern="/agent(/.*)?"><div class="hint">A page in the agent portal, e.g. a package.</div></div>
+    <button class="btn btn-primary">Publish offer</button>
+  </form>
+</div>
