@@ -1,0 +1,56 @@
+<div class="page-head">
+  <div><h1>Inventory</h1><p>Everything agents build their packages from: activities, hotels, airfares, transfers, visas and travel insurance in Dubai, Bali, Vietnam, Cambodia, the UK and Europe.</p></div>
+  <div class="actions"><a class="btn" href="/backend/import">⬆ Bulk import</a><a class="btn btn-primary" href="/backend/products/new">+ Add inventory</a></div>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:20px">
+  <% Object.entries(kinds).forEach(([k, c]) => { const n = byKind[k] || { live: 0, drafts: 0 }; %>
+    <a class="stat" href="/backend/products?kind=<%= k %>" style="color:inherit;text-decoration:none">
+      <div class="label"><%= c.icon %> <%= c.plural %></div>
+      <div class="value"><%= n.live || 0 %> <small class="muted" style="font-size:14px;font-weight:500">live</small></div>
+      <div class="sub"><%= n.drafts || 0 %> draft<%= n.drafts === 1 ? '' : 's' %> · <span style="color:var(--brand)">+ Add <%= c.label.toLowerCase() %></span></div>
+    </a>
+  <% }) %>
+</div>
+
+<div class="card flush">
+  <div class="card-head"><h3>Coverage by destination</h3><span class="muted">Live items. Empty cells are gaps agents can't fill from VaayuTrip.</span></div>
+  <div class="table-wrap"><table class="table" style="margin-top:10px">
+    <thead><tr><th>Destination</th><% Object.values(kinds).forEach(c => { %><th class="num"><%= c.plural %></th><% }) %></tr></thead>
+    <% destinations.forEach(dest => { %>
+      <tr>
+        <td><b><%= dest %></b></td>
+        <% Object.keys(kinds).forEach(k => { const n = coverage[dest][k] || 0; %>
+          <td class="num"><a href="/backend/products?kind=<%= k %>&dest=<%= encodeURIComponent(dest) %>" style="<%= n ? '' : 'color:var(--danger, #b91c1c);font-weight:600' %>"><%= n || 'none' %></a></td>
+        <% }) %>
+      </tr>
+    <% }) %>
+  </table></div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card flush">
+    <div class="card-head"><h3>Drafts to finish</h3><a href="/backend/products?status=draft">All drafts</a></div>
+    <% if (!drafts.length) { %><div class="empty">No drafts. Everything entered is live.</div><% } else { %>
+    <table class="table" style="margin-top:10px">
+      <% drafts.slice(0, 8).forEach(p => { %>
+        <tr class="click" data-href="/backend/products/<%= p.id %>">
+          <td><b><%= p.title %></b><br><small><%= kinds[p.kind].label %> · <%= p.city %></small></td>
+          <td><% if (p.problems.length) { %><small style="color:var(--warn)"><%= p.problems[0] %></small><% } else { %><span class="badge ok">Ready to publish</span><% } %></td>
+        </tr>
+      <% }) %>
+    </table>
+    <% } %>
+  </div>
+  <div class="card flush">
+    <div class="card-head"><h3>Recently updated</h3></div>
+    <table class="table" style="margin-top:10px">
+      <% recent.forEach(p => { %>
+        <tr class="click" data-href="/backend/products/<%= p.id %>">
+          <td><b><%= p.title %></b><br><small><%= kinds[p.kind].label %> · <%= p.city %> · <span class="badge <%= p.status %>"><%= p.status %></span></small></td>
+          <td class="num"><small><%= p.updated_by_name || 'System' %><br><span class="muted"><%= fmtDate(p.updated_at) %></span></small></td>
+        </tr>
+      <% }) %>
+    </table>
+  </div>
+</div>

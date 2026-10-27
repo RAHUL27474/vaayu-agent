@@ -47,7 +47,7 @@ app.use((req, res, next) => {
   res.locals.user = null;
   res.locals.agency = null;
   if (req.session.userId) {
-    const user = one('SELECT id, role, agency_id, name, email FROM users WHERE id = ?', req.session.userId);
+    const user = one('SELECT id, role, agency_id, name, email FROM users WHERE id = ? AND is_active = 1', req.session.userId);
     if (user) {
       req.user = user;
       res.locals.user = user;
@@ -79,6 +79,7 @@ app.use((req, res, next) => {
 app.use('/', require('./src/routes/public'));
 app.use('/agent', require('./src/routes/agent'));
 app.use('/admin', require('./src/routes/admin'));
+app.use('/backend', require('./src/routes/backend'));
 app.use('/api/v1', require('./src/routes/api'));
 
 app.use((req, res) => {

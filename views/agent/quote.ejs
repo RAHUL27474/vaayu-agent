@@ -29,7 +29,7 @@
         <table class="table">
           <thead><tr><th>Item</th><th class="num">Net</th><th class="num" style="width:130px">Your price</th><th class="num" style="width:86px">Qty</th><th class="num">Total</th><th class="num">You earn</th><th></th></tr></thead>
           <tbody>
-            <% if (!priced.lines.length) { %><tr><td colspan="7" class="empty">No items yet. Add an activity, flight or hotel, or your own service below.</td></tr><% } %>
+            <% if (!priced.lines.length) { %><tr><td colspan="7" class="empty">No items yet. Add an airfare, hotel, activity or transfer from VaayuTrip, or your own service below.</td></tr><% } %>
             <% priced.lines.forEach(l => { %>
               <tr>
                 <td>
@@ -71,11 +71,13 @@
         </form>
         <div class="card">
           <h3>Add from VaayuTrip</h3>
-          <p class="muted" style="font-size:13px">Search, then choose this quote in the "Add" menu.</p>
+          <p class="muted" style="font-size:13px">Open any item, then choose this quote under "Add to a quote".</p>
           <div class="grid grid-2" style="gap:10px">
-            <a class="btn" href="/agent/flights">✈ Flights</a>
+            <a class="btn" href="/agent/flights">✈ Airfares</a>
             <a class="btn" href="/agent/hotels">🏨 Hotels</a>
+            <a class="btn" href="/agent/activities">🎟 Activities</a>
             <a class="btn" href="/agent/transfers">🚕 Transfers</a>
+            <a class="btn" href="/agent/visas">🛂 Visas</a>
             <a class="btn" href="/agent/insurance">🛡 Insurance</a>
           </div>
         </div>

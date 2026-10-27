@@ -1,0 +1,45 @@
+<%
+  const mk = agency.markup_type === 'flat' ? `${inr(agency.markup_value)} per booking` : `${agency.markup_value}%`;
+  const qs = (over) => '?' + new URLSearchParams(Object.entries({ ...f, ...over }).filter(([, v]) => v)).toString();
+  const intro = {
+    activity: 'Tours, tickets and experiences',
+    hotel: 'Hotels at net rates per room per night',
+    flight: 'Airfares to and within our destinations, per person',
+    transfer: 'Airport and intercity transfers, cars with drivers, rail and ferries',
+    visa: 'Visas for our destinations, per traveller',
+    insurance: 'Travel insurance plans, per traveller',
+  }[kind];
+%>
+<div class="page-head">
+  <div><h1><%= cfg.icon %> <%= cfg.plural %></h1><p><%= intro %> from VaayuTrip in Dubai, Bali, Vietnam, Cambodia, the UK and Europe. Add them to a quote, or build them into your own packages. Your default markup is <%= mk %>.</p></div>
+  <a class="btn btn-primary" href="/agent/packages/new">+ Build a package</a>
+</div>
+<div class="chips filter-chips" style="margin-bottom:12px">
+  <a class="<%= !f.dest ? 'on' : '' %>" href="<%= qs({ dest: '', city: '' }) %>">All destinations</a>
+  <% destinations.forEach(d => { %><a class="<%= f.dest === d ? 'on' : '' %>" href="<%= qs({ dest: d, city: '' }) %>"><%= d %></a><% }) %>
+</div>
+<form class="card" method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:14px 16px">
+  <% if (f.dest) { %><input type="hidden" name="dest" value="<%= f.dest %>"><% } %>
+  <div style="flex:1;min-width:200px"><label for="q">Search</label><input id="q" type="search" name="q" value="<%= f.q %>" placeholder="Name or city"></div>
+  <div><label for="city">City</label><select id="city" name="city"><option value="">All cities</option><% cities.forEach(c => { %><option value="<%= c.city %>" <%= c.city === f.city ? 'selected' : '' %>><%= c.city %>, <%= c.country %> (<%= c.n %>)</option><% }) %></select></div>
+  <div><label for="category"><%= { hotel: 'Type', flight: 'Cabin', visa: 'Visa type', insurance: 'Plan' }[kind] || 'Category' %></label><select id="category" name="category"><option value="">All</option><% cfg.categories.forEach(c => { %><option <%= c === f.category ? 'selected' : '' %>><%= c %></option><% }) %></select></div>
+  <button class="btn btn-primary">Filter</button>
+  <% if (f.q || f.city || f.category) { %><a class="btn btn-ghost" href="<%= qs({ q: '', city: '', category: '' }) %>">Clear</a><% } %>
+</form>
+<% if (!products.length) { %><div class="card empty"><span class="big"><%= cfg.icon %></span>Nothing matches yet. Our team adds new <%= cfg.plural.toLowerCase() %> regularly; ask us on <a href="/agent/support">Help &amp; support</a> if you need something specific.</div><% } %>
+<div class="pkg-grid">
+  <% products.forEach(p => { %>
+    <a class="pkg" href="/agent/<%= cfg.path %>/<%= p.id %>" style="color:inherit;text-decoration:none">
+      <% if (kind === 'activity' || kind === 'hotel') { %><img src="<%= cover({ image_url: p.image_url, destination: p.city }) %>" alt="" loading="lazy"><% } %>
+      <div class="body">
+        <div class="meta"><span class="badge info"><%= p.category %></span> <%= p.city %>, <%= p.country %><%= p.duration ? ` · ${p.duration}` : '' %></div>
+        <h3><%= p.title %></h3>
+        <p class="muted" style="font-size:13px;margin:0"><%= kind === 'activity' ? p.summary : p.line %></p>
+        <div class="price">
+          <div><small class="muted">Net <%= p.price.unit %></small><br><b><%= inr(p.price.net) %></b></div>
+          <div class="num"><small class="muted"><%= p.price.earnLabel %></small><br><span class="profit"><%= inr(p.price.earn) %></span></div>
+        </div>
+      </div>
+    </a>
+  <% }) %>
+</div>

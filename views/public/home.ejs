@@ -1,9 +1,9 @@
 <section class="hero">
   <div class="inner">
     <div>
-      <span class="badge info" style="text-transform:none;margin-bottom:14px">For travel agents in India and abroad</span>
+      <span class="badge info" style="text-transform:none;margin-bottom:14px">Dubai · Bali · Vietnam · Cambodia · UK · Europe</span>
       <h1>Your travel business, <em>powered by VaayuTrip</em>.</h1>
-      <p class="lead">Tours, attraction tickets and experiences at agent net rates. Build your own holiday packages around them with your hotels and services, set your price, and send quotes and invoices with your own logo.</p>
+      <p class="lead">Airfares, hotels, activities, transfers, visas and travel insurance at agent net rates for Dubai, Bali, Vietnam, Cambodia, the UK and Europe. Build your own holiday packages from them, set your price, and send quotes and invoices with your own logo.</p>
       <div class="actions" style="margin-top:24px">
         <a class="btn btn-accent btn-lg" href="/signup">Become a partner, free</a>
         <a class="btn btn-lg" href="/login">Log in</a>
@@ -17,10 +17,11 @@
     <div class="panel">
       <div class="card-head"><h3>Your package, your price</h3><span class="badge ok">Your logo</span></div>
       <table class="table">
+        <tr><td>Delhi–Dubai return, 2 adults</td><td class="num">₹48,000 <small class="muted">net</small></td></tr>
+        <tr><td>Dubai hotel, 4 nights</td><td class="num">₹24,800 <small class="muted">net</small></td></tr>
         <tr><td>Desert safari + Burj Khalifa, 2 adults</td><td class="num">₹14,600 <small class="muted">net</small></td></tr>
-        <tr><td>Your markup (12%)</td><td class="num profit">+ ₹1,752</td></tr>
-        <tr><td>Your hotel, 4 nights (you arrange)</td><td class="num">+ ₹22,000</td></tr>
-        <tr><td><b>Customer pays</b></td><td class="num"><b>₹38,352</b> <small class="muted">+ GST</small></td></tr>
+        <tr><td>Your markup (12%)</td><td class="num profit">+ ₹10,488</td></tr>
+        <tr><td><b>Customer pays</b></td><td class="num"><b>₹97,888</b> <small class="muted">+ GST + TCS</small></td></tr>
       </table>
       <p class="muted" style="margin:12px 0 0;font-size:13px">Day-wise itinerary · Shareable link · Payment link · EMI</p>
     </div>
@@ -29,9 +30,9 @@
 
 <section class="stats-strip" aria-label="VaayuTrip in numbers">
   <div class="inner">
-    <div><b><%= stats.activities %></b><span>tours &amp; activities at net rates</span></div>
-    <div><b><%= stats.destinations %></b><span>cities in India and abroad</span></div>
-    <div><b><%= stats.countries %></b><span>countries</span></div>
+    <div><b><%= stats.hotels %></b><span>hotels at net rates</span></div>
+    <div><b><%= stats.activities %></b><span>tours &amp; activities</span></div>
+    <div><b><%= stats.cities %></b><span>cities across 6 destinations</span></div>
     <div><b><%= stats.agents %></b><span>partner agencies selling today</span></div>
   </div>
 </section>
@@ -40,9 +41,8 @@
   <h2 class="big">Everything you need to sell travel</h2>
   <p class="center">One login for inventory, sales, money and marketing, built for small and growing agencies.</p>
   <div class="grid grid-3">
-    <div class="feature"><div class="ico">🎟</div><h3>Activities at net rates</h3><p class="muted">Sightseeing tours, attraction tickets, adventure and experiences in India and abroad, contracted by the VaayuTrip team.</p></div>
-    <div class="feature"><div class="ico">🧳</div><h3>Build your own packages</h3><p class="muted">Lay out the days, drop in our activities, add your own hotels, transfers and services. Your package, your price.</p></div>
-    <div class="feature"><div class="ico">✈</div><h3>Flights, hotels, cabs, insurance</h3><p class="muted">Search and add any component to a quote, mixed with your own services.</p></div>
+    <div class="feature"><div class="ico">✈</div><h3>Every building block at net</h3><p class="muted">Airfares, hotels, activities, transfers, visas and insurance for Dubai, Bali, Vietnam, Cambodia, the UK and Europe, contracted by the VaayuTrip team.</p></div>
+    <div class="feature"><div class="ico">🧳</div><h3>Build your own packages</h3><p class="muted">We don't sell packages; you do. Lay out the days, add our services to each one, and add anything you arrange yourself. Your package, your price.</p></div>
     <div class="feature"><div class="ico">🧾</div><h3>Branded invoices</h3><p class="muted">Bill customers under your own name and logo, or use a VaayuTrip invoice that already includes your commission.</p></div>
     <div class="feature"><div class="ico">🌐</div><h3>Your own website</h3><p class="muted">A ready travel website with your branding and prices. Every enquiry lands in your leads.</p></div>
     <div class="feature"><div class="ico">👛</div><h3>Wallet, credit &amp; payment links</h3><p class="muted">Book from your wallet or credit line. Collect from customers with payment links and EMI options.</p></div>
@@ -65,7 +65,7 @@
       <% activities.forEach(a => { %>
         <div style="display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-2)">
           <img src="<%= cover({ image_url: a.image_url, destination: a.city }) %>" alt="" style="width:64px;height:48px;object-fit:cover;border-radius:6px">
-          <div><b><%= a.title %></b><br><small><%= a.city %><%= a.country !== 'India' ? `, ${a.country}` : '' %> · <%= a.duration %></small></div>
+          <div><b><%= a.title %></b><br><small><%= a.city %>, <%= a.country %> · <%= a.duration %></small></div>
         </div>
       <% }) %>
     </div>
@@ -77,8 +77,8 @@
   <div class="grid grid-4" style="margin-top:28px">
     <div class="feature"><h3>1. Sign up</h3><p class="muted">Create your agency account.</p></div>
     <div class="feature"><h3>2. Get verified</h3><p class="muted">We check your GSTIN or tax ID and approve you, usually within a working day.</p></div>
-    <div class="feature"><h3>3. Build your packages</h3><p class="muted">Pick our activities for each day, add your hotels and services, and set your price.</p></div>
-    <div class="feature"><h3>4. Quote &amp; book</h3><p class="muted">Send branded quotes, collect payment, and book activities from your wallet.</p></div>
+    <div class="feature"><h3>3. Build your packages</h3><p class="muted">Pick our flights, hotels and activities for each day and set your price.</p></div>
+    <div class="feature"><h3>4. Quote &amp; book</h3><p class="muted">Send branded quotes, collect payment, and book from your wallet.</p></div>
   </div>
   <div style="text-align:center;margin-top:32px"><a class="btn btn-accent btn-lg" href="/signup">Create your free account</a></div>
 </section>
@@ -121,11 +121,15 @@
     </details>
     <details>
       <summary>Does VaayuTrip give us ready-made packages?</summary>
-      <p>No. We supply the activities: tours, tickets and experiences at agent net rates. You design the packages yourself, adding our activities to each day alongside the hotels, transfers and services you arrange, so every holiday you sell is your own.</p>
+      <p>No. We supply the building blocks separately at agent net rates: airfares, hotels, activities, transfers, visas and travel insurance. You design the packages yourself, day by day, so every holiday you sell is your own.</p>
+    </details>
+    <details>
+      <summary>Which destinations do you cover?</summary>
+      <p>Dubai, Bali, Vietnam, Cambodia, the United Kingdom and Europe (including France, Switzerland, Italy, the Netherlands and Spain). Our team keeps adding hotels, fares and activities in each.</p>
     </details>
     <details>
       <summary>How do I earn on each booking?</summary>
-      <p>You add your markup to our activities, as a percentage or a flat amount per booking, or price each line yourself, and you charge your own price for the hotels and services you arrange. Your Reports page tracks earnings month by month.</p>
+      <p>You add your markup to everything you book from us, as a percentage or a flat amount per booking, or price each line yourself, and charge your own price for anything you arrange yourself. Your Reports page tracks earnings month by month.</p>
     </details>
     <details>
       <summary>Can my customer see VaayuTrip on the invoice?</summary>

@@ -1,21 +1,23 @@
 const express = require('express');
-const { one, all, run, tx, notify, getSettings } = require('../db');
+const { one, all, run, tx, notify, audit, getSettings } = require('../db');
 const { hashPassword, verifyPassword, uniqueSlug, num } = require('../util');
 const { getQuote, packageSellPrice } = require('../services');
 const { buildInvoice, emiPlans } = require('../pricing');
-const { h } = require('../auth');
+const { h, homeFor } = require('../auth');
 const { parseDetails, present } = require('../packages');
 const { COUNTRIES, withTaxDoc, checkTax, removeDoc } = require('../kyc');
 
 const router = express.Router();
 
 router.get('/', h((req, res) => {
-  const activities = all("SELECT * FROM activities WHERE status = 'published' ORDER BY RANDOM() LIMIT 5");
+  const activities = all("SELECT * FROM products WHERE status = 'published' AND kind = 'activity' ORDER BY RANDOM() LIMIT 5");
+  const counts = Object.fromEntries(all("SELECT kind, COUNT(*) AS n FROM products WHERE status = 'published' GROUP BY kind").map((r) => [r.kind, r.n]));
   const stats = {
     agents: one("SELECT COUNT(*) AS n FROM agencies WHERE status = 'active'").n,
-    activities: one("SELECT COUNT(*) AS n FROM activities WHERE status = 'published'").n,
-    destinations: one("SELECT COUNT(DISTINCT city) AS n FROM activities WHERE status = 'published'").n,
-    countries: one("SELECT COUNT(DISTINCT country) AS n FROM activities WHERE status = 'published'").n,
+    hotels: counts.hotel || 0,
+    activities: counts.activity || 0,
+    flights: counts.flight || 0,
+    cities: one("SELECT COUNT(DISTINCT city) AS n FROM products WHERE status = 'published'").n,
   };
   res.page('public/home', { title: 'B2B travel platform for agents', activities, stats }, 'public');
 }));
@@ -43,20 +45,21 @@ router.get('/cover/:name.svg', (req, res) => {
 // ---------- auth ----------
 
 router.get('/login', (req, res) => {
-  if (req.user) return res.redirect(req.user.role === 'admin' ? '/admin' : '/agent');
+  if (req.user) return res.redirect(homeFor(req.user.role));
   res.page('public/login', { title: 'Log in', next: req.query.next || '', email: '' }, 'public');
 });
 
 router.post('/login', h((req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const user = one('SELECT * FROM users WHERE email = ?', email);
-  if (!user || !verifyPassword(String(req.body.password || ''), user.password_hash)) {
+  if (!user || !user.is_active || !verifyPassword(String(req.body.password || ''), user.password_hash)) {
     const flash = [{ type: 'error', message: 'Wrong email or password.' }];
     return res.page('public/login', { title: 'Log in', next: req.body.next || '', email, flash }, 'public');
   }
   req.session.userId = user.id;
+  audit(user, 'user.login', { entity: 'user', id: user.id, summary: `${user.name} logged in` });
   const next = String(req.body.next || '');
-  const home = user.role === 'admin' ? '/admin' : '/agent';
+  const home = homeFor(user.role);
   res.redirect(next.startsWith(home) ? next : home);
 }));
 

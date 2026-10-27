@@ -1,0 +1,205 @@
+/**
+ * VaayuTrip's inventory: activities, hotels, airfares, transfers, visas and travel insurance in its
+ * destinations (Dubai, Bali, Vietnam, Cambodia, the UK and Europe). The backend team enters it in the
+ * backend portal; agents add items to quotes or build their own packages from them. VaayuTrip sells
+ * no packages of its own.
+ *
+ * Pricing (all net to the agent, in INR):
+ *   per_person      net per adult, per child 2-11 (empty = adult price) and per infant (empty = free)
+ *   per_group       one net price per group/vehicle of up to group_size guests (private tours, cars, boats)
+ *   per_room_night  hotels: net per room per night
+ * Kind-specific facts (hotel room and meal plan, flight schedule, visa processing time…) live in details (JSON).
+ */
+const { one, all } = require('./db');
+const { round2 } = require('./util');
+
+const DESTINATIONS = {
+  Dubai: ['United Arab Emirates'],
+  Bali: ['Indonesia'],
+  Vietnam: ['Vietnam'],
+  Cambodia: ['Cambodia'],
+  'United Kingdom': ['United Kingdom'],
+  Europe: ['France', 'Italy', 'Switzerland', 'Netherlands', 'Spain', 'Austria', 'Germany', 'Czech Republic', 'Belgium', 'Greece', 'Portugal'],
+};
+const PRODUCT_COUNTRIES = Object.values(DESTINATIONS).flat();
+// Travel insurance plans can cover every destination at once.
+const ALL_DESTINATIONS = 'All destinations';
+const validCountry = (country, kind) => PRODUCT_COUNTRIES.includes(country) || (kind === 'insurance' && country === ALL_DESTINATIONS);
+const destinationOf = (country) => Object.keys(DESTINATIONS).find((d) => DESTINATIONS[d].includes(country)) || null;
+
+const MEAL_PLANS = { EP: 'Room only', CP: 'Breakfast', MAP: 'Breakfast & dinner', AP: 'All meals', AI: 'All inclusive' };
+
+/**
+ * Each kind: labels, the URL segment agents use (/agent/<path>), allowed price bases, categories,
+ * and the kind-specific detail fields shown in the backend form ([key, label, type, options]).
+ */
+const KINDS = {
+  activity: {
+    label: 'Activity', plural: 'Activities', path: 'activities', icon: '🎟', basis: ['per_person', 'per_group'],
+    categories: ['Sightseeing tour', 'Attraction tickets', 'Adventure', 'Water sports', 'Culture & heritage', 'Nature & wildlife', 'Food & nightlife', 'Shows & experiences', 'Day trip', 'Cruise'],
+    fields: [],
+  },
+  hotel: {
+    label: 'Hotel', plural: 'Hotels', path: 'hotels', icon: '🏨', basis: ['per_room_night'],
+    categories: ['Hotel', 'Resort', 'Villa', 'Boutique hotel', 'Apartment'],
+    fields: [['stars', 'Stars', 'select', ['3', '4', '5']], ['room', 'Room type', 'text'], ['mealPlan', 'Meal plan', 'select', Object.keys(MEAL_PLANS)],
+      ['area', 'Area / address', 'text'], ['maxGuests', 'Max guests per room', 'number']],
+  },
+  flight: {
+    label: 'Airfare', plural: 'Airfares', path: 'flights', icon: '✈', basis: ['per_person'],
+    categories: ['Economy', 'Premium economy', 'Business'],
+    fields: [['airline', 'Airline', 'text'], ['flightNo', 'Flight no.', 'text'], ['from', 'From (airport code)', 'text'], ['to', 'To (airport code)', 'text'],
+      ['depart', 'Departs', 'time'], ['arrive', 'Arrives', 'time'], ['trip', 'Fare type', 'select', ['oneway', 'return']],
+      ['returnFlightNo', 'Return flight no.', 'text'], ['returnDepart', 'Return departs', 'time'], ['returnArrive', 'Return arrives', 'time'],
+      ['baggage', 'Baggage', 'text'], ['stops', 'Stops', 'select', ['Non-stop', '1 stop', '2 stops']], ['refundable', 'Refundable', 'select', ['No', 'Yes']]],
+  },
+  transfer: {
+    label: 'Transfer', plural: 'Transfers', path: 'transfers', icon: '🚕', basis: ['per_group', 'per_person'],
+    categories: ['Airport transfer', 'Intercity transfer', 'Car with driver', 'Rail', 'Ferry'],
+    fields: [['vehicle', 'Vehicle / class', 'text'], ['luggage', 'Luggage allowed', 'text']],
+  },
+  visa: {
+    label: 'Visa', plural: 'Visas', path: 'visas', icon: '🛂', basis: ['per_person'],
+    categories: ['e-Visa', 'Visa on arrival', 'Sticker visa', 'Visa assistance'],
+    fields: [['processing', 'Processing time', 'text'], ['validity', 'Validity / stay', 'text'], ['entries', 'Entries', 'select', ['Single', 'Multiple']],
+      ['documents', 'Documents needed', 'textarea']],
+  },
+  insurance: {
+    label: 'Insurance', plural: 'Travel insurance', path: 'insurance', icon: '🛡', basis: ['per_person'],
+    categories: ['Basic', 'Standard', 'Premium'],
+    fields: [['cover', 'Medical cover', 'text'], ['maxDays', 'Trip length covered', 'text'], ['benefits', 'Other benefits', 'textarea']],
+  },
+};
+const KIND_BY_PATH = Object.fromEntries(Object.entries(KINDS).map(([k, v]) => [v.path, k]));
+const BASIS_LABELS = { per_person: 'Per person', per_group: 'Per group / vehicle', per_room_night: 'Per room per night' };
+
+const str = (v) => String(v ?? '').trim();
+const money = (v) => Math.max(0, round2(parseFloat(v) || 0));
+const lines = (v) => str(v).split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+
+function parseProductDetails(json) {
+  try { return json ? JSON.parse(json) : {}; } catch { return {}; }
+}
+
+/** Fields from the backend product form, for one kind. */
+function productFromForm(b, kind) {
+  const cfg = KINDS[kind];
+  const basis = cfg.basis.includes(b.price_basis) ? b.price_basis : cfg.basis[0];
+  const optional = (v) => (str(v) === '' ? null : money(v));
+  const details = {};
+  for (const [key, , type] of cfg.fields) {
+    const v = str(b[`d_${key}`]);
+    if (v !== '') details[key] = type === 'number' ? Math.max(0, Math.round(Number(v) || 0)) : key === 'from' || key === 'to' ? v.toUpperCase().slice(0, 3) : v;
+  }
+  return {
+    kind,
+    title: str(b.title),
+    city: str(b.city),
+    country: validCountry(b.country, kind) ? b.country : '',
+    category: cfg.categories.includes(b.category) ? b.category : cfg.categories[0],
+    duration: str(b.duration) || null,
+    summary: str(b.summary) || null,
+    description: str(b.description) || null,
+    highlights: str(b.highlights) || null,
+    inclusions: str(b.inclusions) || null,
+    exclusions: str(b.exclusions) || null,
+    pickup: str(b.pickup) || null,
+    timing: str(b.timing) || null,
+    cancellation: str(b.cancellation) || null,
+    price_basis: basis,
+    group_size: basis === 'per_group' ? Math.max(1, Math.round(parseFloat(b.group_size) || 1)) : null,
+    net_adult: money(b.net_adult),
+    net_child: basis === 'per_person' ? optional(b.net_child) : null,
+    net_infant: basis === 'per_person' ? optional(b.net_infant) : null,
+    details: JSON.stringify(details),
+  };
+}
+
+/** Problems that stop a product from being published to agents. */
+function publishProblems(p) {
+  const d = parseProductDetails(p.details);
+  const out = [];
+  if (!p.title || !p.city) out.push('Add a title and city.');
+  if (!validCountry(p.country, p.kind)) out.push(`Choose a country in one of our destinations (${Object.keys(DESTINATIONS).join(', ')}).`);
+  if (!(p.net_adult > 0)) out.push('Set the net price.');
+  if (p.kind === 'activity' && !p.duration) out.push('Add the duration.');
+  if (p.kind === 'hotel' && !d.room) out.push('Add the room type.');
+  if (p.kind === 'flight' && !(d.airline && d.from && d.to)) out.push('Add the airline and the from/to airports.');
+  return out;
+}
+
+const childNet = (p) => (p.net_child == null ? p.net_adult : p.net_child);
+
+/** One-line description of a product for quotes and cards. */
+function describe(p) {
+  const d = parseProductDetails(p.details);
+  if (p.kind === 'hotel') return [`${d.stars ? `${d.stars}★ ` : ''}${d.room || 'Room'}`, MEAL_PLANS[d.mealPlan] || d.mealPlan, p.city].filter(Boolean).join(' · ');
+  if (p.kind === 'flight') {
+    const out = `${d.airline || ''} ${d.flightNo || ''} ${d.from || ''}→${d.to || ''} ${d.depart || ''}`.replace(/\s+/g, ' ').trim();
+    const back = d.trip === 'return' ? `, return ${d.returnFlightNo || ''} ${d.to || ''}→${d.from || ''} ${d.returnDepart || ''}`.replace(/\s+/g, ' ') : '';
+    return [`${out}${back}`, p.category, d.baggage].filter(Boolean).join(' · ');
+  }
+  if (p.kind === 'visa') return [p.category, d.validity, d.processing && `processing ${d.processing}`].filter(Boolean).join(' · ');
+  if (p.kind === 'insurance') return [d.cover, d.maxDays].filter(Boolean).join(' · ');
+  if (p.kind === 'transfer') return [d.vehicle, p.city].filter(Boolean).join(' · ');
+  return [p.city, p.duration, p.pickup].filter(Boolean).join(' · ');
+}
+
+/**
+ * Quote lines (at VaayuTrip net) for a party { adults, children, infants, rooms, nights }.
+ * Each line: { type, title, description, net, qty, productId }. prefix goes before the title, e.g. "Day 2: ".
+ */
+function productLines(p, party = {}, prefix = '') {
+  const adults = party.adults ?? 2;
+  const children = party.children || 0;
+  const infants = party.infants || 0;
+  const base = { type: p.kind, productId: p.id, description: describe(p) };
+  if (p.price_basis === 'per_room_night') {
+    const rooms = Math.max(1, party.rooms || Math.ceil(adults / 2));
+    const nights = Math.max(1, party.nights || 1);
+    return [{ ...base, title: `${prefix}${p.title}: ${nights} night${nights > 1 ? 's' : ''} × ${rooms} room${rooms > 1 ? 's' : ''}`, net: p.net_adult, qty: rooms * nights }];
+  }
+  if (p.price_basis === 'per_group') {
+    const groups = Math.max(1, Math.ceil((adults + children) / (p.group_size || 1)));
+    return [{ ...base, title: `${prefix}${p.title} (private, up to ${p.group_size} guests)`, net: p.net_adult, qty: groups }];
+  }
+  const out = [];
+  if (adults > 0) out.push({ ...base, title: `${prefix}${p.title}: adult`, net: p.net_adult, qty: adults });
+  if (children > 0 && childNet(p) > 0) out.push({ ...base, title: `${prefix}${p.title}: child`, net: childNet(p), qty: children });
+  if (infants > 0 && p.net_infant > 0) out.push({ ...base, title: `${prefix}${p.title}: infant`, net: p.net_infant, qty: infants });
+  return out;
+}
+
+const UNIT_LABELS = { per_person: 'per adult', per_room_night: 'per room / night' };
+/** Catalogue card price: net per unit and what the agent earns with their default markup. */
+function cardPrice(agency, p) {
+  const unit = p.price_basis === 'per_group' ? `per group of ${p.group_size}` : UNIT_LABELS[p.price_basis];
+  if (agency.markup_type === 'flat') return { net: p.net_adult, unit, earn: agency.markup_value, earnLabel: 'You earn per booking' };
+  return { net: p.net_adult, unit, earn: round2((p.net_adult * agency.markup_value) / 100), earnLabel: `You earn ${unit}` };
+}
+
+/** What a customer sees about a product inside an itinerary (no prices). */
+function presentProduct(p, entry = {}) {
+  return {
+    id: p.id, kind: p.kind, kindLabel: KINDS[p.kind].label, title: p.title, city: p.city, country: p.country,
+    category: p.category, duration: p.duration, pickup: p.pickup, summary: p.summary, nights: entry.nights || null,
+    details: parseProductDetails(p.details),
+  };
+}
+
+const publishedProduct = (id, kind) => one(
+  `SELECT * FROM products WHERE id = ? AND status = 'published'${kind ? ' AND kind = ?' : ''}`, ...(kind ? [id, kind] : [id]),
+);
+
+/** Published products by id, for the given ids. */
+function productMap(ids) {
+  const unique = [...new Set(ids.map(Number).filter(Number.isInteger))];
+  if (!unique.length) return new Map();
+  return new Map(all(`SELECT * FROM products WHERE status = 'published' AND id IN (${unique.map(() => '?').join(', ')})`, ...unique).map((p) => [p.id, p]));
+}
+
+module.exports = {
+  DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, MEAL_PLANS, KINDS, KIND_BY_PATH, BASIS_LABELS,
+  destinationOf, parseProductDetails, productFromForm, publishProblems, describe, productLines, cardPrice, presentProduct,
+  publishedProduct, productMap, childNet, lines,
+};

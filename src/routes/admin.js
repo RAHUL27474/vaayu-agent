@@ -2,12 +2,11 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const { one, all, run, tx, notify, getSettings, setSetting, UPLOADS_DIR } = require('../db');
-const { num, uniqueSlug, round2 } = require('../util');
+const { one, all, run, tx, notify, audit, getSettings, setSetting } = require('../db');
+const { num, round2, hashPassword } = require('../util');
 const { requireAdmin, h } = require('../auth');
 const svc = require('../services');
-const { CATEGORIES, activityFromForm, publishProblems, netPerPerson } = require('../activities');
-const { withCover, coverFrom } = require('../photos');
+const { KINDS } = require('../products');
 const { KYC_DIR } = require('../kyc');
 
 const router = express.Router();
@@ -19,6 +18,8 @@ router.use((req, res, next) => {
 });
 
 const str = (v) => String(v ?? '').trim();
+const LOG_SQL = `SELECT l.*, u.name AS user_name, a.name AS agency_name FROM audit_log l
+  LEFT JOIN users u ON u.id = l.user_id LEFT JOIN agencies a ON a.id = l.agency_id`;
 
 // ---------- dashboard ----------
 
@@ -27,7 +28,8 @@ router.get('/', h((req, res) => {
   const stats = {
     agents: one("SELECT COUNT(*) AS n FROM agencies WHERE status = 'active'").n,
     pendingAgents: one("SELECT COUNT(*) AS n FROM agencies WHERE status = 'pending'").n,
-    activities: one("SELECT COUNT(*) AS n FROM activities WHERE status = 'published'").n,
+    products: one("SELECT COUNT(*) AS n FROM products WHERE status = 'published'").n,
+    drafts: one("SELECT COUNT(*) AS n FROM products WHERE status = 'draft'").n,
     agentPackages: one('SELECT COUNT(*) AS n FROM packages WHERE agency_id IS NOT NULL').n,
     ...one(`SELECT COUNT(*) AS bookings, COALESCE(SUM(total_net), 0) AS revenue FROM bookings WHERE status != 'cancelled' AND substr(created_at, 1, 7) = ?`, month),
     walletFloat: one('SELECT COALESCE(SUM(wallet_balance), 0) AS n FROM agencies').n,
@@ -41,12 +43,13 @@ router.get('/', h((req, res) => {
      FROM agencies a LEFT JOIN bookings b ON b.agency_id = a.id AND b.status != 'cancelled'
      WHERE a.status = 'active' GROUP BY a.id ORDER BY revenue DESC LIMIT 5`,
   );
-  const topActivities = all(
-    `SELECT a.id, a.title, a.city, COUNT(DISTINCT b.id) AS bookings FROM activities a
-     LEFT JOIN quote_items qi ON qi.activity_id = a.id LEFT JOIN bookings b ON b.quote_id = qi.quote_id AND b.status != 'cancelled'
-     GROUP BY a.id ORDER BY bookings DESC, a.id LIMIT 5`,
+  const topProducts = all(
+    `SELECT p.id, p.kind, p.title, p.city, COUNT(DISTINCT b.id) AS bookings FROM products p
+     LEFT JOIN quote_items qi ON qi.product_id = p.id LEFT JOIN bookings b ON b.quote_id = qi.quote_id AND b.status != 'cancelled'
+     GROUP BY p.id ORDER BY bookings DESC, p.id LIMIT 5`,
   );
-  res.page('admin/dashboard', { title: 'Admin dashboard', stats, bookings, pending, topAgents, topActivities });
+  const recentLog = all(`${LOG_SQL} WHERE l.action != 'user.login' ORDER BY l.id DESC LIMIT 8`);
+  res.page('admin/dashboard', { title: 'Admin dashboard', stats, bookings, pending, topAgents, topProducts, recentLog, kinds: KINDS });
 }));
 
 // ---------- agents ----------
@@ -93,9 +96,11 @@ router.post('/agents/:id/status', h((req, res) => {
   if (status === 'active') {
     const agency = one('SELECT api_key FROM agencies WHERE id = ?', id);
     if (!agency.api_key) run('UPDATE agencies SET api_key = ? WHERE id = ?', `vt_live_${crypto.randomBytes(18).toString('hex')}`, id);
-    notify(id, 'Account approved', 'Welcome aboard! You can now build packages from VaayuTrip activities and book them, plus flights and hotels.', '/agent');
+    notify(id, 'Account approved', 'Welcome aboard! You can now build your own packages from VaayuTrip airfares, hotels, activities and more, and book them.', '/agent');
   }
   if (status === 'suspended') notify(id, 'Account suspended', 'Contact VaayuTrip support for details.', null);
+  const name = one('SELECT name FROM agencies WHERE id = ?', id)?.name;
+  audit(req.user, 'agency.updated', { entity: 'agency', id, agencyId: id, link: `/admin/agents/${id}`, summary: [name, status && `status ${status}`, kyc && `KYC ${kyc}`].filter(Boolean).join(': ') });
   req.flash('success', 'Agent updated.');
   res.redirect(`/admin/agents/${id}`);
 }));
@@ -104,6 +109,7 @@ router.post('/agents/:id/credit', h((req, res) => {
   const id = num(req.params.id);
   run('UPDATE agencies SET credit_limit = ? WHERE id = ?', Math.max(0, round2(num(req.body.credit_limit, 0))), id);
   notify(id, 'Credit limit updated', `Your credit limit is now ₹${Math.max(0, num(req.body.credit_limit, 0)).toLocaleString('en-IN')}.`, '/agent/wallet');
+  audit(req.user, 'agency.credit_limit', { entity: 'agency', id, agencyId: id, link: `/admin/agents/${id}`, summary: `Credit limit set to ₹${Math.max(0, num(req.body.credit_limit, 0)).toLocaleString('en-IN')}` });
   req.flash('success', 'Credit limit updated.');
   res.redirect(`/admin/agents/${id}`);
 }));
@@ -114,112 +120,91 @@ router.post('/agents/:id/wallet', h((req, res) => {
   if (!amount) throw new svc.AppError('Enter a non-zero amount (negative to debit).');
   tx(() => svc.moveWallet(id, amount > 0 ? 'topup' : 'adjustment', amount, str(req.body.ref) || null, str(req.body.note) || 'Adjustment by VaayuTrip'));
   notify(id, amount > 0 ? 'Wallet credited' : 'Wallet debited', `₹${Math.abs(amount).toLocaleString('en-IN')} ${amount > 0 ? 'added to' : 'deducted from'} your wallet.`, '/agent/wallet');
+  audit(req.user, 'wallet.adjusted', { entity: 'agency', id, agencyId: id, link: `/admin/agents/${id}`, summary: `₹${amount.toLocaleString('en-IN')}: ${str(req.body.note) || 'Adjustment by VaayuTrip'}` });
   req.flash('success', 'Wallet updated.');
   res.redirect(`/admin/agents/${id}`);
 }));
 
-// ---------- activities ----------
+// ---------- activity log ----------
 
-const ACT_FIELDS = ['title', 'city', 'country', 'category', 'duration', 'summary', 'description', 'highlights', 'inclusions', 'exclusions', 'pickup', 'timing',
-  'cancellation', 'image_url', 'price_basis', 'group_size', 'net_adult', 'net_child'];
+const LOG_ROLES = ['backend', 'agent', 'admin'];
+const LOG_AREAS = {
+  product: 'Inventory', package: 'Agent packages', quote: 'Quotes', booking: 'Bookings', agency: 'Agencies',
+  topup: 'Wallet top-ups', wallet: 'Wallet', user: 'Users & logins', offer: 'Offers', settings: 'Settings', ticket: 'Support',
+};
 
-// How many agent packages and bookings use each activity.
-const USAGE = `(SELECT COUNT(*) FROM packages p WHERE p.agency_id IS NOT NULL
-     AND EXISTS (SELECT 1 FROM json_each(p.details, '$.activities') j WHERE json_extract(j.value, '$.id') = a.id)) AS packages,
-   (SELECT COUNT(DISTINCT b.id) FROM quote_items qi JOIN bookings b ON b.quote_id = qi.quote_id AND b.status != 'cancelled' WHERE qi.activity_id = a.id) AS bookings`;
-
-router.get('/activities', h((req, res) => {
+router.get('/log', h((req, res) => {
   const f = {
-    status: ['draft', 'published'].includes(req.query.status) ? req.query.status : '',
-    city: str(req.query.city),
-    category: CATEGORIES.includes(req.query.category) ? req.query.category : '',
+    role: LOG_ROLES.includes(req.query.role) ? req.query.role : '',
+    area: LOG_AREAS[req.query.area] ? req.query.area : '',
+    user: num(req.query.user, 0) || '',
+    agency: num(req.query.agency, 0) || '',
+    from: /^\d{4}-\d{2}-\d{2}$/.test(req.query.from || '') ? req.query.from : '',
+    to: /^\d{4}-\d{2}-\d{2}$/.test(req.query.to || '') ? req.query.to : '',
+    logins: req.query.logins === '1',
   };
-  const where = [['a.status = ?', f.status], ['a.city = ?', f.city], ['a.category = ?', f.category]].filter(([, v]) => v);
-  const activities = all(
-    `SELECT a.*, ${USAGE} FROM activities a ${where.length ? `WHERE ${where.map(([c]) => c).join(' AND ')}` : ''} ORDER BY a.country != 'India', a.city, a.title`,
-    ...where.map(([, v]) => v),
-  ).map((a) => ({ ...a, perPerson: netPerPerson(a) }));
-  const cities = all('SELECT DISTINCT city FROM activities ORDER BY city').map((r) => r.city);
-  res.page('admin/activities', { title: 'Activities', activities, cities, categories: CATEGORIES, f });
+  const where = [];
+  const params = [];
+  if (f.role) { where.push('l.role = ?'); params.push(f.role); }
+  if (f.area) { where.push('l.action LIKE ?'); params.push(`${f.area}.%`); }
+  if (f.user) { where.push('l.user_id = ?'); params.push(f.user); }
+  if (f.agency) { where.push('l.agency_id = ?'); params.push(f.agency); }
+  if (f.from) { where.push('date(l.created_at) >= ?'); params.push(f.from); }
+  if (f.to) { where.push('date(l.created_at) <= ?'); params.push(f.to); }
+  if (!f.logins && f.area !== 'user') where.push("l.action != 'user.login'");
+  const page = Math.max(1, Math.round(num(req.query.page, 1)));
+  const rows = all(`${LOG_SQL} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY l.id DESC LIMIT 101 OFFSET ?`, ...params, (page - 1) * 100);
+  const users = all("SELECT id, name, role FROM users WHERE role IN ('admin', 'backend') ORDER BY role, name");
+  const agencies = all('SELECT id, name FROM agencies ORDER BY name');
+  res.page('admin/log', {
+    title: 'Activity log', entries: rows.slice(0, 100), more: rows.length > 100, page, f, users, agencies, areas: LOG_AREAS, roles: LOG_ROLES,
+  });
 }));
 
-const activityForm = (a) => ({ a, categories: CATEGORIES, problems: a.id ? publishProblems(a) : [] });
+// ---------- team (admins and the backend team) ----------
 
-router.get('/activities/new', (req, res) => {
-  res.page('admin/activity-form', { title: 'New activity', ...activityForm({ country: 'India', price_basis: 'per_person', status: 'draft' }) });
-});
-
-router.post('/activities', withCover(svc.AppError), h((req, res) => {
-  const a = activityFromForm(req.body);
-  a.image_url = coverFrom(req, null);
-  if (!a.title || !a.city) throw new svc.AppError('Title and city are required.');
-  const id = run(
-    `INSERT INTO activities (${ACT_FIELDS.join(', ')}, slug) VALUES (${ACT_FIELDS.map(() => '?').join(', ')}, ?)`,
-    ...ACT_FIELDS.map((k) => a[k]), uniqueSlug('activities', `${a.title} ${a.city}`),
-  ).lastInsertRowid;
-  req.flash('success', 'Activity saved as a draft. Publish it to make it available to agents.');
-  res.redirect(`/admin/activities/${id}`);
+router.get('/team', h((req, res) => {
+  const team = all(
+    `SELECT u.*, (SELECT COUNT(*) FROM audit_log l WHERE l.user_id = u.id AND l.action LIKE 'product.%') AS changes,
+       (SELECT MAX(created_at) FROM audit_log l WHERE l.user_id = u.id) AS last_seen
+     FROM users u WHERE u.role IN ('admin', 'backend') ORDER BY u.role, u.name`,
+  );
+  res.page('admin/team', { title: 'Team', team });
 }));
 
-router.get('/activities/:id', h((req, res, next) => {
-  const a = one(`SELECT a.*, ${USAGE} FROM activities a WHERE a.id = ?`, num(req.params.id));
-  if (!a) return next();
-  res.page('admin/activity-form', { title: a.title, ...activityForm(a) });
+router.post('/team', h((req, res) => {
+  const name = str(req.body.name);
+  const email = str(req.body.email).toLowerCase();
+  const password = String(req.body.password || '');
+  const role = req.body.role === 'admin' ? 'admin' : 'backend';
+  if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new svc.AppError('Enter a name and a valid email.');
+  if (password.length < 8) throw new svc.AppError('The password must be at least 8 characters.');
+  if (one('SELECT 1 FROM users WHERE email = ?', email)) throw new svc.AppError('Someone already uses that email.');
+  const id = run('INSERT INTO users (role, name, email, password_hash) VALUES (?, ?, ?, ?)', role, name, email, hashPassword(password)).lastInsertRowid;
+  audit(req.user, 'user.created', { entity: 'user', id, summary: `${name} (${role === 'admin' ? 'admin' : 'backend team'})`, link: '/admin/team' });
+  req.flash('success', `${name} can now log in at /login with that email and password.`);
+  res.redirect('/admin/team');
 }));
 
-router.post('/activities/:id', withCover(svc.AppError), h((req, res, next) => {
-  const old = one('SELECT * FROM activities WHERE id = ?', num(req.params.id));
-  if (!old) return next();
-  const a = activityFromForm(req.body);
-  a.image_url = coverFrom(req, old.image_url);
-  if (!a.title || !a.city) throw new svc.AppError('Title and city are required.');
-  run(`UPDATE activities SET ${ACT_FIELDS.map((k) => `${k} = ?`).join(', ')}, updated_at = datetime('now') WHERE id = ?`, ...ACT_FIELDS.map((k) => a[k]), old.id);
-  const problems = publishProblems(a);
-  if (old.status === 'published' && problems.length) {
-    run("UPDATE activities SET status = 'draft' WHERE id = ?", old.id);
-    req.flash('warn', `Activity moved back to draft: ${problems[0]}`);
-  } else {
-    req.flash('success', 'Activity saved. New quotes use the updated price; quotes already made keep theirs.');
-  }
-  res.redirect(`/admin/activities/${old.id}`);
+router.post('/team/:id/toggle', h((req, res, next) => {
+  const u = one("SELECT * FROM users WHERE id = ? AND role IN ('admin', 'backend')", num(req.params.id));
+  if (!u) return next();
+  if (u.id === req.user.id) throw new svc.AppError("You can't switch off your own account.");
+  run('UPDATE users SET is_active = 1 - is_active WHERE id = ?', u.id);
+  audit(req.user, u.is_active ? 'user.deactivated' : 'user.reactivated', { entity: 'user', id: u.id, summary: u.name, link: '/admin/team' });
+  req.flash('success', u.is_active ? `${u.name} can no longer log in.` : `${u.name} can log in again.`);
+  res.redirect('/admin/team');
 }));
 
-router.post('/activities/:id/status', h((req, res, next) => {
-  const a = one('SELECT * FROM activities WHERE id = ?', num(req.params.id));
-  if (!a) return next();
-  const status = req.body.status === 'published' ? 'published' : 'draft';
-  if (status === 'published') {
-    const problems = publishProblems(a);
-    if (problems.length) throw new svc.AppError(`Can't publish yet: ${problems.join(' ')}`);
-  }
-  run("UPDATE activities SET status = ?, updated_at = datetime('now') WHERE id = ?", status, a.id);
-  if (status === 'published' && a.status !== 'published') {
-    for (const ag of all("SELECT id FROM agencies WHERE status = 'active'")) {
-      notify(ag.id, 'New activity', `${a.title} (${a.city}) is available for your quotes and packages.`, `/agent/activities/${a.id}`);
-    }
-  }
-  req.flash('success', status === 'published'
-    ? 'Published: agents can now add this activity to quotes and packages.'
-    : 'Unpublished: agents can no longer add it, and packages that use it show it as unavailable.');
-  res.redirect(`/admin/activities/${a.id}`);
-}));
-
-router.post('/activities/:id/duplicate', h((req, res, next) => {
-  const a = one('SELECT * FROM activities WHERE id = ?', num(req.params.id));
-  if (!a) return next();
-  const copy = { ...a, title: `${a.title} (copy)` };
-  const id = run(
-    `INSERT INTO activities (${ACT_FIELDS.join(', ')}, slug) VALUES (${ACT_FIELDS.map(() => '?').join(', ')}, ?)`,
-    ...ACT_FIELDS.map((k) => copy[k]), uniqueSlug('activities', `${copy.title} ${copy.city}`),
-  ).lastInsertRowid;
-  req.flash('success', 'Copy created as a draft.');
-  res.redirect(`/admin/activities/${id}`);
-}));
-
-router.post('/activities/:id/delete', h((req, res) => {
-  run('DELETE FROM activities WHERE id = ?', num(req.params.id));
-  req.flash('success', "Activity deleted. Existing quotes and bookings keep their lines; agents' packages show it as no longer offered.");
-  res.redirect('/admin/activities');
+router.post('/team/:id/password', h((req, res, next) => {
+  const u = one("SELECT * FROM users WHERE id = ? AND role IN ('admin', 'backend')", num(req.params.id));
+  if (!u) return next();
+  const password = String(req.body.password || '');
+  if (password.length < 8) throw new svc.AppError('The password must be at least 8 characters.');
+  run('UPDATE users SET password_hash = ? WHERE id = ?', hashPassword(password), u.id);
+  audit(req.user, 'user.password_reset', { entity: 'user', id: u.id, summary: u.name, link: '/admin/team' });
+  req.flash('success', `Password reset for ${u.name}.`);
+  res.redirect('/admin/team');
 }));
 
 // ---------- bookings ----------
@@ -244,6 +229,8 @@ router.get('/bookings/:id', h((req, res, next) => {
 router.post('/bookings/:id/cancel', h((req, res) => {
   const id = num(req.params.id);
   svc.approveCancellation(id, Math.max(0, num(req.body.refund, 0)));
+  const cb = one('SELECT code, agency_id, refund_amount FROM bookings WHERE id = ?', id);
+  audit(req.user, 'booking.cancelled', { entity: 'booking', id, agencyId: cb.agency_id, link: `/admin/bookings/${id}`, summary: `${cb.code}: refund ₹${(cb.refund_amount || 0).toLocaleString('en-IN')}` });
   req.flash('success', 'Booking cancelled and refund credited to the agent.');
   res.redirect(`/admin/bookings/${id}`);
 }));
@@ -252,6 +239,7 @@ router.post('/bookings/:id/reject-cancel', h((req, res) => {
   const id = num(req.params.id);
   const b = one('SELECT * FROM bookings WHERE id = ?', id);
   run("UPDATE bookings SET status = 'confirmed' WHERE id = ? AND status = 'cancel_requested'", id);
+  audit(req.user, 'booking.cancel_declined', { entity: 'booking', id, agencyId: b.agency_id, link: `/admin/bookings/${id}`, summary: b.code });
   notify(b.agency_id, 'Cancellation declined', `${b.code}: ${str(req.body.reason) || 'non-refundable as per supplier policy.'}`, `/agent/bookings/${id}`);
   req.flash('success', 'Cancellation request declined.');
   res.redirect(`/admin/bookings/${id}`);
@@ -265,7 +253,9 @@ router.get('/topups', h((req, res) => {
 }));
 
 router.post('/topups/:id/approve', h((req, res) => {
+  const t = one('SELECT agency_id, amount, utr FROM topup_requests WHERE id = ?', num(req.params.id));
   svc.approveTopup(num(req.params.id));
+  audit(req.user, 'topup.approved', { entity: 'topup', id: num(req.params.id), agencyId: t.agency_id, link: '/admin/topups', summary: `₹${t.amount.toLocaleString('en-IN')} (UTR ${t.utr})` });
   req.flash('success', 'Top-up approved and wallet credited.');
   res.redirect('/admin/topups');
 }));
@@ -274,6 +264,7 @@ router.post('/topups/:id/reject', h((req, res) => {
   const r = one("SELECT * FROM topup_requests WHERE id = ? AND status = 'pending'", num(req.params.id));
   if (r) {
     run("UPDATE topup_requests SET status = 'rejected' WHERE id = ?", r.id);
+    audit(req.user, 'topup.rejected', { entity: 'topup', id: r.id, agencyId: r.agency_id, link: '/admin/topups', summary: `₹${r.amount.toLocaleString('en-IN')} (UTR ${r.utr})` });
     notify(r.agency_id, 'Top-up not verified', `We couldn't verify your ₹${r.amount.toLocaleString('en-IN')} payment. Contact support with the UTR.`, '/agent/wallet');
   }
   res.redirect('/admin/topups');
@@ -319,6 +310,7 @@ router.post('/offers', h((req, res) => {
   run('INSERT INTO offers (title, body, code, link, valid_until) VALUES (?, ?, ?, ?, ?)',
     title, str(b.body).slice(0, 400) || null, str(b.code).toUpperCase().slice(0, 30) || null, link || null, /^\d{4}-\d{2}-\d{2}$/.test(b.valid_until) ? b.valid_until : null);
   for (const a of all("SELECT id FROM agencies WHERE status = 'active'")) notify(a.id, 'New offer', title, '/agent/offers');
+  audit(req.user, 'offer.published', { entity: 'offer', summary: title, link: '/admin/offers' });
   req.flash('success', 'Offer published to all active agents.');
   res.redirect('/admin/offers');
 }));
@@ -375,7 +367,10 @@ router.get('/settings', (req, res) => {
 });
 
 router.post('/settings', h((req, res) => {
+  const before = getSettings();
   for (const k of SETTING_KEYS) if (req.body[k] !== undefined) setSetting(k, str(req.body[k]));
+  const changed = SETTING_KEYS.filter((k) => req.body[k] !== undefined && str(req.body[k]) !== (before[k] ?? ''));
+  if (changed.length) audit(req.user, 'settings.updated', { entity: 'settings', summary: changed.join(', '), link: '/admin/settings' });
   req.flash('success', 'Settings saved.');
   res.redirect('/admin/settings');
 }));

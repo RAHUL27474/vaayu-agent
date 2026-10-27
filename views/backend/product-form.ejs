@@ -1,0 +1,143 @@
+<%
+  const isNew = !p.id;
+  const linked = p.image_url && /^https:/i.test(p.image_url);
+  const val = (v) => (v === null || v === undefined ? '' : v);
+  const netLabel = { per_person: 'Net per adult (₹)', per_group: 'Net per group / vehicle (₹)', per_room_night: 'Net per room per night (₹)' };
+%>
+<a href="/backend/products?kind=<%= p.kind %>">← <%= cfg.plural %></a>
+<div class="page-head" style="margin-top:10px">
+  <div>
+    <h1><%= isNew ? `New ${cfg.label.toLowerCase()}` : p.title %></h1>
+    <% if (!isNew) { %><p><span class="badge <%= p.status %>"><%= p.status %></span> · <%= cfg.icon %> <%= cfg.label %> · <%= p.city %>, <%= p.country %> · in <%= p.packages %> agent package<%= p.packages === 1 ? '' : 's' %> · <%= p.bookings %> booking<%= p.bookings === 1 ? '' : 's' %></p><% } %>
+  </div>
+  <% if (!isNew) { %>
+    <div class="actions">
+      <form method="post" action="/backend/products/<%= p.id %>/duplicate"><button class="btn">Duplicate</button></form>
+      <% if (p.status === 'published') { %>
+        <form method="post" action="/backend/products/<%= p.id %>/status"><input type="hidden" name="status" value="draft"><button class="btn">Unpublish</button></form>
+      <% } else { %>
+        <form method="post" action="/backend/products/<%= p.id %>/status"><input type="hidden" name="status" value="published"><button class="btn btn-accent" <%= problems.length ? 'disabled' : '' %>>Publish to agents</button></form>
+      <% } %>
+    </div>
+  <% } %>
+</div>
+<% if (isNew) { %>
+  <div class="chips filter-chips" style="margin-bottom:14px">
+    <% Object.entries(kinds).forEach(([k, c]) => { %><a class="<%= k === p.kind ? 'on' : '' %>" href="/backend/products/new?kind=<%= k %>"><%= c.icon %> <%= c.label %></a><% }) %>
+  </div>
+<% } %>
+
+<form method="post" action="<%= isNew ? '/backend/products' : `/backend/products/${p.id}` %>" enctype="multipart/form-data">
+<input type="hidden" name="kind" value="<%= p.kind %>">
+<div class="split split-editor">
+  <div>
+    <div class="card">
+      <h2>Basics</h2>
+      <div class="field"><label for="title">Name</label><input id="title" name="title" value="<%= val(p.title) %>" required placeholder="<%= { activity: 'e.g. Desert safari with BBQ dinner', hotel: 'e.g. Al Barsha Grand Hotel', flight: 'e.g. Delhi–Dubai return, Emirates', transfer: 'e.g. Dubai airport to hotel, private sedan', visa: 'e.g. UAE 30-day tourist visa', insurance: 'e.g. Asia travel insurance, Standard' }[p.kind] %>"></div>
+      <div class="row">
+        <div class="field"><label for="city"><%= p.kind === 'flight' ? 'Destination city (where agents use it)' : p.kind === 'insurance' ? 'Region covered' : 'City' %></label><input id="city" name="city" value="<%= val(p.city) %>" required></div>
+        <div class="field"><label for="country">Country</label>
+          <select id="country" name="country" required>
+            <option value="">Choose…</option>
+            <% if (p.kind === 'insurance') { %><option <%= p.country === 'All destinations' ? 'selected' : '' %>>All destinations</option><% } %>
+            <% Object.entries(destinations).forEach(([dest, list]) => { %><optgroup label="<%= dest %>"><% list.forEach(c => { %><option <%= c === p.country ? 'selected' : '' %>><%= c %></option><% }) %></optgroup><% }) %>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="category"><%= { hotel: 'Property type', flight: 'Cabin', visa: 'Visa type', insurance: 'Plan', transfer: 'Transfer type' }[p.kind] || 'Category' %></label><select id="category" name="category"><% cfg.categories.forEach(c => { %><option <%= c === p.category ? 'selected' : '' %>><%= c %></option><% }) %></select></div>
+        <% if (['activity', 'transfer'].includes(p.kind)) { %>
+          <div class="field"><label for="duration"><%= p.kind === 'transfer' ? 'Journey time' : 'Duration' %></label><input id="duration" name="duration" value="<%= val(p.duration) %>" placeholder="e.g. 6 hours, Full day"></div>
+        <% } %>
+      </div>
+      <div class="field"><label for="summary">One-line summary</label><input id="summary" name="summary" value="<%= val(p.summary) %>" maxlength="200" placeholder="Shown on agents' catalogue cards and in itineraries"></div>
+      <div class="field"><label for="description">Description</label><textarea id="description" name="description"><%= val(p.description) %></textarea></div>
+    </div>
+
+    <% if (cfg.fields.length) { %>
+      <div class="card">
+        <h2><%= { hotel: 'Room', flight: 'Schedule', transfer: 'Vehicle', visa: 'Visa details', insurance: 'Cover' }[p.kind] %></h2>
+        <div class="grid grid-3" style="gap:0 14px">
+          <% cfg.fields.forEach(([key, label, type, options]) => { const v = val(d[key]); %>
+            <div class="field" style="<%= type === 'textarea' ? 'grid-column:1/-1' : '' %>">
+              <label for="d_<%= key %>"><%= label %></label>
+              <% if (type === 'select') { %>
+                <select id="d_<%= key %>" name="d_<%= key %>"><option value="">—</option><% options.forEach(o => { %><option value="<%= o %>" <%= String(o) === String(v) ? 'selected' : '' %>><%= key === 'mealPlan' ? `${o} · ${mealPlans[o]}` : key === 'trip' ? (o === 'return' ? 'Return fare' : 'One way') : o %></option><% }) %></select>
+              <% } else if (type === 'textarea') { %>
+                <textarea id="d_<%= key %>" name="d_<%= key %>" style="min-height:70px"><%= v %></textarea>
+              <% } else { %>
+                <input id="d_<%= key %>" name="d_<%= key %>" type="<%= type %>" value="<%= v %>" <%= key === 'from' || key === 'to' ? 'maxlength="3" style="text-transform:uppercase"' : '' %>>
+              <% } %>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
+
+    <div class="card">
+      <h2>Net price</h2>
+      <div class="row">
+        <div class="field"><label for="price_basis">Priced</label>
+          <select id="price_basis" name="price_basis"><% cfg.basis.forEach(b => { %><option value="<%= b %>" <%= b === p.price_basis ? 'selected' : '' %>><%= basisLabels[b] %></option><% }) %></select>
+        </div>
+        <% if (cfg.basis.includes('per_group')) { %><div class="field"><label for="group_size">Guests per group / vehicle</label><input id="group_size" type="number" min="1" name="group_size" value="<%= val(p.group_size) %>" placeholder="Per group only"></div><% } %>
+      </div>
+      <div class="row">
+        <div class="field"><label for="net_adult"><%= cfg.basis.length === 1 ? netLabel[cfg.basis[0]] : 'Net per adult, or per group (₹)' %></label><input id="net_adult" type="number" min="0" step="any" name="net_adult" value="<%= p.net_adult || '' %>" required></div>
+        <% if (cfg.basis.includes('per_person')) { %>
+          <div class="field"><label for="net_child">Net per child 2–11 (₹)</label><input id="net_child" type="number" min="0" step="any" name="net_child" value="<%= val(p.net_child) %>" placeholder="Empty = adult price"></div>
+          <div class="field"><label for="net_infant">Net per infant under 2 (₹)</label><input id="net_infant" type="number" min="0" step="any" name="net_infant" value="<%= val(p.net_infant) %>" placeholder="Empty = free"></div>
+        <% } %>
+      </div>
+      <p class="muted" style="font-size:13px;margin:0">Agents see this net price and add their own markup. Changes apply to new quotes only, and price changes are flagged in the admin's activity log.</p>
+    </div>
+
+    <div class="card">
+      <h2>Details for travellers</h2>
+      <div class="field"><label for="highlights">Highlights <span class="muted">(one per line)</span></label><textarea id="highlights" name="highlights" style="min-height:70px"><%= val(p.highlights) %></textarea></div>
+      <div class="row">
+        <div class="field"><label for="pickup"><%= p.kind === 'hotel' ? 'Check-in / check-out' : 'Pickup / meeting point' %></label><input id="pickup" name="pickup" value="<%= val(p.pickup) %>"></div>
+        <div class="field"><label for="timing"><%= p.kind === 'flight' ? 'Days of operation' : 'Timings / availability' %></label><input id="timing" name="timing" value="<%= val(p.timing) %>"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="inclusions">Included <span class="muted">(one per line)</span></label><textarea id="inclusions" name="inclusions"><%= val(p.inclusions) %></textarea></div>
+        <div class="field"><label for="exclusions">Not included <span class="muted">(one per line)</span></label><textarea id="exclusions" name="exclusions"><%= val(p.exclusions) %></textarea></div>
+      </div>
+      <div class="field"><label for="cancellation">Cancellation policy</label><input id="cancellation" name="cancellation" value="<%= val(p.cancellation) %>"></div>
+    </div>
+
+    <div class="card">
+      <h2>Photo</h2>
+      <% if (p.image_url) { %><img src="<%= p.image_url %>" alt="" class="photo-thumb"><label class="check" style="font-size:13px"><input type="checkbox" name="remove_cover" value="1"> Remove photo</label><% } %>
+      <div class="row">
+        <div class="field"><label for="cover_file">Upload a photo</label><input id="cover_file" type="file" name="cover_file" accept="image/jpeg,image/png,image/webp"><div class="hint">JPG, PNG or WebP up to 5 MB. Without one, a cover with the city name is shown.</div></div>
+        <div class="field"><label for="image_url">Or an image link</label><input id="image_url" type="url" name="image_url" value="<%= linked ? p.image_url : '' %>" placeholder="https://…"></div>
+      </div>
+      <p class="muted" style="font-size:12.5px;margin:0">Use photos you own or have licensed.</p>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" style="position:sticky;top:76px">
+      <button class="btn btn-primary btn-lg" style="width:100%"><%= isNew ? `Save ${cfg.label.toLowerCase()}` : 'Save changes' %></button>
+      <% if (problems.length) { %>
+        <div class="alert warn" style="margin:14px 0 0;font-size:13px"><b>Before publishing:</b><ul style="margin:6px 0 0;padding-left:18px"><% problems.forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+      <% } else if (!isNew && p.status !== 'published') { %>
+        <div class="alert success" style="margin:14px 0 0;font-size:13px">Ready to publish.</div>
+      <% } %>
+      <% if (!isNew) { %>
+        <p class="muted" style="font-size:12.5px;margin:14px 0 0">Added by <%= p.created_by_name || 'System' %> on <%= fmtDate(p.created_at) %><br>Last changed by <%= p.updated_by_name || 'System' %> on <%= fmtDate(p.updated_at) %></p>
+        <% if (typeof history !== 'undefined' && history.length) { %>
+          <h3 style="margin-top:14px;font-size:13px">History</h3>
+          <ul class="muted" style="font-size:12px;padding-left:16px;margin:0">
+            <% history.forEach(l => { %><li><%= l.action.replace('product.', '').replace('_', ' ') %> · <%= l.user_name || 'System' %> · <%= fmtDate(l.created_at) %></li><% }) %>
+          </ul>
+        <% } %>
+      <% } %>
+    </div>
+  </div>
+</div>
+</form>
+<% if (!isNew) { %>
+  <form method="post" action="/backend/products/<%= p.id %>/delete" data-confirm="Delete this item? Agents' packages will show it as no longer offered. Unpublishing keeps its history instead."><button class="btn btn-danger btn-sm">Delete</button></form>
+<% } %>

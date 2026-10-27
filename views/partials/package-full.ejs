@@ -1,6 +1,6 @@
 <%#
   Full package presentation, shared by the agent package page, quotes, the customer quote page and agent websites.
-  Expects: p = { route, highlights, days (with optional activities[]), stays, flights, inclusions[], exclusions[], policies, nights, departureCity }
+  Expects: p = { route, highlights, days (with optional items[] of VaayuTrip services), stays, flights, inclusions[], exclusions[], policies, nights, departureCity }
   Optional: showCategory (string), compact (bool)
 %>
 <%
@@ -33,9 +33,10 @@
         <div>
           <h3 style="margin-bottom:4px"><%= d.title %></h3>
           <% if (d.description) { %><p style="margin:0 0 8px;white-space:pre-line"><%= d.description %></p><% } %>
-          <% if (d.activities && d.activities.length) { %>
+          <% const dayItems = d.items || d.activities || []; %>
+          <% if (dayItems.length) { %>
             <div class="day-acts">
-              <% d.activities.forEach(x => { %><div class="day-act"><span class="tag"><%= x.category %></span><span><b><%= x.title %></b><%= x.duration ? ` · ${x.duration}` : '' %><%= x.pickup ? ` · ${x.pickup}` : '' %></span></div><% }) %>
+              <% dayItems.forEach(x => { %><div class="day-act"><span class="tag"><%= !x.kind || x.kind === 'activity' ? x.category : x.kind === 'hotel' ? `Hotel · ${x.nights || 1}N` : x.kindLabel %></span><span><b><%= x.title %></b><%= x.duration ? ` · ${x.duration}` : '' %><%= x.pickup ? ` · ${x.pickup}` : '' %></span></div><% }) %>
             </div>
           <% } %>
           <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:13px">

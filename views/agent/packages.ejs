@@ -1,11 +1,11 @@
 <div class="page-head">
-  <div><h1>My packages</h1><p>Your own holidays, built from VaayuTrip activities plus the hotels and services you arrange. Price them for any group, turn them into quotes, and publish them to your website.</p></div>
-  <div class="actions"><a class="btn" href="/agent/activities">Browse activities</a><a class="btn btn-primary" href="/agent/packages/new">+ New package</a></div>
+  <div><h1>My packages</h1><p>Your own holidays, built from VaayuTrip airfares, hotels, activities, transfers, visas and insurance, plus any services you provide yourself. Price them for any group, turn them into quotes, and publish them to your website.</p></div>
+  <div class="actions"><a class="btn" href="/agent/hotels">Browse hotels</a><a class="btn" href="/agent/activities">Browse activities</a><a class="btn btn-primary" href="/agent/packages/new">+ New package</a></div>
 </div>
 <% if (!packages.length) { %>
   <div class="card empty">
     <span class="big">🧳</span><b>You haven't built a package yet.</b><br>
-    Pick a destination, lay out the days, add VaayuTrip activities to each day, then your hotels, transfers and other services at your own prices.
+    Pick a destination, lay out the days, and add VaayuTrip flights, hotels, activities and transfers to each day. Add anything you arrange yourself at your own price.
     <div style="margin-top:14px"><a class="btn btn-primary" href="/agent/packages/new">Build your first package</a></div>
   </div>
 <% } else { %>
@@ -16,7 +16,7 @@
       <div class="body">
         <div class="meta"><span class="badge <%= p.status === 'published' ? 'active' : '' %>"><%= p.status === 'published' ? 'On your website' : 'Draft' %></span> <%= p.nights %>N · <%= p.destination %></div>
         <h3><%= p.title %></h3>
-        <p class="muted" style="font-size:13px;margin:0"><%= p.activities %> VaayuTrip activit<%= p.activities === 1 ? 'y' : 'ies' %> · <%= p.quotes %> quote<%= p.quotes === 1 ? '' : 's' %><% if (p.problems.length && p.status !== 'published') { %> · <span style="color:var(--warn)"><%= p.problems.length %> to finish</span><% } %></p>
+        <p class="muted" style="font-size:13px;margin:0"><%= p.services %> VaayuTrip service<%= p.services === 1 ? "" : "s" %> · <%= p.quotes %> quote<%= p.quotes === 1 ? '' : 's' %><% if (p.problems.length && p.status !== 'published') { %> · <span style="color:var(--warn)"><%= p.problems.length %> to finish</span><% } %></p>
         <div class="price">
           <div><small class="muted">Selling price pp</small><br><b><%= p.price.sell ? inr(p.price.sell) : '—' %></b></div>
           <div class="num"><small class="muted">You earn pp</small><br><span class="profit"><%= inr(p.price.earning) %></span></div>
@@ -25,5 +25,5 @@
     </a>
   <% }) %>
 </div>
-<p class="muted" style="font-size:12.5px;margin-top:12px">Per person for two adults sharing a room, with your default markup on activities, before taxes.</p>
+<p class="muted" style="font-size:12.5px;margin-top:12px">Per person for two adults sharing a room, with your default markup, before taxes.</p>
 <% } %>

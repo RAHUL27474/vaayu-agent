@@ -1,0 +1,45 @@
+<div class="page-head">
+  <div><h1>Team</h1><p>Admins and the backend team who enter VaayuTrip's inventory. Every change they make appears in the <a href="/admin/log">activity log</a>.</p></div>
+</div>
+<div class="split">
+  <div class="card flush">
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Name</th><th>Role</th><th class="num">Inventory changes</th><th>Last active</th><th>Status</th><th></th></tr></thead>
+      <% team.forEach(u => { %>
+        <tr>
+          <td><b><%= u.name %></b><br><small><%= u.email %></small></td>
+          <td><span class="badge <%= u.role === 'admin' ? 'info' : 'ok' %>"><%= u.role === 'admin' ? 'Admin' : 'Backend team' %></span></td>
+          <td class="num"><a href="/admin/log?user=<%= u.id %>"><%= u.changes %></a></td>
+          <td><small><%= u.last_seen ? fmtDate(u.last_seen) : 'Never' %></small></td>
+          <td><span class="badge <%= u.is_active ? 'active' : 'suspended' %>"><%= u.is_active ? 'active' : 'switched off' %></span></td>
+          <td class="num" style="white-space:nowrap">
+            <% if (u.id !== user.id) { %>
+              <details class="inline-details"><summary class="btn btn-sm">Manage</summary>
+                <div style="min-width:220px;text-align:left;margin-top:8px">
+                  <form method="post" action="/admin/team/<%= u.id %>/password">
+                    <div class="field"><label for="pw-<%= u.id %>">New password</label><input id="pw-<%= u.id %>" type="password" name="password" minlength="8" required></div>
+                    <button class="btn btn-sm">Reset password</button>
+                  </form>
+                  <hr>
+                  <form method="post" action="/admin/team/<%= u.id %>/toggle" data-confirm="<%= u.is_active ? `Switch off ${u.name}? They won't be able to log in.` : `Let ${u.name} log in again?` %>">
+                    <button class="btn btn-sm <%= u.is_active ? 'btn-danger' : '' %>"><%= u.is_active ? 'Switch off account' : 'Reactivate' %></button>
+                  </form>
+                </div>
+              </details>
+            <% } else { %><small class="muted">You</small><% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </table></div>
+  </div>
+  <form class="card" method="post" action="/admin/team">
+    <h3>Add a team member</h3>
+    <div class="field"><label for="t-name">Name</label><input id="t-name" name="name" required></div>
+    <div class="field"><label for="t-email">Work email</label><input id="t-email" type="email" name="email" required></div>
+    <div class="field"><label for="t-role">Role</label>
+      <select id="t-role" name="role"><option value="backend">Backend team: enters and publishes inventory</option><option value="admin">Admin: everything, including agents and money</option></select>
+    </div>
+    <div class="field"><label for="t-pw">Temporary password</label><input id="t-pw" type="password" name="password" minlength="8" required><div class="hint">At least 8 characters. Share it privately.</div></div>
+    <button class="btn btn-primary">Add member</button>
+  </form>
+</div>

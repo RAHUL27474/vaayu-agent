@@ -1,0 +1,34 @@
+<% const cfg = f.kind ? kinds[f.kind] : null; %>
+<div class="page-head">
+  <div><h1><%= cfg ? `${cfg.icon} ${cfg.plural}` : 'All inventory' %></h1><p>Net prices are what agents pay VaayuTrip. Drafts are hidden from agents until published.</p></div>
+  <div class="actions">
+    <a class="btn" href="/backend/import">⬆ Bulk import</a>
+    <a class="btn btn-primary" href="/backend/products/new<%= f.kind ? `?kind=${f.kind}` : '' %>">+ Add <%= cfg ? cfg.label.toLowerCase() : 'inventory' %></a>
+  </div>
+</div>
+<form class="card" method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:14px 16px">
+  <div><label for="f-kind">Type</label><select id="f-kind" name="kind"><option value="">All types</option><% Object.entries(kinds).forEach(([k, c]) => { %><option value="<%= k %>" <%= k === f.kind ? 'selected' : '' %>><%= c.plural %></option><% }) %></select></div>
+  <div><label for="f-dest">Destination</label><select id="f-dest" name="dest"><option value="">All</option><% destinations.forEach(d => { %><option <%= d === f.dest ? 'selected' : '' %>><%= d %></option><% }) %></select></div>
+  <div><label for="f-status">Status</label><select id="f-status" name="status"><option value="">Any</option><option value="published" <%= f.status === 'published' ? 'selected' : '' %>>Published</option><option value="draft" <%= f.status === 'draft' ? 'selected' : '' %>>Draft</option></select></div>
+  <div style="flex:1;min-width:180px"><label for="f-q">Search</label><input id="f-q" type="search" name="q" value="<%= f.q %>" placeholder="Title or city"></div>
+  <button class="btn btn-primary">Filter</button>
+  <% if (f.kind || f.dest || f.status || f.q) { %><a class="btn btn-ghost" href="/backend/products">Clear</a><% } %>
+</form>
+<div class="card flush">
+  <% if (!products.length) { %><div class="empty"><span class="big">🗂</span>Nothing here yet. <a href="/backend/products/new<%= f.kind ? `?kind=${f.kind}` : '' %>">Add the first one</a> or <a href="/backend/import">import a CSV</a>.</div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Item</th><% if (!f.kind) { %><th>Type</th><% } %><th>Price basis</th><th class="num">Net</th><th>Status</th><th>Last updated</th><th class="num">Bookings</th></tr></thead>
+    <% products.forEach(p => { %>
+      <tr class="click" data-href="/backend/products/<%= p.id %>">
+        <td><b><%= p.title %></b><br><small><%= p.line %></small></td>
+        <% if (!f.kind) { %><td><%= kinds[p.kind].icon %> <%= kinds[p.kind].label %></td><% } %>
+        <td><%= p.price_basis === 'per_group' ? `Per group of ${p.group_size}` : basisLabels[p.price_basis] %></td>
+        <td class="num"><%= inr(p.net_adult) %><% if (p.price_basis === 'per_person' && p.net_child != null) { %><br><small class="muted">child <%= inr(p.net_child) %></small><% } %></td>
+        <td><span class="badge <%= p.status %>"><%= p.status %></span></td>
+        <td><small><%= p.updated_by_name || 'System' %><br><span class="muted"><%= fmtDate(p.updated_at) %></span></small></td>
+        <td class="num"><%= p.bookings %></td>
+      </tr>
+    <% }) %>
+  </table></div>
+  <% } %>
+</div>

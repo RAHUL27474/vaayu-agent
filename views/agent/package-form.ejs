@@ -5,25 +5,25 @@
   const opt = (list, val) => list.map((o) => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${e(v)}" ${String(v) === String(val) ? 'selected' : ''}>${e(l)}</option>`; }).join('');
   const del = '<button type="button" class="btn btn-ghost btn-sm btn-danger" data-remove-row aria-label="Remove row">✕</button>';
 
-  // VaayuTrip activities grouped by city, for the per-day pickers.
+  // VaayuTrip inventory grouped by type and city, for the per-day pickers.
   const groups = [];
-  catalogue.forEach((a) => {
-    const label = a.country !== 'India' ? `${a.city}, ${a.country}` : a.city;
+  catalogue.forEach((p) => {
+    const label = `${kinds[p.kind].plural} · ${p.city}, ${p.country}`;
     if (!groups.length || groups[groups.length - 1].label !== label) groups.push({ label, items: [] });
-    groups[groups.length - 1].items.push(a);
+    groups[groups.length - 1].items.push(p);
   });
-  const known = new Set(catalogue.map((a) => a.id));
-  const actOptions = (sel) => (sel && !known.has(sel.id) ? `<option value="${e(sel.id)}" selected>${e(sel.title)} (no longer offered)</option>` : '')
-    + '<option value="">Choose an activity…</option>'
-    + groups.map((g) => `<optgroup label="${e(g.label)}">${g.items.map((a) => `<option value="${a.id}" ${sel && sel.id === a.id ? 'selected' : ''}>${e(a.title)} · ${e(a.duration || '')} · ${inr(a.net_adult)} net ${a.price_basis === 'per_group' ? `per group of ${a.group_size}` : 'pp'}</option>`).join('')}</optgroup>`).join('');
+  const known = new Set(catalogue.map((p) => p.id));
+  const itemOptions = (sel) => (sel && !known.has(sel.id) ? `<option value="${e(sel.id)}" selected>${e(sel.title)} (no longer offered)</option>` : '')
+    + '<option value="">Choose from VaayuTrip…</option>'
+    + groups.map((g) => `<optgroup label="${e(g.label)}">${g.items.map((p) => `<option value="${p.id}" ${sel && sel.id === p.id ? 'selected' : ''}>${e(p.title)} · ${inr(p.price.net)} net ${e(p.price.unit)}</option>`).join('')}</optgroup>`).join('');
 
   const rowRoute = (i, r) => `<div class="rep-row grid-route" data-row>
-    <input name="route[${i}][city]" value="${e(r.city)}" placeholder="City, e.g. Srinagar" aria-label="City">
+    <input name="route[${i}][city]" value="${e(r.city)}" placeholder="City, e.g. Ubud" aria-label="City">
     <input type="number" min="0" name="route[${i}][nights]" value="${e(r.nights)}" placeholder="Nights" aria-label="Nights">${del}</div>`;
 
   const rowDay = (i, r) => { const m = r.meals || {}; return `<div class="rep-row" data-row>
     <div class="grid-day">
-      <input name="days[${i}][title]" value="${e(r.title)}" placeholder="Day title, e.g. Arrive Srinagar, Dal Lake shikara" aria-label="Day title">
+      <input name="days[${i}][title]" value="${e(r.title)}" placeholder="Day title, e.g. Arrive in Dubai, dhow cruise" aria-label="Day title">
       <input name="days[${i}][overnight]" value="${e(r.overnight)}" placeholder="Overnight at" aria-label="Overnight">
       <span class="meals"><label class="check"><input type="checkbox" name="days[${i}][b]" value="1" ${m.b ? 'checked' : ''}>B</label><label class="check"><input type="checkbox" name="days[${i}][l]" value="1" ${m.l ? 'checked' : ''}>L</label><label class="check"><input type="checkbox" name="days[${i}][d]" value="1" ${m.d ? 'checked' : ''}>D</label></span>
       ${del}
@@ -31,9 +31,10 @@
     <textarea name="days[${i}][description]" placeholder="What happens today: transfers, free time, timings, drive distance" aria-label="Description" style="min-height:60px;margin-top:8px">${e(r.description)}</textarea>
   </div>`; };
 
-  const rowActivity = (i, r) => `<div class="rep-row grid-act" data-row>
-    <input type="number" min="1" max="60" name="activities[${i}][day]" value="${e(r.day || '')}" placeholder="Day" aria-label="Day">
-    <select name="activities[${i}][id]" aria-label="Activity">${actOptions(r.id ? r : null)}</select>${del}</div>`;
+  const rowItem = (i, r) => `<div class="rep-row grid-act" data-row>
+    <input type="number" min="1" max="60" name="items[${i}][day]" value="${e(r.day || '')}" placeholder="Day" aria-label="Day">
+    <select name="items[${i}][id]" aria-label="VaayuTrip service">${itemOptions(r.id ? r : null)}</select>
+    <input type="number" min="1" max="60" name="items[${i}][nights]" value="${e(r.nights || '')}" placeholder="Nights" aria-label="Nights (hotels only)" title="Nights (hotels only)">${del}</div>`;
 
   const rowStay = (i, r) => `<div class="rep-row grid-stay2" data-row>
     <input name="stays[${i}][city]" value="${e(r.city)}" placeholder="City" aria-label="City">
@@ -66,7 +67,7 @@
 <div class="page-head" style="margin-top:10px">
   <div>
     <h1><%= isNew ? 'Build a package' : `Edit: ${pkg.title}` %></h1>
-    <p>Lay out the days, add VaayuTrip activities to them, then the hotels and services you arrange yourself at your own prices.</p>
+    <p>Lay out the days, add VaayuTrip airfares, hotels, activities and more to them, then any services you provide yourself at your own prices.</p>
   </div>
 </div>
 
@@ -75,19 +76,19 @@
   <div>
     <div class="card" id="basics">
       <h2>1. Basics</h2>
-      <div class="field"><label for="title">Package name</label><input id="title" name="title" value="<%= pkg.title || '' %>" required placeholder="e.g. Kashmir Paradise with Houseboat"></div>
+      <div class="field"><label for="title">Package name</label><input id="title" name="title" value="<%= pkg.title || '' %>" required placeholder="e.g. Bali Honeymoon Escape"></div>
       <div class="row">
         <div class="field"><label for="destination">Main destination</label><input id="destination" name="destination" value="<%= pkg.destination || '' %>" required></div>
         <div class="field"><label for="theme">Theme</label><input id="theme" name="theme" value="<%= pkg.theme || '' %>" list="themes" placeholder="Honeymoon, Family…"></div>
-        <div class="field"><label for="departure_city">Starts / ends in</label><input id="departure_city" name="departure_city" value="<%= pkg.departure_city || '' %>" placeholder="e.g. Srinagar airport"></div>
+        <div class="field"><label for="departure_city">Starts / ends in</label><input id="departure_city" name="departure_city" value="<%= pkg.departure_city || '' %>" placeholder="e.g. Bali airport"></div>
       </div>
       <datalist id="themes"><option>Beach</option><option>Mountains</option><option>Heritage</option><option>Nature</option><option>Honeymoon</option><option>Family</option><option>Adventure</option><option>Pilgrimage</option><option>Wildlife</option></datalist>
       <div class="row">
         <div class="field"><label for="nights">Nights</label><input id="nights" type="number" min="1" name="nights" value="<%= pkg.nights %>"><div class="hint">Calculated from the route when it's filled.</div></div>
-        <div class="field"><label class="check" style="margin-top:28px"><input type="checkbox" name="is_international" value="1" <%= pkg.is_international ? 'checked' : '' %>> International (adds TCS on customer invoices; set automatically for activities abroad)</label></div>
+
       </div>
       <div class="field"><label for="summary">Short description</label><textarea id="summary" name="summary" style="min-height:70px"><%= pkg.summary || '' %></textarea></div>
-      <div class="field"><label for="highlights">Highlights <span class="muted">(one per line)</span></label><textarea id="highlights" name="highlights" placeholder="Night in a deluxe houseboat&#10;Gulmarg gondola day trip"><%= d.highlights.join('\n') %></textarea></div>
+      <div class="field"><label for="highlights">Highlights <span class="muted">(one per line)</span></label><textarea id="highlights" name="highlights" placeholder="Private pool villa in Ubud&#10;Nusa Penida day trip"><%= d.highlights.join('\n') %></textarea></div>
       <div class="row">
         <div class="field">
           <label for="cover_file">Cover photo</label>
@@ -101,29 +102,30 @@
 
     <div class="card" id="route">
       <h2>2. Route</h2>
-      <p class="muted">Cities in order with nights in each, e.g. Srinagar 2N → Pahalgam 2N → Gulmarg 1N.</p>
+      <p class="muted">Cities in order with nights in each, e.g. Hanoi 2N → Da Nang 2N → Ho Chi Minh City 2N.</p>
       <%- section('route', rowRoute, d.route, 'Add city') %>
     </div>
 
     <div class="card" id="itinerary">
       <h2>3. Day-wise itinerary</h2>
-      <p class="muted">One row per day. Tick the meals you include (B = breakfast, L = lunch, D = dinner). Activities you add below appear under their day.</p>
+      <p class="muted">One row per day. Tick the meals you include (B = breakfast, L = lunch, D = dinner). VaayuTrip services you add below appear under their day.</p>
       <%- section('days', rowDay, d.days, 'Add day') %>
     </div>
 
-    <div class="card" id="activities">
-      <h2>4. Activities from VaayuTrip</h2>
-      <p class="muted">Tours, tickets and experiences booked through VaayuTrip at net, with your markup added in quotes. Pick the day each one happens. <a href="/agent/activities" target="_blank" rel="noopener">Browse the full catalogue ↗</a></p>
-      <div class="rep-head grid-act"><span>Day</span><span>Activity</span><span></span></div>
-      <%- section('activities', rowActivity, d.activities, 'Add activity') %>
+    <div class="card" id="items">
+      <h2>4. From VaayuTrip</h2>
+      <p class="muted">Airfares, hotels, activities, transfers, visas and insurance, booked through VaayuTrip at net with your markup added in quotes. Pick the day each one happens (the check-in day for hotels, with the number of nights).
+        Browse: <% Object.values(kinds).forEach((k, i) => { %><%= i ? ' · ' : '' %><a href="/agent/<%= k.path %>" target="_blank" rel="noopener"><%= k.plural %></a><% }) %></p>
+      <div class="rep-head grid-act"><span>Day</span><span>Service</span><span>Nights</span><span></span></div>
+      <%- section('items', rowItem, d.items, 'Add from VaayuTrip') %>
     </div>
 
     <div class="card" id="hotels">
-      <h2>5. Hotels <span class="muted" style="font-size:13px;font-weight:500">(you arrange)</span></h2>
-      <p class="muted">Hotels you book yourself, per room per night: what the hotel charges you (private, used to work out your earning) and what your customer pays. Both are multiplied by nights and rooms in each quote. Leave the price empty if the stay is covered by another line.</p>
+      <h2>5. Your own hotels <span class="muted" style="font-size:13px;font-weight:500">(optional)</span></h2>
+      <p class="muted">Only for hotels you book yourself rather than through VaayuTrip, per room per night: what the hotel charges you (private, used to work out your earning) and what your customer pays. Both are multiplied by nights and rooms in each quote. Leave the price empty if the stay is covered by another line.</p>
       <div class="rep-head grid-stay2"><span>City</span><span>Hotel</span><span>Type</span><span>Stars</span><span>Room</span><span>Meals</span><span>N</span><span>Your cost ₹</span><span>Your price ₹</span><span></span></div>
       <%- section('stays', rowStay, d.stays, 'Add hotel') %>
-      <p class="muted" style="font-size:12.5px;margin-top:8px">Meal plans: <%= Object.values(mealPlans).join(' · ') %>. Need a VaayuTrip hotel instead? Add it from <a href="/agent/hotels">Hotels</a> to the quote.</p>
+      <p class="muted" style="font-size:12.5px;margin-top:8px">Meal plans: <%= Object.values(mealPlans).join(' · ') %>.</p>
     </div>
 
     <div class="card" id="services">
@@ -166,7 +168,7 @@
         <div class="alert warn" style="margin:14px 0 0;font-size:13px"><b>Before publishing to your website:</b><ul style="margin:6px 0 0;padding-left:18px"><% problems.forEach(p => { %><li><%= p %></li><% }) %></ul></div>
       <% } %>
       <nav class="section-nav">
-        <a href="#basics">1. Basics</a><a href="#route">2. Route</a><a href="#itinerary">3. Itinerary</a><a href="#activities">4. Activities</a>
+        <a href="#basics">1. Basics</a><a href="#route">2. Route</a><a href="#itinerary">3. Itinerary</a><a href="#items">4. From VaayuTrip</a>
         <a href="#hotels">5. Hotels</a><a href="#services">6. Your services</a><a href="#incl">7. Inclusions</a><a href="#policies">8. Policies</a>
       </nav>
     </div>

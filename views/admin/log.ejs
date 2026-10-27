@@ -1,0 +1,26 @@
+<%
+  const qs = (over) => '?' + new URLSearchParams(Object.entries({ ...f, logins: f.logins ? '1' : '', ...over }).filter(([, v]) => v !== '' && v !== false && v != null)).toString();
+%>
+<div class="page-head">
+  <div><h1>Activity log</h1><p>Everything that changes on VaayuTrip: inventory entered by the backend team, agents' packages, quotes and bookings, and admin decisions.</p></div>
+</div>
+<form class="card" method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:14px 16px">
+  <div><label for="l-role">Who</label><select id="l-role" name="role"><option value="">Everyone</option><% roles.forEach(r => { %><option value="<%= r %>" <%= r === f.role ? 'selected' : '' %>><%= { backend: 'Backend team', agent: 'Agents', admin: 'Admins' }[r] %></option><% }) %></select></div>
+  <div><label for="l-area">Area</label><select id="l-area" name="area"><option value="">All areas</option><% Object.entries(areas).forEach(([k, v]) => { %><option value="<%= k %>" <%= k === f.area ? 'selected' : '' %>><%= v %></option><% }) %></select></div>
+  <div><label for="l-user">Staff member</label><select id="l-user" name="user"><option value="">Anyone</option><% users.forEach(u => { %><option value="<%= u.id %>" <%= u.id === f.user ? 'selected' : '' %>><%= u.name %> (<%= u.role === 'admin' ? 'admin' : 'backend' %>)</option><% }) %></select></div>
+  <div><label for="l-agency">Agency</label><select id="l-agency" name="agency"><option value="">Any</option><% agencies.forEach(a => { %><option value="<%= a.id %>" <%= a.id === f.agency ? 'selected' : '' %>><%= a.name %></option><% }) %></select></div>
+  <div><label for="l-from">From</label><input id="l-from" type="date" name="from" value="<%= f.from %>"></div>
+  <div><label for="l-to">To</label><input id="l-to" type="date" name="to" value="<%= f.to %>"></div>
+  <label class="check" style="margin-bottom:10px"><input type="checkbox" name="logins" value="1" <%= f.logins ? 'checked' : '' %>> Include logins</label>
+  <button class="btn btn-primary">Filter</button>
+  <a class="btn btn-ghost" href="/admin/log">Clear</a>
+</form>
+<div class="card flush">
+  <%- include('../partials/log-table', { entries }) %>
+  <% if (page > 1 || more) { %>
+    <div style="display:flex;justify-content:space-between;padding:12px 16px">
+      <% if (page > 1) { %><a class="btn btn-sm" href="<%= qs({ page: page - 1 }) %>">← Newer</a><% } else { %><span></span><% } %>
+      <% if (more) { %><a class="btn btn-sm" href="<%= qs({ page: page + 1 }) %>">Older →</a><% } %>
+    </div>
+  <% } %>
+</div>

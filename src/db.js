@@ -13,6 +13,8 @@ const DB_FILE = process.env.DB_FILE || path.join(DATA_DIR, 'vaayutrip.db');
 
 const db = new DatabaseSync(DB_FILE);
 db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+const hasTable = (name) => Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name));
+if (hasTable('activities') && !hasTable('products')) db.exec('ALTER TABLE activities RENAME TO products');
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS settings (
@@ -49,7 +51,7 @@ CREATE TABLE IF NOT EXISTS agencies (
 
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY,
-  role TEXT NOT NULL,                              -- admin | agent
+  role TEXT NOT NULL,                              -- admin | backend | agent
   agency_id INTEGER REFERENCES agencies(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
@@ -255,32 +257,53 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Activities VaayuTrip supplies (tours, tickets, experiences). Agents build their own packages from them.
-CREATE TABLE IF NOT EXISTS activities (
+-- Inventory VaayuTrip supplies (activities, hotels, airfares, transfers, visas, insurance), entered by the
+-- backend team. VaayuTrip sells no packages: agents build their own from these. See src/products.js.
+CREATE TABLE IF NOT EXISTS products (
   id INTEGER PRIMARY KEY,
+  kind TEXT NOT NULL DEFAULT 'activity',           -- activity | hotel | flight | transfer | visa | insurance
   title TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
-  city TEXT NOT NULL,
-  country TEXT NOT NULL DEFAULT 'India',
-  category TEXT NOT NULL DEFAULT 'Sightseeing',
+  city TEXT NOT NULL,                              -- where it is used (flights: arrival city)
+  country TEXT NOT NULL,
+  category TEXT,                                   -- activity category, hotel type, transfer type…
   duration TEXT,                                   -- e.g. "4 hours", "Full day"
   summary TEXT,
   description TEXT,
   highlights TEXT,                                 -- one per line
   inclusions TEXT,
   exclusions TEXT,
-  pickup TEXT,                                     -- hotel pickup or meeting point
+  pickup TEXT,                                     -- pickup or meeting point
   timing TEXT,                                     -- start times, days of operation
   cancellation TEXT,
   image_url TEXT,
-  price_basis TEXT NOT NULL DEFAULT 'per_person',  -- per_person | per_group
+  price_basis TEXT NOT NULL DEFAULT 'per_person',  -- per_person | per_group | per_room_night
   group_size INTEGER,                              -- per_group: guests per group/vehicle
-  net_adult REAL NOT NULL DEFAULT 0,               -- per_person: net per adult; per_group: net per group
+  net_adult REAL NOT NULL DEFAULT 0,               -- net per adult, per group, or per room per night
   net_child REAL,                                  -- per_person: net per child (2-11); NULL = adult price
+  net_infant REAL,                                 -- per_person: net per infant (under 2); NULL = free
+  details TEXT,                                    -- JSON, kind-specific (hotel room, flight schedule…)
   status TEXT NOT NULL DEFAULT 'draft',            -- draft | published
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Who did what: backend team, agents and admins. Shown to admins under Activity log.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  role TEXT,
+  agency_id INTEGER REFERENCES agencies(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,                            -- e.g. product.published, package.created, booking.created
+  entity TEXT,
+  entity_id INTEGER,
+  summary TEXT,
+  link TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS audit_log_created ON audit_log (created_at);
 `);
 
 const one = (sql, ...params) => db.prepare(sql).get(...params);
@@ -302,7 +325,11 @@ addColumn('quotes', 'package_snapshot', 'TEXT');                                
 addColumn('quotes', 'is_international', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('quotes', 'infants', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('packages', 'agency_id', 'INTEGER REFERENCES agencies(id) ON DELETE CASCADE');  // the agency that built it
-addColumn('quote_items', 'activity_id', 'INTEGER REFERENCES activities(id) ON DELETE SET NULL');
+if (all('PRAGMA table_info(quote_items)').some((c) => c.name === 'activity_id')) db.exec('ALTER TABLE quote_items RENAME COLUMN activity_id TO product_id');
+addColumn('quote_items', 'product_id', 'INTEGER REFERENCES products(id) ON DELETE SET NULL');
+for (const [col, def] of [['kind', "TEXT NOT NULL DEFAULT 'activity'"], ['net_infant', 'REAL'], ['details', 'TEXT'],
+  ['created_by', 'INTEGER REFERENCES users(id) ON DELETE SET NULL'], ['updated_by', 'INTEGER REFERENCES users(id) ON DELETE SET NULL']]) addColumn('products', col, def);
+addColumn('users', 'is_active', 'INTEGER NOT NULL DEFAULT 1');                     // staff accounts can be switched off
 addColumn('quote_items', 'cost', 'REAL NOT NULL DEFAULT 0');                      // agent's own services: what they cost the agent, per unit
 addColumn('bookings', 'total_cost', 'REAL NOT NULL DEFAULT 0');                    // agent's own costs for their services on the booking
 
@@ -326,8 +353,17 @@ function setSetting(key, value) {
   run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, value);
 }
 
+/** Records an action for the admin's activity log. user: the acting user (or null for the system). */
+function audit(user, action, { entity = null, id = null, summary = null, link = null, agencyId } = {}) {
+  run(
+    'INSERT INTO audit_log (user_id, role, agency_id, action, entity, entity_id, summary, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    user ? user.id : null, user ? user.role : 'system', agencyId !== undefined ? agencyId : user ? user.agency_id || null : null,
+    action, entity, id, summary, link,
+  );
+}
+
 function notify(agencyId, title, body, link) {
   run('INSERT INTO notifications (agency_id, title, body, link) VALUES (?, ?, ?, ?)', agencyId ?? null, title, body || null, link || null);
 }
 
-module.exports = { db, one, all, run, tx, getSettings, setSetting, notify, DB_FILE, DATA_DIR, UPLOADS_DIR };
+module.exports = { db, one, all, run, tx, getSettings, setSetting, notify, audit, DB_FILE, DATA_DIR, UPLOADS_DIR };

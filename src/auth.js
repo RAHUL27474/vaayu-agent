@@ -1,8 +1,11 @@
 // Route guards.
 
+// Where each role lands after logging in.
+const homeFor = (role) => ({ admin: '/admin', backend: '/backend' }[role] || '/agent');
+
 function requireAgent(req, res, next) {
   if (!req.user) return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
-  if (req.user.role !== 'agent' || !req.agency) return res.redirect('/admin');
+  if (req.user.role !== 'agent' || !req.agency) return res.redirect(homeFor(req.user.role));
   if (req.agency.status === 'suspended') {
     req.session.userId = null;
     req.flash('error', 'Your agency account is suspended. Contact VaayuTrip support.');
@@ -22,7 +25,14 @@ function requireActiveAgency(req, res, next) {
 
 function requireAdmin(req, res, next) {
   if (!req.user) return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
-  if (req.user.role !== 'admin') return res.redirect('/agent');
+  if (req.user.role !== 'admin') return res.redirect(homeFor(req.user.role));
+  next();
+}
+
+// The backend portal is for the backend team, who enter VaayuTrip's inventory; admins can use it too.
+function requireBackend(req, res, next) {
+  if (!req.user) return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
+  if (!['backend', 'admin'].includes(req.user.role)) return res.redirect(homeFor(req.user.role));
   next();
 }
 
@@ -36,4 +46,4 @@ const h = (fn) => (req, res, next) => {
   }
 };
 
-module.exports = { requireAgent, requireActiveAgency, requireAdmin, h };
+module.exports = { requireAgent, requireActiveAgency, requireAdmin, requireBackend, homeFor, h };

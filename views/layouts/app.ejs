@@ -12,23 +12,26 @@
 <body>
 <%
   const isAdmin = user && user.role === 'admin';
+  const isBackend = user && user.role === 'backend';
+  const home = isAdmin ? '/admin' : isBackend ? '/backend' : '/agent';
   const navItem = (href, icon, label, extra) => {
-    const home = isAdmin ? '/admin' : '/agent';
     const active = href === home ? (path === home || path === home + '/') : (path === href || path.startsWith(href + '/'));
     return `<a href="${href}" class="${active ? 'active' : ''}"><span class="ico">${icon}</span>${label}${extra ? `<span class="count">${extra}</span>` : ''}</a>`;
   };
 %>
 <div class="shell">
   <aside class="sidebar" id="sidebar">
-    <a class="logo" href="<%= isAdmin ? '/admin' : '/agent' %>">
+    <a class="logo" href="<%= home %>">
       <img src="/img/vaayutrip-mark.svg" alt="">
-      <span>VaayuTrip<small><%= isAdmin ? 'Admin console' : 'Agent portal' %></small></span>
+      <span>VaayuTrip<small><%= isAdmin ? 'Admin console' : isBackend ? 'Backend portal' : 'Agent portal' %></small></span>
     </a>
     <nav class="nav">
     <% if (isAdmin) { %>
       <%- navItem('/admin', '◧', 'Dashboard') %>
-      <div class="nav-section">Catalogue</div>
-      <%- navItem('/admin/activities', '🎟', 'Activities') %>
+      <div class="nav-section">Monitor</div>
+      <%- navItem('/admin/log', '📜', 'Activity log') %>
+      <%- navItem('/backend', '🗂', 'Inventory (backend)') %>
+      <%- navItem('/admin/team', '👥', 'Team') %>
       <div class="nav-section">Partners</div>
       <%- navItem('/admin/agents', '🏢', 'Agents') %>
       <%- navItem('/admin/topups', '⬆', 'Top-up requests', typeof pendingTopups !== 'undefined' && pendingTopups ? pendingTopups : '') %>
@@ -39,13 +42,24 @@
       <%- navItem('/admin/offers', '🏷', 'Offers &amp; deals') %>
       <%- navItem('/admin/notifications', '🔔', 'Notifications', unread || '') %>
       <%- navItem('/admin/settings', '⚙', 'Settings') %>
+    <% } else if (isBackend) { %>
+      <%- navItem('/backend', '◧', 'Dashboard') %>
+      <div class="nav-section">Inventory</div>
+      <% const navKind = typeof locals.navKind !== 'undefined' ? locals.navKind : ''; %>
+      <a href="/backend/products" class="<%= path === '/backend/products' && !navKind ? 'active' : '' %>"><span class="ico">🗂</span>All inventory</a>
+      <% Object.entries(locals.kindsNav || {}).forEach(([k, c]) => { %>
+        <a href="/backend/products?kind=<%= k %>" class="<%= navKind === k ? 'active' : '' %>"><span class="ico"><%= c.icon %></span><%= c.plural %></a>
+      <% }) %>
+      <div class="nav-section">Tools</div>
+      <%- navItem('/backend/import', '⬆', 'Bulk import (CSV)') %>
     <% } else { %>
       <%- navItem('/agent', '◧', 'Dashboard') %>
-      <div class="nav-section">Book</div>
+      <div class="nav-section">Book from VaayuTrip</div>
       <%- navItem('/agent/activities', '🎟', 'Activities') %>
-      <%- navItem('/agent/flights', '✈', 'Flights') %>
       <%- navItem('/agent/hotels', '🏨', 'Hotels') %>
-      <%- navItem('/agent/transfers', '🚕', 'Transfers & cabs') %>
+      <%- navItem('/agent/flights', '✈', 'Airfares') %>
+      <%- navItem('/agent/transfers', '🚕', 'Transfers') %>
+      <%- navItem('/agent/visas', '🛂', 'Visas') %>
       <%- navItem('/agent/insurance', '🛡', 'Travel insurance') %>
       <div class="nav-section">Sell</div>
       <%- navItem('/agent/packages', '🧳', 'My packages') %>
@@ -84,7 +98,7 @@
       <% if (agency) { %>
         <div class="wallet">Wallet <b><%= inr(agency.wallet_balance) %></b> · Credit available <b><%= inr(agency.credit_limit - agency.credit_used) %></b></div>
       <% } %>
-      <a class="bell" href="<%= isAdmin ? '/admin' : '/agent' %>/notifications" aria-label="Notifications">🔔<% if (unread) { %><span class="dot"><%= unread %></span><% } %></a>
+      <% if (!isBackend) { %><a class="bell" href="<%= home %>/notifications" aria-label="Notifications">🔔<% if (unread) { %><span class="dot"><%= unread %></span><% } %></a><% } %>
       <span class="muted"><%= user.name %></span>
       <form method="post" action="/logout" class="inline"><button class="btn btn-sm">Log out</button></form>
     </header>

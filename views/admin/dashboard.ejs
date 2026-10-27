@@ -1,6 +1,6 @@
 <div class="page-head">
   <div><h1>VaayuTrip HQ</h1><p>Partner network, catalogue and bookings at a glance.</p></div>
-  <div class="actions"><a class="btn" href="/admin/agents?status=pending">Review agents</a><a class="btn btn-primary" href="/admin/activities/new">+ New activity</a></div>
+  <div class="actions"><a class="btn" href="/admin/agents?status=pending">Review agents</a><a class="btn" href="/admin/log">Activity log</a><a class="btn btn-primary" href="/backend">Inventory</a></div>
 </div>
 
 <% if (stats.pendingAgents || stats.cancelRequests || pendingTopups) { %>
@@ -15,7 +15,7 @@
 <div class="grid grid-4" style="margin-bottom:20px">
   <div class="stat"><div class="label">Revenue this month (net)</div><div class="value"><%= inr(stats.revenue) %></div><div class="sub"><%= stats.bookings %> bookings</div></div>
   <div class="stat"><div class="label">Active agents</div><div class="value"><%= stats.agents %></div><div class="sub"><%= stats.pendingAgents %> pending</div></div>
-  <div class="stat"><div class="label">Live activities</div><div class="value"><%= stats.activities %></div><div class="sub"><%= stats.agentPackages %> packages built by agents</div></div>
+  <a class="stat" href="/backend" style="color:inherit;text-decoration:none"><div class="label">Live inventory</div><div class="value"><%= stats.products %></div><div class="sub"><%= stats.drafts %> drafts · <%= stats.agentPackages %> packages built by agents</div></a>
   <div class="stat"><div class="label">Agent wallets / credit out</div><div class="value"><%= inr(stats.walletFloat) %></div><div class="sub"><%= inr(stats.creditOut) %> credit used</div></div>
 </div>
 
@@ -39,9 +39,9 @@
     </table>
   </div>
   <div class="card flush">
-    <div class="card-head"><h3>Top activities</h3><a href="/admin/activities">All</a></div>
+    <div class="card-head"><h3>Most booked inventory</h3><a href="/backend/products">All</a></div>
     <table class="table" style="margin-top:10px">
-      <% topActivities.forEach(a => { %><tr class="click" data-href="/admin/activities/<%= a.id %>"><td><%= a.title %><br><small><%= a.city %></small></td><td class="num"><%= a.bookings %> booked</td></tr><% }) %>
+      <% topProducts.forEach(p => { %><tr class="click" data-href="/backend/products/<%= p.id %>"><td><%= p.title %><br><small><%= kinds[p.kind].label %> · <%= p.city %></small></td><td class="num"><%= p.bookings %> booked</td></tr><% }) %>
     </table>
   </div>
   <div class="card flush">
@@ -52,4 +52,9 @@
     </table>
     <% } %>
   </div>
+</div>
+
+<div class="card flush">
+  <div class="card-head"><h3>Latest activity</h3><a href="/admin/log">Full activity log</a></div>
+  <%- include('../partials/log-table', { entries: recentLog }) %>
 </div>

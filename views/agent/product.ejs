@@ -1,0 +1,116 @@
+<%
+  const list = (v) => String(v || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const pax = party.adults + party.children;
+  const isHotel = kind === 'hotel';
+  const perPerson = p.price_basis === 'per_person';
+  const facts = [];
+  if (kind === 'hotel') facts.push(['Room', `${d.stars ? `${d.stars}★ · ` : ''}${d.room || ''}`], ['Meals', d.mealPlan ? `${d.mealPlan} · ${mealPlans[d.mealPlan] || ''}` : ''], ['Area', d.area], ['Max guests per room', d.maxGuests]);
+  if (kind === 'flight') facts.push(['Flight', `${d.airline || ''} ${d.flightNo || ''} · ${d.from || ''} → ${d.to || ''} · ${d.depart || ''}–${d.arrive || ''}`],
+    ['Return', d.trip === 'return' ? `${d.returnFlightNo || ''} · ${d.to || ''} → ${d.from || ''} · ${d.returnDepart || ''}–${d.returnArrive || ''}` : 'One-way fare'],
+    ['Cabin', p.category], ['Baggage', d.baggage], ['Stops', d.stops], ['Refundable', d.refundable]);
+  if (kind === 'transfer') facts.push(['Vehicle', d.vehicle], ['Luggage', d.luggage]);
+  if (kind === 'visa') facts.push(['Type', p.category], ['Processing', d.processing], ['Validity', d.validity], ['Entries', d.entries], ['Documents', d.documents]);
+  if (kind === 'insurance') facts.push(['Plan', p.category], ['Medical cover', d.cover], ['Trip length', d.maxDays], ['Other benefits', d.benefits]);
+  facts.push([isHotel ? 'Check-in / out' : 'Pickup / meeting point', p.pickup], [kind === 'flight' ? 'Operates' : 'Timings', p.timing], ['Cancellation', p.cancellation]);
+%>
+<a href="/agent/<%= cfg.path %>?city=<%= encodeURIComponent(p.city) %>">← <%= cfg.plural %> in <%= p.city %></a>
+<div class="page-head" style="margin-top:10px">
+  <div>
+    <h1><%= p.title %></h1>
+    <p><span class="badge info"><%= p.category %></span> <%= p.city %>, <%= p.country %><%= p.duration ? ` · ${p.duration}` : '' %></p>
+  </div>
+  <div class="num">
+    <div class="pp">Net <%= p.price.unit %></div>
+    <div class="price-big"><%= inr(p.net_adult) %></div>
+    <div class="pp"><% if (perPerson) { %>Child 2–11 <b><%= inr(p.net_child ?? p.net_adult) %></b><% if (p.net_infant) { %> · infant <b><%= inr(p.net_infant) %></b><% } %> · <% } %><%= p.price.earnLabel %> <b class="profit"><%= inr(p.price.earn) %></b></div>
+  </div>
+</div>
+
+<div class="split">
+  <div>
+    <% if (p.image_url || kind === 'activity' || isHotel) { %><img src="<%= cover({ image_url: p.image_url, destination: p.city }) %>" alt="" style="width:100%;max-height:300px;object-fit:cover;border-radius:14px;margin-bottom:20px"><% } %>
+    <div class="card">
+      <% if (p.summary) { %><p style="font-size:15px;font-weight:500"><%= p.summary %></p><% } %>
+      <% if (p.description) { %><p style="white-space:pre-line"><%= p.description %></p><% } %>
+      <% if (list(p.highlights).length) { %><div class="chips" style="margin:14px 0"><% list(p.highlights).forEach(x => { %><span>✓ <%= x %></span><% }) %></div><% } %>
+      <table class="table" style="margin-top:8px">
+        <% facts.filter(([, v]) => v && String(v).trim()).forEach(([k, v]) => { %><tr><td class="muted" style="width:170px"><%= k %></td><td style="white-space:pre-line"><%= v %></td></tr><% }) %>
+      </table>
+      <% if (list(p.inclusions).length || list(p.exclusions).length) { %>
+        <div class="grid grid-2" style="margin-top:16px">
+          <div><h3>✅ Included</h3><ul style="padding-left:18px"><% list(p.inclusions).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+          <div><h3>❌ Not included</h3><ul style="padding-left:18px" class="muted"><% list(p.exclusions).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+        </div>
+      <% } %>
+    </div>
+    <% if (more.length) { %>
+      <h2 style="margin-top:24px">More <%= cfg.plural.toLowerCase() %> in <%= p.city %></h2>
+      <div class="pkg-grid">
+        <% more.forEach(m => { %>
+          <a class="pkg" href="/agent/<%= cfg.path %>/<%= m.id %>" style="color:inherit;text-decoration:none">
+            <div class="body"><div class="meta"><%= m.category %><%= m.duration ? ` · ${m.duration}` : '' %></div><h3><%= m.title %></h3>
+              <div class="price"><div><small class="muted">Net <%= m.price.unit %></small><br><b><%= inr(m.price.net) %></b></div><div class="num"><small class="muted"><%= m.price.earnLabel %></small><br><span class="profit"><%= inr(m.price.earn) %></span></div></div></div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+
+  <div>
+    <form class="card calc" method="get" action="/agent/<%= cfg.path %>/<%= p.id %>">
+      <h3>Price for your customer</h3>
+      <div class="row">
+        <div class="field"><label for="adults">Adults</label><input id="adults" type="number" min="1" name="adults" value="<%= party.adults %>"></div>
+        <div class="field"><label for="children">Children 2–11</label><input id="children" type="number" min="0" name="children" value="<%= party.children %>"></div>
+        <% if (kind === 'flight') { %><div class="field"><label for="infants">Infants</label><input id="infants" type="number" min="0" name="infants" value="<%= party.infants %>"></div><% } %>
+      </div>
+      <% if (isHotel) { %>
+        <div class="row">
+          <div class="field"><label for="rooms">Rooms</label><input id="rooms" type="number" min="1" name="rooms" value="<%= party.rooms %>"></div>
+          <div class="field"><label for="nights">Nights</label><input id="nights" type="number" min="1" max="60" name="nights" value="<%= party.nights %>"></div>
+        </div>
+      <% } %>
+      <button class="btn" style="width:100%">Recalculate</button>
+      <table class="table" style="font-size:12.5px;margin-top:10px">
+        <% lines.forEach(l => { %><tr><td style="padding:6px 0"><%= l.title.replace(p.title, '').replace(/^: /, '') || 'Per group' %> <span class="muted">× <%= l.qty %></span></td><td class="num" style="padding:6px 0"><%= inr(l.net * l.qty) %></td></tr><% }) %>
+      </table>
+      <table class="totals" style="margin-top:8px">
+        <tr><td class="muted">Net to VaayuTrip</td><td class="num"><b><%= inr(priced.net) %></b></td></tr>
+        <tr><td class="muted">Your markup</td><td class="num profit">+ <%= inr(priced.sell - priced.net) %></td></tr>
+        <tr class="grand"><td>Selling price</td><td class="num"><%= inr(priced.sell) %></td></tr>
+        <tr><td class="pp" colspan="2">≈ <%= inr(pax ? priced.sell / pax : 0) %> per person · + GST + TCS</td></tr>
+      </table>
+    </form>
+
+    <form class="card" method="post" action="/agent/<%= cfg.path %>/<%= p.id %>/add-to-package">
+      <h3>Add to a package</h3>
+      <div class="field"><label for="pkg-id">Package</label>
+        <select id="pkg-id" name="package_id">
+          <option value="new">+ New package in <%= p.city %></option>
+          <% packages.forEach(k => { %><option value="<%= k.id %>"><%= k.title.slice(0, 40) %> (<%= k.nights %>N)</option><% }) %>
+        </select>
+      </div>
+      <div class="row">
+        <div class="field"><label for="pkg-day"><%= isHotel ? 'Check-in on day' : kind === 'flight' ? 'Flies on day' : 'On day' %></label><input id="pkg-day" type="number" min="1" max="60" name="day" value="1"></div>
+        <% if (isHotel) { %><div class="field"><label for="pkg-nights">Nights</label><input id="pkg-nights" type="number" min="1" max="60" name="nights" value="<%= party.nights %>"></div><% } %>
+      </div>
+      <button class="btn btn-primary" style="width:100%">Add to package</button>
+    </form>
+
+    <form class="card" method="post" action="/agent/<%= cfg.path %>/<%= p.id %>/quote">
+      <h3>Add to a quote</h3>
+      <% ['adults', 'children', 'infants', 'rooms', 'nights'].forEach(k => { %><input type="hidden" name="<%= k %>" value="<%= party[k] %>"><% }) %>
+      <div class="field"><label for="q-id">Quote</label>
+        <select id="q-id" name="quote_id" data-new-toggle="q-new">
+          <option value="new">+ New quote</option>
+          <% quotes.forEach(q => { %><option value="<%= q.id %>"><%= q.title.slice(0, 36) %> (<%= q.code %>)</option><% }) %>
+        </select>
+      </div>
+      <div id="q-new">
+        <div class="field"><label for="q-cust">Customer</label><select id="q-cust" name="customer_id"><option value="">Choose later</option><% customers.forEach(c => { %><option value="<%= c.id %>"><%= c.name %></option><% }) %></select></div>
+        <div class="field"><label for="q-date">Travel date</label><input id="q-date" type="date" name="date"></div>
+      </div>
+      <button class="btn btn-accent" style="width:100%">Add · <%= inr(priced.sell) %></button>
+    </form>
+  </div>
+</div>
