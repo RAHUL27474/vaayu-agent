@@ -1,0 +1,146 @@
+/**
+ * Demo packages built by the demo agencies from VaayuTrip activities plus their own hotels
+ * and services. Activities are referenced by title; hotel names and prices are illustrative.
+ * days: [title, description, meals ('B', 'L', 'D' letters), overnight]
+ * activities: [day, activity title]
+ * stays: [city, hotel, type, stars, room, meal plan, nights, agent's price per room per night, agent's cost]
+ * extras: [type, title, description, per_person | per_booking, agent's price, agent's cost]
+ */
+const POLICIES = {
+  advancePercent: 30, balanceDays: 15, payment: 'Activities are confirmed once the advance is received.',
+  cancellation: [{ days: 30, percent: 10 }, { days: 15, percent: 25 }, { days: 7, percent: 50 }, { days: 0, percent: 100 }],
+  child: 'Infants below 2 years travel free. Children 2–11 years pay the child price for activities; extra bed charged at the hotel.',
+  notes: 'Hotel check-in 14:00, check-out 11:00. Valid photo ID required for all travellers. Activity timings may change with weather.',
+  terms: '',
+};
+
+module.exports = [
+  {
+    agency: 'skyline-holidays', status: 'published',
+    title: 'Goa Beach Escape', destination: 'Goa', nights: 4, theme: 'Beach', departure_city: 'Goa airport',
+    summary: 'Four relaxed nights by the beach in North Goa with the best of Goa: forts, churches, water sports and a river cruise.',
+    highlights: ['Beach resort in Candolim', 'Water sports combo at Calangute', 'Old Goa churches', 'Sunset cruise on the Mandovi'],
+    route: [['Goa', 4]],
+    days: [
+      ['Arrive in Goa', 'Private transfer to your resort in Candolim. Evening at leisure on the beach.', 'D', 'Candolim'],
+      ['North Goa forts and beaches', 'Full-day North Goa tour. Back in time for the sunset at Chapora Fort.', 'BD', 'Candolim'],
+      ['Water sports and sunset cruise', 'Morning water sports at Calangute. Evening cruise on the Mandovi from Panaji.', 'BD', 'Candolim'],
+      ['Old Goa and the south', 'Basilica of Bom Jesus, Se Cathedral and the beaches of South Goa.', 'BD', 'Candolim'],
+      ['Departure', 'Check out and transfer to the airport.', 'B', ''],
+    ],
+    activities: [[2, 'North Goa sightseeing tour'], [3, 'Water sports combo at Calangute'], [3, 'Mandovi river sunset cruise'], [4, 'Old Goa churches and South Goa tour']],
+    stays: [['Goa', 'Palm Grove Beach Resort, Candolim', 'Resort', 4, 'Deluxe room', 'MAP', 4, 5500, 4400]],
+    extras: [['transfer', 'Private airport transfers', 'Return transfers in an AC sedan', 'per_booking', 2400, 1900]],
+    inclusions: 'Four nights at the resort with breakfast and dinner\nReturn airport transfers\nAll activities in the itinerary',
+    exclusions: 'Flights\nLunch\nEntry fees not mentioned\nPersonal expenses',
+  },
+  {
+    agency: 'skyline-holidays', status: 'published',
+    title: 'Kashmir Paradise with Houseboat', destination: 'Kashmir', nights: 5, theme: 'Mountains', departure_city: 'Srinagar airport',
+    summary: 'Dal Lake, a night on a houseboat, the gondola at Gulmarg and the valleys of Pahalgam.',
+    highlights: ['Night on a deluxe houseboat', 'Gulmarg gondola to Apharwat', 'Sonamarg and Thajiwas glacier', 'Aru and Betaab valleys'],
+    route: [['Srinagar', 3], ['Pahalgam', 2]],
+    days: [
+      ['Arrive in Srinagar, shikara on Dal Lake', 'Check in to your houseboat. Sunset shikara ride on Dal Lake.', 'D', 'Houseboat, Dal Lake'],
+      ['Sonamarg day trip', 'Drive to Sonamarg along the Sindh river.', 'BD', 'Srinagar'],
+      ['Gulmarg gondola', 'Day trip to Gulmarg and the gondola up to Apharwat.', 'BD', 'Srinagar'],
+      ['Pahalgam valleys', 'Drive to Pahalgam and visit Aru, Betaab and Chandanwari.', 'BD', 'Pahalgam'],
+      ['Pahalgam at leisure', 'Free day by the Lidder river.', 'BD', 'Pahalgam'],
+      ['Departure', 'Drive to Srinagar airport.', 'B', ''],
+    ],
+    activities: [[1, 'Dal Lake shikara ride'], [2, 'Sonamarg day trip from Srinagar'], [3, 'Gulmarg gondola, phase 1 and 2'], [4, 'Pahalgam valleys tour: Aru, Betaab and Chandanwari']],
+    stays: [
+      ['Srinagar', 'Royal Lotus Houseboat', 'Houseboat', 4, 'Deluxe room', 'MAP', 1, 6500, 5200],
+      ['Srinagar', 'Hotel Chinar Heights', 'Hotel', 4, 'Superior room', 'MAP', 2, 5000, 4000],
+      ['Pahalgam', 'Lidder View Resort', 'Resort', 4, 'Valley-view room', 'MAP', 2, 5500, 4400],
+    ],
+    extras: [['transfer', 'Private Innova for all transfers and day trips', 'Except inside Pahalgam (local union cab, included in the valleys tour)', 'per_booking', 18000, 14400]],
+    inclusions: 'Five nights with breakfast and dinner\nPrivate car for transfers and day trips\nAll activities in the itinerary',
+    exclusions: 'Flights\nPony rides\nLunch\nPersonal expenses',
+  },
+  {
+    agency: 'skyline-holidays', status: 'published',
+    title: 'Rajasthan Royal Trail', destination: 'Rajasthan', nights: 5, theme: 'Heritage', departure_city: 'Jaipur',
+    summary: 'Forts and palaces of Jaipur and the lakes of Udaipur, with a village evening at Chokhi Dhani.',
+    highlights: ['Amber Fort with a private guide', 'Chokhi Dhani village dinner', 'Sunset boat on Lake Pichola'],
+    route: [['Jaipur', 3], ['Udaipur', 2]],
+    days: [
+      ['Arrive in Jaipur', 'Check in and explore the bazaars of the Pink City.', 'D', 'Jaipur'],
+      ['Jaipur forts and palaces', 'Full-day Jaipur tour with your own car and guide. Evening at Chokhi Dhani.', 'BD', 'Jaipur'],
+      ['Jaipur at leisure', 'A free day, or add the hot air balloon ride at sunrise.', 'B', 'Jaipur'],
+      ['Drive to Udaipur', 'Drive to Udaipur (about 7 hours). Sunset boat ride on Lake Pichola.', 'BD', 'Udaipur'],
+      ['Udaipur city tour', 'City Palace, Jagdish Temple and Saheliyon ki Bari.', 'BD', 'Udaipur'],
+      ['Departure', 'Transfer to Udaipur airport.', 'B', ''],
+    ],
+    activities: [[2, 'Amber Fort and Jaipur city tour, private car with guide'], [2, 'Chokhi Dhani village evening and dinner'], [4, 'Lake Pichola sunset boat ride'], [5, 'Udaipur private city tour']],
+    stays: [
+      ['Jaipur', 'Haveli Rang Mahal', 'Hotel', 4, 'Heritage room', 'CP', 3, 4800, 3850],
+      ['Udaipur', 'Lakeside Mewar Inn', 'Hotel', 4, 'Lake-view room', 'CP', 2, 5200, 4150],
+    ],
+    extras: [['transfer', 'Jaipur to Udaipur private car', 'AC sedan with driver', 'per_booking', 9500, 7600], ['transfer', 'Airport and station transfers', 'Arrival in Jaipur, departure from Udaipur', 'per_booking', 2200, 1750]],
+    inclusions: 'Five nights with breakfast\nPrivate car Jaipur–Udaipur\nAll activities in the itinerary',
+    exclusions: 'Flights or trains\nMonument entry fees\nLunch and dinner except where mentioned',
+  },
+  {
+    agency: 'skyline-holidays', status: 'published',
+    title: 'Kerala Backwaters & Hills', destination: 'Kerala', nights: 5, theme: 'Nature', departure_city: 'Kochi airport',
+    summary: 'Kathakali in Fort Kochi, the tea hills of Munnar and a private houseboat on the backwaters.',
+    highlights: ['Kathakali performance', 'Munnar tea gardens', 'Private houseboat day cruise'],
+    route: [['Kochi', 1], ['Munnar', 2], ['Alleppey', 2]],
+    days: [
+      ['Arrive in Kochi', 'Explore Fort Kochi and the Chinese fishing nets. Evening Kathakali show.', 'D', 'Kochi'],
+      ['Drive to Munnar', 'Scenic drive past waterfalls and spice gardens.', 'BD', 'Munnar'],
+      ['Munnar sightseeing', 'Tea museum, Eravikulam park and Mattupetty dam.', 'BD', 'Munnar'],
+      ['Drive to Alleppey, houseboat cruise', 'Private houseboat through the backwaters with lunch on board.', 'BLD', 'Alleppey'],
+      ['Alleppey at leisure', 'Beach and village walks.', 'BD', 'Alleppey'],
+      ['Departure', 'Transfer to Kochi airport.', 'B', ''],
+    ],
+    activities: [[1, 'Kathakali performance'], [3, 'Munnar tea gardens and Eravikulam park'], [4, 'Alleppey houseboat day cruise']],
+    stays: [
+      ['Kochi', 'Harbour Heritage Hotel', 'Hotel', 4, 'Deluxe room', 'CP', 1, 4500, 3600],
+      ['Munnar', 'Tea Valley Resort', 'Resort', 4, 'Valley-view room', 'MAP', 2, 5200, 4150],
+      ['Alleppey', 'Lake Palms Resort', 'Resort', 4, 'Lake cottage', 'MAP', 2, 5800, 4650],
+    ],
+    extras: [['transfer', 'Private car for the whole trip', 'AC sedan, Kochi to Kochi', 'per_booking', 14000, 11200]],
+    inclusions: 'Five nights\nPrivate car throughout\nAll activities in the itinerary',
+    exclusions: 'Flights\nEntry fees not mentioned\nPersonal expenses',
+  },
+  {
+    agency: 'skyline-holidays', status: 'published',
+    title: 'Dubai Family Fun', destination: 'Dubai', nights: 4, theme: 'Family', departure_city: 'Dubai airport', is_international: 1,
+    summary: 'Desert safari, Burj Khalifa, a dhow cruise dinner and a day in Abu Dhabi.',
+    highlights: ['Desert safari with BBQ dinner', 'Burj Khalifa level 124 and 125', 'Abu Dhabi Grand Mosque'],
+    route: [['Dubai', 4]],
+    days: [
+      ['Arrive in Dubai, dhow cruise', 'Transfer to the hotel. Evening dhow cruise dinner at the Marina.', 'D', 'Dubai'],
+      ['Dubai city tour and Burj Khalifa', 'Morning city tour, afternoon at the Dubai Mall and Burj Khalifa.', 'B', 'Dubai'],
+      ['Desert safari', 'Free morning. Afternoon desert safari with BBQ dinner.', 'BD', 'Dubai'],
+      ['Abu Dhabi day trip', 'Grand Mosque, the Corniche and Ferrari World photo stop.', 'BL', 'Dubai'],
+      ['Departure', 'Transfer to the airport.', 'B', ''],
+    ],
+    activities: [[1, 'Dhow cruise dinner at Dubai Marina'], [2, 'Dubai city tour, half day'], [2, 'Burj Khalifa At the Top, levels 124 and 125'], [3, 'Desert safari with BBQ dinner'], [4, 'Abu Dhabi day trip with Grand Mosque']],
+    stays: [['Dubai', 'Al Barsha Grand Hotel', 'Hotel', 4, 'Family room', 'CP', 4, 7200, 5750]],
+    extras: [['visa', 'UAE tourist visa', '30-day single entry', 'per_person', 7500, 6000], ['transfer', 'Private airport transfers', 'Return, in a private car', 'per_booking', 3000, 2400]],
+    inclusions: 'Four nights with breakfast\nUAE visa\nAirport transfers\nAll activities in the itinerary',
+    exclusions: 'Flights\nTourism Dirham fee (paid at the hotel)\nTravel insurance',
+  },
+  {
+    agency: 'ravi-tours', status: 'draft',
+    title: 'Manali Snow Holiday', destination: 'Manali', nights: 4, theme: 'Mountains', departure_city: 'Chandigarh',
+    summary: 'Snow at Sissu, paragliding at Solang and the old town of Manali.',
+    highlights: ['Atal Tunnel and Sissu', 'Paragliding at Solang'],
+    route: [['Manali', 4]],
+    days: [
+      ['Drive to Manali', 'Overnight Volvo from Delhi or drive from Chandigarh.', 'D', 'Manali'],
+      ['Solang Valley', 'Paragliding and snow activities at Solang.', 'BD', 'Manali'],
+      ['Atal Tunnel and Sissu', 'Day trip through the Atal Tunnel to Sissu.', 'BD', 'Manali'],
+      ['Old Manali', 'Hadimba temple, Vashisht hot springs and the Mall Road.', 'BD', 'Manali'],
+      ['Departure', 'Drive back.', 'B', ''],
+    ],
+    activities: [[2, 'Solang Valley paragliding'], [3, 'Atal Tunnel and Sissu snow day trip']],
+    stays: [['Manali', 'Snow Crest Cottages', 'Hotel', 3, 'Deluxe room', 'MAP', 4, 0, 0]],
+    extras: [],
+    inclusions: 'Four nights with breakfast and dinner\nActivities in the itinerary',
+    exclusions: 'Travel to Manali\nSnow gear',
+  },
+].map((p) => ({ ...p, policies: POLICIES }));

@@ -16,7 +16,7 @@
   <% }) %>
 </div>
 <div class="card flush">
-  <% if (!quotes.length) { %><div class="empty"><span class="big">📝</span>No quotes here yet. Start from a <a href="/agent/packages">package</a> or a <a href="/agent/flights">flight search</a>.</div><% } else { %>
+  <% if (!quotes.length) { %><div class="empty"><span class="big">📝</span>No quotes here yet. Start from <a href="/agent/packages">one of your packages</a>, an <a href="/agent/activities">activity</a> or a <a href="/agent/flights">flight search</a>.</div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Quote</th><th>Customer</th><th>Travel</th><th>Status</th><th class="num">Customer price</th><th class="num">You earn</th></tr></thead>
     <% quotes.forEach(q => { %>

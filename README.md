@@ -1,6 +1,6 @@
 # VaayuTrip Agent
 
-The VaayuTrip B2B platform for travel agents. VaayuTrip publishes holiday packages at agent net rates. Agents customise them, add their commission and their own services, share quotes, collect payments, book, and invoice their customers, either under their own brand or with a VaayuTrip invoice that includes their commission.
+The VaayuTrip B2B platform for travel agents. VaayuTrip supplies activities (tours, attraction tickets and experiences) at agent net rates; it does not sell ready-made packages. Agents build their own holiday packages from those activities plus the hotels and services they arrange themselves, set their prices, share quotes, collect payments, book, and invoice their customers, either under their own brand or with a VaayuTrip invoice that includes their commission.
 
 ## Run it
 
@@ -11,10 +11,9 @@ npm install
 npm start            # http://localhost:3000
 npm run dev          # same, restarts on file changes
 npm run seed         # wipe the database and reload demo data
-npm run packages:sync  # add any catalogue packages missing from your database (keeps your data)
 ```
 
-The first start creates `data/vaayutrip.db` with demo data.
+The first start creates `data/vaayutrip.db` with demo data: 38 activities in India and abroad, and packages that the demo agencies built from them.
 
 | Role | Email | Password |
 |---|---|---|
@@ -25,35 +24,32 @@ The first start creates `data/vaayutrip.db` with demo data.
 
 Change these passwords before putting the app anywhere public.
 
-## Adding your packages (admin)
+## Adding activities (admin)
 
-1. Log in as admin, open **Packages**, click **+ New package**.
-2. Fill the sections. Rows (cities, days, hotels, flights, rates, extras, departures, cancellation slabs) are added with the **+ Add** buttons:
-   basics and photos, route, day-wise itinerary, hotels for each category, flights and airfare, per-person rates by season, extras, fixed departures (group tours only), inclusions/exclusions, and policies.
-3. **Save package**: it stays a draft. The side panel lists anything missing before it can be published (rates, hotels for each priced category, itinerary).
-4. **Preview as agent** shows the page and price calculator exactly as agents see it (at net prices).
-5. **Publish to agents**: every active agent is notified and can quote it straight away. **Duplicate** copies a package as a starting point for a similar one.
+1. Log in as admin, open **Activities**, click **+ New activity**.
+2. Fill in the city and country, category, duration, description, highlights, pickup point, timings, inclusions, cancellation policy and a photo.
+3. Set the net price: **per person** (adult, and child 2–11; infants are free) for tickets and shared tours, or **per group** of up to N guests for private tours, boats and vehicles.
+4. **Create activity**: it stays a draft. **Publish to agents** makes it available to every active agent and notifies them.
 
-Photos: upload a cover and up to 12 gallery photos (JPG, PNG or WebP, 5 MB each), or paste image links. Without a photo, a cover with the destination name is shown.
+Price changes apply to new quotes only; quotes already made keep their prices. Unpublishing an activity stops new use, and agents' packages that include it show a warning. Activities outside India add TCS on customer invoices.
 
-The portal ships with demo packages. Click **Remove demo packages** on the Packages page when you start adding your own; quotes already created keep their copy of the package.
+## Building a package (agent)
+
+1. Open **My packages**, click **+ New package** (or **Add to a package** from any activity).
+2. Basics and photo, route (cities and nights), and a day-wise itinerary.
+3. **Activities from VaayuTrip**: pick the activity for each day from the catalogue.
+4. **Hotels** you arrange: city, hotel, room, meal plan, nights, your cost and your price per room per night.
+5. **Your services**: transfers, meals, guides, visa help and so on, per person or per booking, with your cost and price.
+6. Inclusions, exclusions and your own policies.
+7. Open the package to price it for any party (date, adults, children, rooms) and **Create quote**. **Publish to my website** puts it on the agency's website and API.
+
+Activities are bought from VaayuTrip at net and marked up with the quote's markup. Hotels and services are the agent's own: they appear at the agent's price on the agent-branded invoice, and their cost stays private and is only used to work out the agent's earning.
 
 ## What's inside
 
 **VaayuTrip admin (`/admin`)**
-- Packages: a 10-section editor covering:
-  1. basics (type, international, highlights, gallery)
-  2. route (cities with nights)
-  3. day-wise itinerary with meals (B/L/D), overnight stop and optional activities
-  4. hotels per category (Standard / Deluxe / Premium / Luxury) with stars, room type and meal plan (EP/CP/MAP/AP)
-  5. flights with indicative schedules, plus net airfare for adult, child and infant
-  6. seasonal land rates per person (twin, triple, single, child with bed, child without bed, infant)
-  7. add-ons (included or optional, per person or per booking)
-  8. fixed group departures with seat counts
-  9. inclusions and exclusions
-  10. policies (advance and balance terms, cancellation slabs, child policy, notes, terms)
-
-  A package can't be published until rates, hotels and an itinerary are in place. Publishing notifies every active agent. Packages can be duplicated.
+- Activities: the catalogue agents build from. Filter by city, category and status; see how many agent packages and bookings use each one. Publishing notifies every active agent. Activities can be duplicated.
+- The dashboard shows live activities, how many packages agents have built, and the most booked activities.
 - Agents: approve signups, verify KYC, suspend, set credit limits, adjust wallets. View each agency's tax certificate; KYC can only be marked verified once a GSTIN or tax ID and a certificate are on file.
 - Offers & deals: publish promotions (with optional promo code, expiry and portal link) to every agent's dashboard. Pause or delete them any time.
 - Support tickets: reply to agents' tickets and close them; open tickets show a count in the menu.
@@ -70,11 +66,11 @@ The portal ships with demo packages. Click **Remove demo packages** on the Packa
 - Dashboard: a setup checklist until the agency is fully onboarded, live offers, and a 6-month earnings chart.
 - Reports: bookings, sales, net, earnings and margin for any date range, earnings by month, top destinations and top customers, plus CSV export of bookings and the wallet ledger.
 - Offers & deals, and Help & support (tickets with VaayuTrip, plus phone, WhatsApp and email contacts).
-- Package pages have a share bar that sends the package from the agent's own website on WhatsApp.
-- Book: holiday packages, flights, hotels, transfers and cabs, travel insurance.
-- Package calculator: choose hotel category, travel date (or fixed departure), rooms, adults, children with/without bed, infants, flights on/off and optional extras. It splits adults into twin/triple/single rooms (max 3 per room), applies the right season, and shows each line, the net, the agent's markup and the per-person price. Quotes keep a frozen copy of the itinerary, hotels, flights and policies, so later package edits don't change quotes already sent.
-- International packages add TCS (configurable, 2% by default from April 2026) to customer invoices. Fixed departures hold seats on booking and release them on cancellation.
-- Quotes: start from a package or a search result. For each line, set your own price (never below net) or use your percent or flat markup. Add your own services (guide, decoration, visa help). See your earning live.
+- Activities: browse VaayuTrip's catalogue (India or international, by city, category or search) with the net price and the agent's earning. Price an activity for a party, add it to a quote, or add it to a day of one of their packages.
+- My packages: the package builder above. Each package page has a price calculator (date, adults, children, rooms) showing VaayuTrip activities at net, the agent's markup, their hotels and services, their costs and their earning, and a share bar that sends the package from the agent's own website on WhatsApp. Quotes keep a frozen copy of the itinerary, so later package edits don't change quotes already sent.
+- Book: flights, hotels, transfers and cabs, travel insurance, alongside activities.
+- International packages and activities add TCS (configurable, 2% by default from April 2026) to customer invoices.
+- Quotes: start from one of your packages, an activity or a search result. For each line, set your own price (never below net) or use your percent or flat markup. Add your own services (hotel you book, guide, decoration, visa help) with your price and, privately, your cost. See your earning live.
 - Customer invoice choice per quote:
   - **My company's invoice**: your name, logo, GSTIN and colour, with all your edited items. Needs a logo uploaded under Company & branding.
   - **VaayuTrip invoice**: for agents without branding. It's issued by VaayuTrip, names the agent as "Booked through", and its prices include the agent's commission. The commission can be built into the line prices or shown as a separate "Service fee" line.
@@ -83,19 +79,19 @@ The portal ships with demo packages. Click **Remove demo packages** on the Packa
 - Book now: pays VaayuTrip net + GST, from the wallet first and then the credit line.
 - Bookings and cancellation requests, customers (CRM), and leads (manual, website, API) with one-click conversion to a quote.
 - Wallet & credit, invoices, payment links, notifications.
-- **My website** (`/site/<agency-slug>`): the agent's own travel website with their branding, every VaayuTrip package at their prices, and an enquiry form that creates leads.
-- **API access**: `GET /api/v1/packages`, `GET /api/v1/packages/:slug`, `POST /api/v1/leads`, `GET /api/v1/bookings`, authenticated with `Authorization: Bearer <key>`.
+- **My website** (`/site/<agency-slug>`): the agent's own travel website with their branding, the packages they publish at their prices, and an enquiry form that creates leads.
+- **API access**: `GET /api/v1/packages` and `GET /api/v1/packages/:slug` (the agency's published packages), `POST /api/v1/leads`, `GET /api/v1/bookings`, authenticated with `Authorization: Bearer <key>`.
 
 ## How prices work
 
 ```
-net (what the agent pays VaayuTrip)
+net (what the agent pays VaayuTrip for activities, flights, hotels…)
 + agent commission (their price per line, or the quote's % / flat markup)
-+ agent's own services (agent-branded invoice only)
-= customer subtotal, + GST = customer total
++ agent's own hotels and services at their price (agent-branded invoice only)
+= customer subtotal, + GST (+ TCS abroad) = customer total
 ```
 
-The agent pays VaayuTrip `net + GST` when booking. Their earning is `customer subtotal − net`. The rules live in [src/pricing.js](src/pricing.js).
+The agent pays VaayuTrip `net + GST` when booking, and pays their own hotels and suppliers directly. Their earning is `customer subtotal − net − their own costs`. The rules live in [src/pricing.js](src/pricing.js) and [src/packages.js](src/packages.js).
 
 ## Project layout
 
@@ -103,10 +99,11 @@ The agent pays VaayuTrip `net + GST` when booking. Their earning is `customer su
 server.js               app setup, sessions, layout rendering
 src/db.js               SQLite schema and helpers
 src/pricing.js          markup, totals, GST/TCS, EMI and invoice snapshots
-src/packages.js         package structure, editor parsing, occupancy and season pricing
-src/seed-packages.js    domestic demo packages (Goa, Kashmir, Rajasthan, Kerala) + Bali and Dubai group tour
-src/seed-packages-intl.js  Vietnam, Cambodia, UK, Europe group tour, Dubai & Abu Dhabi, Bali honeymoon
-src/sync-packages.js    inserts catalogue packages that are missing (matched by slug)
+src/activities.js       activity catalogue: form parsing, per-person / per-group pricing
+src/packages.js         agent-built packages: structure, builder parsing, pricing, display and quote snapshot
+src/photos.js           cover photo uploads for activities and packages
+src/seed-activities.js  demo activities (India, Dubai, Bali, Thailand, Singapore, Vietnam)
+src/seed-agent-packages.js  demo packages built by the demo agencies
 src/services.js         quotes, booking, wallet/credit, cancellations, invoices
 src/inventory.js        sample flight/hotel/transfer/insurance inventory
 src/routes/             public.js, agent.js, admin.js, api.js
@@ -116,7 +113,7 @@ public/                 CSS, JS, logos, uploaded agency logos
 
 ## Before going live
 
-- **Package content:** hotel names are illustrative ("or similar"), flight schedules are indicative, and rates and visa costs are estimates. Replace them with your contracted hotels, airline fares and current visa fees, and upload photos you own or have licensed (packages without a photo show a generated destination cover).
+- **Activity content:** the demo activities' net rates, timings and inclusions are illustrative estimates, and the demo agencies' hotels are made up. Replace the activities with your contracted ones and rates, and upload photos you own or have licensed (activities and packages without a photo show a generated destination cover). Agents' own hotels and services are their responsibility to fulfil.
 - **Supplier inventory:** flights, hotels, transfers and insurance return realistic sample results from [src/inventory.js](src/inventory.js). Swap those functions for real supplier APIs (e.g. TBO, Amadeus, Hotelbeds); the rest of the app only depends on the result shape.
 - **Payments:** payment links use a demo checkout. Connect Razorpay or Cashfree and mark links paid from their webhook. Wallet top-ups are verified manually by UTR.
 - **Hosting:** set `SESSION_SECRET`, run behind HTTPS, and back up `data/` and `public/uploads/`. For multiple servers, move from SQLite to Postgres (for example Supabase). `DATA_DIR` and `UPLOADS_DIR` override where the database and uploads are stored.

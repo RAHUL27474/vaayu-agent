@@ -11,7 +11,7 @@ if (require.main === module && process.argv.includes('--reset')) {
 }
 
 const { one, run, tx, setSetting, getSettings, UPLOADS_DIR: UPLOADS } = require('./db');
-const { hashPassword, code, round2 } = require('./util');
+const { hashPassword, code, round2, uniqueSlug } = require('./util');
 const { taxRate } = require('./pricing');
 const { KYC_DIR } = require('./kyc');
 
@@ -36,7 +36,43 @@ function samplePdf(text) {
   return `${pdf}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
 }
 
-const { CATALOGUE, insertPackage } = require('./sync-packages');
+const ACTIVITIES = require('./seed-activities');
+const AGENT_PACKAGES = require('./seed-agent-packages');
+
+const ACT_FIELDS = ['title', 'city', 'country', 'category', 'duration', 'summary', 'description', 'highlights', 'inclusions', 'exclusions', 'pickup', 'timing',
+  'cancellation', 'price_basis', 'group_size', 'net_adult', 'net_child'];
+
+function insertActivity(a) {
+  const row = { country: 'India', description: null, group_size: null, net_child: null, ...a };
+  return run(
+    `INSERT INTO activities (${ACT_FIELDS.join(', ')}, slug, status) VALUES (${ACT_FIELDS.map(() => '?').join(', ')}, ?, 'published')`,
+    ...ACT_FIELDS.map((k) => row[k] ?? null), uniqueSlug('activities', `${a.title} ${a.city}`),
+  ).lastInsertRowid;
+}
+
+function insertAgentPackage(p) {
+  const agency = one('SELECT id FROM agencies WHERE slug = ?', p.agency);
+  const activityId = (title) => {
+    const a = one('SELECT id FROM activities WHERE title = ?', title);
+    if (!a) throw new Error(`Demo package ${p.title} uses unknown activity "${title}"`);
+    return a.id;
+  };
+  const details = {
+    route: p.route.map(([city, nights]) => ({ city, nights })),
+    highlights: p.highlights,
+    days: p.days.map(([title, description, meals, overnight]) => ({ title, description, meals: { b: meals.includes('B'), l: meals.includes('L'), d: meals.includes('D') }, overnight })),
+    activities: p.activities.map(([day, title]) => ({ day, id: activityId(title), title })),
+    stays: p.stays.map(([city, hotel, type, stars, room, mealPlan, nights, price, cost]) => ({ city, hotel, type, stars, room, mealPlan, nights, cost, price })),
+    extras: p.extras.map(([type, title, description, basis, price, cost]) => ({ type, title, description, basis, cost, price })),
+    policies: p.policies,
+  };
+  return run(
+    `INSERT INTO packages (agency_id, title, slug, destination, nights, theme, summary, inclusions, exclusions, is_international, departure_city, details, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    agency.id, p.title, uniqueSlug('packages', p.title), p.destination, p.nights, p.theme, p.summary, p.inclusions, p.exclusions,
+    p.is_international || 0, p.departure_city, JSON.stringify(details), p.status,
+  ).lastInsertRowid;
+}
 
 const SKYLINE_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="64" viewBox="0 0 240 64">
 <rect x="4" y="8" width="48" height="48" rx="12" fill="#7c3aed"/>
@@ -93,7 +129,8 @@ function seed() {
     run('INSERT INTO users (role, agency_id, name, email, password_hash) VALUES (?, ?, ?, ?, ?)', 'agent', pending, 'Arjun Mehta', 'agent@wanderlust.in', hashPassword('agent123'));
     run("INSERT INTO notifications (agency_id, title, body, link) VALUES (NULL, 'New agent signup', 'Wanderlust Trips (Pune) is waiting for approval.', '/admin/agents')");
 
-    for (const p of CATALOGUE) insertPackage(p);
+    for (const a of ACTIVITIES) insertActivity(a);
+    for (const p of AGENT_PACKAGES) insertAgentPackage(p);
 
     const c1 = run("INSERT INTO customers (agency_id, name, email, phone, city) VALUES (?, 'Ananya & Rohit Kapoor', 'ananya.k@example.com', '+91 98765 43210', 'Mumbai')", skyline).lastInsertRowid;
     run("INSERT INTO customers (agency_id, name, email, phone, city) VALUES (?, 'Mehta Family', 'vikram.mehta@example.com', '+91 98111 22334', 'Thane')", skyline);
@@ -110,8 +147,7 @@ function seed() {
   const customer = one("SELECT id FROM customers WHERE name = 'Ananya & Rohit Kapoor'");
   const goa = one("SELECT id FROM packages WHERE slug = 'goa-beach-escape'");
   const quoteId = svc.createQuoteFromPackage(skylineAgency, goa.id, {
-    title: 'Goa Beach Escape — Kapoor honeymoon', customerId: customer.id, category: 'Deluxe', date: '2026-11-20',
-    rooms: 1, adults: 2, withFlights: true, addons: [0],
+    title: 'Goa Beach Escape — Kapoor honeymoon', customerId: customer.id, date: '2026-11-20', rooms: 1, adults: 2,
   });
   svc.addQuoteItem(quoteId, { type: 'other', title: 'Honeymoon cake & room decoration', description: 'Arranged by Skyline Holidays', supplier: 'agent', net: 0, sell: 2500 });
   run("UPDATE quotes SET status = 'sent', invoice_mode = 'agent' WHERE id = ?", quoteId);
@@ -122,22 +158,22 @@ function seed() {
 
 function seedOffersAndSupport(agency) {
   const offers = [
-    ['Kashmir winter special: ₹2,000 off per couple', 'On Kashmir Paradise with Houseboat for travel between 1 Dec and 28 Feb. Applied to the net rate at booking.', 'SNOW2K', '/agent/packages', "date('now', '+45 days')"],
-    ['Extra 2% commission on international packages', 'Book any international package this month and earn 2% over your usual markup, credited to your wallet after travel.', null, '/agent/packages', "date('now', 'start of month', '+1 month', '-1 day')"],
-    ['Free airport transfers in Goa', 'Private return airport transfers included on Goa Beach Escape bookings of 2 rooms or more.', 'GOAFREE', '/agent/packages', "date('now', '+30 days')"],
+    ['Gulmarg gondola winter special: ₹300 off per guest', 'On Gulmarg gondola phase 1 and 2 tickets for travel between 1 Dec and 28 Feb. Applied to the net rate at booking.', 'SNOW300', '/agent/activities?city=Gulmarg', "date('now', '+45 days')"],
+    ['Extra 2% commission on international activities', 'Book any activity outside India this month and earn 2% over your usual markup, credited to your wallet after travel.', null, '/agent/activities?region=abroad', "date('now', 'start of month', '+1 month', '-1 day')"],
+    ['Kids go free on Goa water sports', 'One child free per paying adult on the Calangute water sports combo.', 'GOAKIDS', '/agent/activities?city=Goa', "date('now', '+30 days')"],
   ];
   for (const [title, body, promo, link, until] of offers) run(`INSERT INTO offers (title, body, code, link, valid_until) VALUES (?, ?, ?, ?, ${until})`, title, body, promo, link);
 
   const user = one('SELECT id FROM users WHERE agency_id = ?', agency.id);
   const booking = one('SELECT id, code FROM bookings WHERE agency_id = ? ORDER BY id LIMIT 1', agency.id);
   const ticket = run(
-    "INSERT INTO tickets (agency_id, code, subject, category, booking_id, status, created_at, updated_at) VALUES (?, ?, 'Need ground-floor rooms for senior guests', 'booking', ?, 'answered', datetime('now', '-2 days'), datetime('now', '-1 day'))",
+    "INSERT INTO tickets (agency_id, code, subject, category, booking_id, status, created_at, updated_at) VALUES (?, ?, 'Senior guests on the Jaipur tour', 'booking', ?, 'answered', datetime('now', '-2 days'), datetime('now', '-1 day'))",
     agency.id, code('T'), booking ? booking.id : null,
   ).lastInsertRowid;
   run("INSERT INTO ticket_messages (ticket_id, user_id, body, created_at) VALUES (?, ?, ?, datetime('now', '-2 days'))", ticket, user.id,
-    'Two of the Mehta family guests are above 70. Can you request ground-floor or lift-access rooms at all hotels on this trip?');
+    'Two of the Mehta family guests are above 70. Can the Amber Fort tour use the jeep route up to the fort and keep the walking short?');
   run("INSERT INTO ticket_messages (ticket_id, from_admin, body, created_at) VALUES (?, 1, ?, datetime('now', '-1 day'))", ticket,
-    "Done. All three hotels have confirmed ground-floor rooms, and we've added a note to the vouchers. Let us know if you need wheelchair assistance at the airport too.");
+    "Done. The guide will take the jeep route up to Amber Fort and skip the long walk at Jantar Mantar. We've added a note to the voucher. A wheelchair is available at the fort on request.");
 }
 
 // Past bookings for Skyline, made through the normal booking flow and then backdated,
@@ -148,7 +184,7 @@ function seedBookingHistory(svc, agency) {
   const history = [
     { monthsAgo: 5, slug: 'rajasthan-royal-trail', date: '2026-11-08', title: 'Rajasthan Royal Trail — Mehta family', customerId: mehta.id, adults: 4 },
     { monthsAgo: 4, slug: 'kerala-backwaters-hills', date: '2026-12-12', title: 'Kerala Backwaters — Iyer anniversary', adults: 2 },
-    { monthsAgo: 3, slug: 'kashmir-paradise-with-houseboat', date: '2027-01-15', title: 'Kashmir with Houseboat — Sharma friends', adults: 3 },
+    { monthsAgo: 3, slug: 'dubai-family-fun', date: '2027-01-15', title: 'Dubai Family Fun — Sharma family', adults: 2, children: 2 },
     { monthsAgo: 2, slug: 'goa-beach-escape', date: '2026-12-27', title: 'Goa New Year — college group', adults: 2 },
     { monthsAgo: 1, slug: 'kerala-backwaters-hills', date: '2027-02-06', title: 'Kerala Backwaters — Kapoor parents', customerId: kapoor.id, adults: 2 },
     { monthsAgo: 0, slug: 'goa-beach-escape', date: '2027-01-09', title: 'Goa Beach Escape — Nair family', adults: 2 },
@@ -156,7 +192,7 @@ function seedBookingHistory(svc, agency) {
   for (const h of history) {
     const pkg = one('SELECT id FROM packages WHERE slug = ?', h.slug);
     if (!pkg) continue;
-    const quoteId = svc.createQuoteFromPackage(agency, pkg.id, { title: h.title, customerId: h.customerId || null, category: 'Standard', date: h.date, rooms: Math.ceil(h.adults / 2), adults: h.adults });
+    const quoteId = svc.createQuoteFromPackage(agency, pkg.id, { title: h.title, customerId: h.customerId || null, date: h.date, adults: h.adults, children: h.children || 0 });
     // Top up exactly what the booking will cost so the demo wallet keeps its opening balance.
     const net = svc.getQuote(quoteId, agency.id).priced.net;
     const utr = `UTR${String(7700000000 + quoteId * 7919).slice(0, 10)}`;

@@ -10,14 +10,14 @@ const { COUNTRIES, withTaxDoc, checkTax, removeDoc } = require('../kyc');
 const router = express.Router();
 
 router.get('/', h((req, res) => {
-  const packages = all("SELECT * FROM packages WHERE status = 'published' ORDER BY id LIMIT 6");
+  const activities = all("SELECT * FROM activities WHERE status = 'published' ORDER BY RANDOM() LIMIT 5");
   const stats = {
     agents: one("SELECT COUNT(*) AS n FROM agencies WHERE status = 'active'").n,
-    packages: one("SELECT COUNT(*) AS n FROM packages WHERE status = 'published'").n,
-    destinations: one("SELECT COUNT(DISTINCT destination) AS n FROM packages WHERE status = 'published'").n,
-    international: one("SELECT COUNT(*) AS n FROM packages WHERE status = 'published' AND is_international = 1").n,
+    activities: one("SELECT COUNT(*) AS n FROM activities WHERE status = 'published'").n,
+    destinations: one("SELECT COUNT(DISTINCT city) AS n FROM activities WHERE status = 'published'").n,
+    countries: one("SELECT COUNT(DISTINCT country) AS n FROM activities WHERE status = 'published'").n,
   };
-  res.page('public/home', { title: 'B2B travel platform for agents', packages, stats }, 'public');
+  res.page('public/home', { title: 'B2B travel platform for agents', activities, stats }, 'public');
 }));
 
 // Generated cover card for packages and hotels without an uploaded photo.
@@ -112,13 +112,14 @@ function siteAgency(req) {
 router.get('/site/:slug', h((req, res, next) => {
   const agency = siteAgency(req);
   if (!agency) return next();
-  const packages = all("SELECT * FROM packages WHERE status = 'published' ORDER BY id").map((p) => ({ ...p, price: packageSellPrice(agency, p).sell }));
+  const packages = all("SELECT * FROM packages WHERE agency_id = ? AND status = 'published' ORDER BY updated_at DESC", agency.id)
+    .map((p) => ({ ...p, price: packageSellPrice(agency, p).sell }));
   res.page('public/site-home', { title: agency.name, site: agency, packages, bare: true }, 'public');
 }));
 
 router.get('/site/:slug/p/:pkg', h((req, res, next) => {
   const agency = siteAgency(req);
-  const pkg = agency && one("SELECT * FROM packages WHERE slug = ? AND status = 'published'", req.params.pkg);
+  const pkg = agency && one("SELECT * FROM packages WHERE slug = ? AND agency_id = ? AND status = 'published'", req.params.pkg, agency.id);
   if (!pkg) return next();
   const view = present(pkg, parseDetails(pkg.details));
   res.page('public/site-package', { title: `${pkg.title} · ${agency.name}`, site: agency, pkg, view, price: packageSellPrice(agency, pkg).sell, bare: true }, 'public');
@@ -133,7 +134,7 @@ router.post('/site/:slug/enquire', h((req, res, next) => {
     req.flash('error', 'Please share your name and phone number.');
     return res.redirect(req.get('referer') || `/site/${agency.slug}`);
   }
-  const pkg = req.body.package_id ? one('SELECT id, title, destination FROM packages WHERE id = ?', num(req.body.package_id)) : null;
+  const pkg = req.body.package_id ? one("SELECT id, slug, title, destination FROM packages WHERE id = ? AND agency_id = ? AND status = 'published'", num(req.body.package_id), agency.id) : null;
   run(
     "INSERT INTO leads (agency_id, package_id, name, phone, email, destination, travel_date, pax, notes, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'website')",
     agency.id, pkg?.id || null, name, phone, String(req.body.email || '').trim() || null, pkg?.destination || String(req.body.destination || '').trim() || null,
@@ -141,7 +142,7 @@ router.post('/site/:slug/enquire', h((req, res, next) => {
   );
   notify(agency.id, 'New website enquiry', `${name} enquired about ${pkg ? pkg.title : 'a trip'}.`, '/agent/leads');
   req.flash('success', `Thank you, ${name}! ${agency.name} will call you shortly.`);
-  res.redirect(pkg ? `/site/${agency.slug}/p/${one('SELECT slug FROM packages WHERE id = ?', pkg.id).slug}` : `/site/${agency.slug}`);
+  res.redirect(pkg ? `/site/${agency.slug}/p/${pkg.slug}` : `/site/${agency.slug}`);
 }));
 
 // ---------- shared quote, invoices and payment links ----------

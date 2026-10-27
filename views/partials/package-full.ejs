@@ -1,6 +1,6 @@
 <%#
   Full package presentation, shared by the agent package page, quotes, the customer quote page and agent websites.
-  Expects: p = { route, highlights, days, stays, flights, inclusions[], exclusions[], policies, nights, departureCity }
+  Expects: p = { route, highlights, days (with optional activities[]), stays, flights, inclusions[], exclusions[], policies, nights, departureCity }
   Optional: showCategory (string), compact (bool)
 %>
 <%
@@ -33,6 +33,11 @@
         <div>
           <h3 style="margin-bottom:4px"><%= d.title %></h3>
           <% if (d.description) { %><p style="margin:0 0 8px;white-space:pre-line"><%= d.description %></p><% } %>
+          <% if (d.activities && d.activities.length) { %>
+            <div class="day-acts">
+              <% d.activities.forEach(x => { %><div class="day-act"><span class="tag"><%= x.category %></span><span><b><%= x.title %></b><%= x.duration ? ` · ${x.duration}` : '' %><%= x.pickup ? ` · ${x.pickup}` : '' %></span></div><% }) %>
+            </div>
+          <% } %>
           <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:13px">
             <span class="meal-tags"><span class="<%= d.meals && d.meals.b ? '' : 'off' %>">Breakfast</span><span class="<%= d.meals && d.meals.l ? '' : 'off' %>">Lunch</span><span class="<%= d.meals && d.meals.d ? '' : 'off' %>">Dinner</span></span>
             <% if (d.overnight) { %><span class="muted">🌙 Overnight: <b><%= d.overnight %></b></span><% } %>
@@ -51,7 +56,7 @@
     <% p.stays.forEach(s => { %>
       <tr>
         <td><b><%= s.city %></b></td>
-        <td><%= s.hotel %> <% if (s.stars) { %><span style="color:var(--accent)"><%= '★'.repeat(s.stars) %></span><% } %><br><small class="muted"><%= s.type %> · or similar</small></td>
+        <td><%= s.hotel %> <% if (s.stars) { %><span style="color:var(--accent)"><%= '★'.repeat(s.stars) %></span><% } %><br><small class="muted"><%= s.type %></small></td>
         <td><%= s.room || '—' %></td>
         <td><span class="badge"><%= s.mealPlan %></span> <small class="muted"><%= mealPlanNames[s.mealPlan] %></small></td>
         <td class="num"><%= s.nights %></td>

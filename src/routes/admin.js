@@ -2,53 +2,13 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const multer = require('multer');
 const { one, all, run, tx, notify, getSettings, setSetting, UPLOADS_DIR } = require('../db');
 const { num, uniqueSlug, round2 } = require('../util');
 const { requireAdmin, h } = require('../auth');
 const svc = require('../services');
-const {
-  CATEGORIES, MEAL_PLANS, STAY_TYPES, ADDON_TYPES, PACKAGE_TYPES, emptyDetails, parseDetails, detailsFromForm, publishProblems, categoriesOf, fromPrice,
-  calcPackage, present,
-} = require('../packages');
-const { priceQuote } = require('../pricing');
-const { CATALOGUE, slugOf } = require('../sync-packages');
+const { CATEGORIES, activityFromForm, publishProblems, netPerPerson } = require('../activities');
+const { withCover, coverFrom } = require('../photos');
 const { KYC_DIR } = require('../kyc');
-
-// Package photos: JPG/PNG/WebP up to 5 MB each, saved under <uploads>/packages.
-const PHOTO_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
-const PHOTO_DIR = path.join(UPLOADS_DIR, 'packages');
-fs.mkdirSync(PHOTO_DIR, { recursive: true });
-const photoUpload = multer({
-  storage: multer.diskStorage({
-    destination: PHOTO_DIR,
-    // Extension comes from the checked MIME type, never from the uploaded filename.
-    filename: (req, file, cb) => cb(null, `${Date.now()}-${crypto.randomBytes(4).toString('hex')}${PHOTO_TYPES[file.mimetype]}`),
-  }),
-  limits: { fileSize: 5 * 1024 * 1024, files: 13, fields: 10000, fieldSize: 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ok = Boolean(PHOTO_TYPES[file.mimetype]);
-    if (!ok) req.photosRejected = (req.photosRejected || 0) + 1;
-    cb(null, ok);
-  },
-}).fields([{ name: 'cover_file', maxCount: 1 }, { name: 'gallery_files', maxCount: 12 }]);
-
-// Runs the upload and turns multer errors (too large, too many) into a friendly message.
-function withPhotos(req, res, next) {
-  photoUpload(req, res, (err) => {
-    if (err) return next(new svc.AppError(err.code === 'LIMIT_FILE_SIZE' ? 'Each photo must be under 5 MB.' : `Upload failed: ${err.message}`));
-    next();
-  });
-}
-
-// Applies uploaded/removed photos to the package core fields and details.
-function applyPhotos(req, core, details) {
-  const files = req.files || {};
-  if (req.body.remove_cover) core.image_url = null;
-  if (files.cover_file && files.cover_file[0]) core.image_url = `/uploads/packages/${files.cover_file[0].filename}`;
-  for (const f of files.gallery_files || []) details.gallery.push(`/uploads/packages/${f.filename}`);
-  if (req.photosRejected) req.flash('warn', `${req.photosRejected} file(s) skipped: photos must be JPG, PNG or WebP.`);
-}
 
 const router = express.Router();
 router.use(requireAdmin);
@@ -67,7 +27,8 @@ router.get('/', h((req, res) => {
   const stats = {
     agents: one("SELECT COUNT(*) AS n FROM agencies WHERE status = 'active'").n,
     pendingAgents: one("SELECT COUNT(*) AS n FROM agencies WHERE status = 'pending'").n,
-    packages: one("SELECT COUNT(*) AS n FROM packages WHERE status = 'published'").n,
+    activities: one("SELECT COUNT(*) AS n FROM activities WHERE status = 'published'").n,
+    agentPackages: one('SELECT COUNT(*) AS n FROM packages WHERE agency_id IS NOT NULL').n,
     ...one(`SELECT COUNT(*) AS bookings, COALESCE(SUM(total_net), 0) AS revenue FROM bookings WHERE status != 'cancelled' AND substr(created_at, 1, 7) = ?`, month),
     walletFloat: one('SELECT COALESCE(SUM(wallet_balance), 0) AS n FROM agencies').n,
     creditOut: one('SELECT COALESCE(SUM(credit_used), 0) AS n FROM agencies').n,
@@ -80,12 +41,12 @@ router.get('/', h((req, res) => {
      FROM agencies a LEFT JOIN bookings b ON b.agency_id = a.id AND b.status != 'cancelled'
      WHERE a.status = 'active' GROUP BY a.id ORDER BY revenue DESC LIMIT 5`,
   );
-  const topPackages = all(
-    `SELECT p.id, p.title, COUNT(b.id) AS bookings FROM packages p
-     LEFT JOIN quotes q ON q.package_id = p.id LEFT JOIN bookings b ON b.quote_id = q.id AND b.status != 'cancelled'
-     GROUP BY p.id ORDER BY bookings DESC, p.id LIMIT 5`,
+  const topActivities = all(
+    `SELECT a.id, a.title, a.city, COUNT(DISTINCT b.id) AS bookings FROM activities a
+     LEFT JOIN quote_items qi ON qi.activity_id = a.id LEFT JOIN bookings b ON b.quote_id = qi.quote_id AND b.status != 'cancelled'
+     GROUP BY a.id ORDER BY bookings DESC, a.id LIMIT 5`,
   );
-  res.page('admin/dashboard', { title: 'Admin dashboard', stats, bookings, pending, topAgents, topPackages });
+  res.page('admin/dashboard', { title: 'Admin dashboard', stats, bookings, pending, topAgents, topActivities });
 }));
 
 // ---------- agents ----------
@@ -106,7 +67,7 @@ router.get('/agents/:id', h((req, res, next) => {
   const users = all('SELECT id, name, email, phone, created_at FROM users WHERE agency_id = ?', agent.id);
   const bookings = all('SELECT * FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 20', agent.id);
   const txns = all('SELECT * FROM wallet_txns WHERE agency_id = ? ORDER BY id DESC LIMIT 20', agent.id);
-  const totals = one("SELECT COUNT(*) AS n, COALESCE(SUM(total_net), 0) AS revenue, COALESCE(SUM(total_sell - total_net), 0) AS commission FROM bookings WHERE agency_id = ? AND status != 'cancelled'", agent.id);
+  const totals = one("SELECT COUNT(*) AS n, COALESCE(SUM(total_net), 0) AS revenue, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS commission FROM bookings WHERE agency_id = ? AND status != 'cancelled'", agent.id);
   res.page('admin/agent', { title: agent.name, agent, users, bookings, txns, totals });
 }));
 
@@ -132,7 +93,7 @@ router.post('/agents/:id/status', h((req, res) => {
   if (status === 'active') {
     const agency = one('SELECT api_key FROM agencies WHERE id = ?', id);
     if (!agency.api_key) run('UPDATE agencies SET api_key = ? WHERE id = ?', `vt_live_${crypto.randomBytes(18).toString('hex')}`, id);
-    notify(id, 'Account approved', 'Welcome aboard! You can now book packages, flights and hotels on VaayuTrip.', '/agent');
+    notify(id, 'Account approved', 'Welcome aboard! You can now build packages from VaayuTrip activities and book them, plus flights and hotels.', '/agent');
   }
   if (status === 'suspended') notify(id, 'Account suspended', 'Contact VaayuTrip support for details.', null);
   req.flash('success', 'Agent updated.');
@@ -157,165 +118,108 @@ router.post('/agents/:id/wallet', h((req, res) => {
   res.redirect(`/admin/agents/${id}`);
 }));
 
-// ---------- packages ----------
+// ---------- activities ----------
 
-const PKG_CORE = ['title', 'destination', 'nights', 'theme', 'summary', 'inclusions', 'exclusions', 'image_url', 'package_type', 'is_international', 'departure_city'];
+const ACT_FIELDS = ['title', 'city', 'country', 'category', 'duration', 'summary', 'description', 'highlights', 'inclusions', 'exclusions', 'pickup', 'timing',
+  'cancellation', 'image_url', 'price_basis', 'group_size', 'net_adult', 'net_child'];
 
-function packageCore(b, details) {
-  const routeNights = details.route.reduce((s, r) => s + r.nights, 0);
-  return {
-    title: str(b.title),
-    destination: str(b.destination),
-    nights: routeNights || Math.max(1, num(b.nights, 1)),
-    theme: str(b.theme) || null,
-    summary: str(b.summary) || null,
-    inclusions: str(b.inclusions) || null,
-    exclusions: str(b.exclusions) || null,
-    image_url: str(b.image_url) || details.gallery[0] || null,
-    package_type: PACKAGE_TYPES[b.package_type] ? b.package_type : 'customizable',
-    is_international: b.is_international ? 1 : 0,
-    departure_city: str(b.departure_city) || null,
+// How many agent packages and bookings use each activity.
+const USAGE = `(SELECT COUNT(*) FROM packages p WHERE p.agency_id IS NOT NULL
+     AND EXISTS (SELECT 1 FROM json_each(p.details, '$.activities') j WHERE json_extract(j.value, '$.id') = a.id)) AS packages,
+   (SELECT COUNT(DISTINCT b.id) FROM quote_items qi JOIN bookings b ON b.quote_id = qi.quote_id AND b.status != 'cancelled' WHERE qi.activity_id = a.id) AS bookings`;
+
+router.get('/activities', h((req, res) => {
+  const f = {
+    status: ['draft', 'published'].includes(req.query.status) ? req.query.status : '',
+    city: str(req.query.city),
+    category: CATEGORIES.includes(req.query.category) ? req.query.category : '',
   };
-}
-
-function newPackageDetails() {
-  const d = emptyDetails();
-  d.policies.cancellation = [{ days: 30, percent: 10 }, { days: 15, percent: 25 }, { days: 7, percent: 50 }, { days: 0, percent: 100 }];
-  d.policies.child = 'Infants below 2 years: infant rate. Children 2–11 years: child rate (with or without extra bed). 12 years and above: adult rate.';
-  d.policies.notes = 'Hotel check-in 14:00, check-out 11:00. Valid government photo ID required for all travellers. Rates may change during peak dates and long weekends.';
-  return d;
-}
-
-router.get('/packages', h((req, res) => {
-  const packages = all(
-    'SELECT p.*, (SELECT COUNT(*) FROM quotes q WHERE q.package_id = p.id) AS quotes FROM packages p ORDER BY p.updated_at DESC',
-  ).map((p) => {
-    const d = parseDetails(p.details);
-    return { ...p, from: fromPrice(d), categories: categoriesOf(d), departures: d.departures.length, problems: publishProblems(p, d) };
-  });
-  const demoSlugs = new Set(CATALOGUE.map((p) => slugOf(p.title)));
-  const demoCount = packages.filter((p) => demoSlugs.has(p.slug)).length;
-  res.page('admin/packages', { title: 'Packages', packages, demoCount });
+  const where = [['a.status = ?', f.status], ['a.city = ?', f.city], ['a.category = ?', f.category]].filter(([, v]) => v);
+  const activities = all(
+    `SELECT a.*, ${USAGE} FROM activities a ${where.length ? `WHERE ${where.map(([c]) => c).join(' AND ')}` : ''} ORDER BY a.country != 'India', a.city, a.title`,
+    ...where.map(([, v]) => v),
+  ).map((a) => ({ ...a, perPerson: netPerPerson(a) }));
+  const cities = all('SELECT DISTINCT city FROM activities ORDER BY city').map((r) => r.city);
+  res.page('admin/activities', { title: 'Activities', activities, cities, categories: CATEGORIES, f });
 }));
 
-const formData = (pkg, details) => ({
-  pkg, d: details, categories: CATEGORIES, mealPlans: MEAL_PLANS, stayTypes: STAY_TYPES, addonTypes: ADDON_TYPES, packageTypes: PACKAGE_TYPES,
-  problems: pkg.id ? publishProblems(pkg, details) : [],
+const activityForm = (a) => ({ a, categories: CATEGORIES, problems: a.id ? publishProblems(a) : [] });
+
+router.get('/activities/new', (req, res) => {
+  res.page('admin/activity-form', { title: 'New activity', ...activityForm({ country: 'India', price_basis: 'per_person', status: 'draft' }) });
 });
 
-// Removes the bundled demo packages so only your own catalogue remains. Quotes keep their frozen copy.
-router.post('/packages/remove-demo', h((req, res) => {
-  const slugs = CATALOGUE.map((p) => slugOf(p.title));
-  const removed = tx(() => slugs.reduce((n, slug) => n + Number(run('DELETE FROM packages WHERE slug = ?', slug).changes), 0));
-  req.flash('success', removed ? `Removed ${removed} demo package(s). Add your own with "New package".` : 'No demo packages left to remove.');
-  res.redirect('/admin/packages');
-}));
-
-router.get('/packages/new', (req, res) => {
-  res.page('admin/package-form', { title: 'New package', ...formData({ nights: 3, status: 'draft', package_type: 'customizable' }, newPackageDetails()) });
-});
-
-router.post('/packages', withPhotos, h((req, res) => {
-  const details = detailsFromForm(req.body);
-  const core = packageCore(req.body, details);
-  applyPhotos(req, core, details);
-  if (!core.title || !core.destination) throw new svc.AppError('Title and destination are required.');
+router.post('/activities', withCover(svc.AppError), h((req, res) => {
+  const a = activityFromForm(req.body);
+  a.image_url = coverFrom(req, null);
+  if (!a.title || !a.city) throw new svc.AppError('Title and city are required.');
   const id = run(
-    `INSERT INTO packages (${PKG_CORE.join(', ')}, details, slug) VALUES (${PKG_CORE.map(() => '?').join(', ')}, ?, ?)`,
-    ...PKG_CORE.map((k) => core[k]), JSON.stringify(details), uniqueSlug('packages', core.title),
+    `INSERT INTO activities (${ACT_FIELDS.join(', ')}, slug) VALUES (${ACT_FIELDS.map(() => '?').join(', ')}, ?)`,
+    ...ACT_FIELDS.map((k) => a[k]), uniqueSlug('activities', `${a.title} ${a.city}`),
   ).lastInsertRowid;
-  req.flash('success', 'Package saved as a draft. Publish it when the rates, hotels and itinerary are complete.');
-  res.redirect(`/admin/packages/${id}`);
+  req.flash('success', 'Activity saved as a draft. Publish it to make it available to agents.');
+  res.redirect(`/admin/activities/${id}`);
 }));
 
-router.get('/packages/:id', h((req, res, next) => {
-  const pkg = one('SELECT * FROM packages WHERE id = ?', num(req.params.id));
-  if (!pkg) return next();
-  res.page('admin/package-form', { title: pkg.title, ...formData(pkg, parseDetails(pkg.details)) });
+router.get('/activities/:id', h((req, res, next) => {
+  const a = one(`SELECT a.*, ${USAGE} FROM activities a WHERE a.id = ?`, num(req.params.id));
+  if (!a) return next();
+  res.page('admin/activity-form', { title: a.title, ...activityForm(a) });
 }));
 
-router.post('/packages/:id', withPhotos, h((req, res, next) => {
-  const pkg = one('SELECT * FROM packages WHERE id = ?', num(req.params.id));
-  if (!pkg) return next();
-  const details = detailsFromForm(req.body);
-  // Seats already sold on fixed departures are kept even if the form omits them.
-  const old = parseDetails(pkg.details);
-  for (const dep of details.departures) {
-    const prev = old.departures.find((x) => x.date === dep.date);
-    if (prev) dep.booked = Math.max(dep.booked, prev.booked);
-  }
-  const core = packageCore(req.body, details);
-  applyPhotos(req, core, details);
-  if (!core.title || !core.destination) throw new svc.AppError('Title and destination are required.');
-  run(
-    `UPDATE packages SET ${PKG_CORE.map((k) => `${k} = ?`).join(', ')}, details = ?, updated_at = datetime('now') WHERE id = ?`,
-    ...PKG_CORE.map((k) => core[k]), JSON.stringify(details), pkg.id,
-  );
-  const problems = publishProblems({ ...pkg, ...core }, details);
-  if (pkg.status === 'published' && problems.length) {
-    run("UPDATE packages SET status = 'draft' WHERE id = ?", pkg.id);
-    req.flash('warn', `Package moved back to draft: ${problems[0]}`);
+router.post('/activities/:id', withCover(svc.AppError), h((req, res, next) => {
+  const old = one('SELECT * FROM activities WHERE id = ?', num(req.params.id));
+  if (!old) return next();
+  const a = activityFromForm(req.body);
+  a.image_url = coverFrom(req, old.image_url);
+  if (!a.title || !a.city) throw new svc.AppError('Title and city are required.');
+  run(`UPDATE activities SET ${ACT_FIELDS.map((k) => `${k} = ?`).join(', ')}, updated_at = datetime('now') WHERE id = ?`, ...ACT_FIELDS.map((k) => a[k]), old.id);
+  const problems = publishProblems(a);
+  if (old.status === 'published' && problems.length) {
+    run("UPDATE activities SET status = 'draft' WHERE id = ?", old.id);
+    req.flash('warn', `Activity moved back to draft: ${problems[0]}`);
   } else {
-    req.flash('success', 'Package saved.');
+    req.flash('success', 'Activity saved. New quotes use the updated price; quotes already made keep theirs.');
   }
-  res.redirect(`/admin/packages/${pkg.id}`);
+  res.redirect(`/admin/activities/${old.id}`);
 }));
 
-router.post('/packages/:id/duplicate', h((req, res, next) => {
-  const pkg = one('SELECT * FROM packages WHERE id = ?', num(req.params.id));
-  if (!pkg) return next();
-  const details = parseDetails(pkg.details);
-  details.departures.forEach((d) => { d.booked = 0; });
-  const copy = { ...pkg, title: `${pkg.title} (copy)` };
-  const id = run(
-    `INSERT INTO packages (${PKG_CORE.join(', ')}, details, slug) VALUES (${PKG_CORE.map(() => '?').join(', ')}, ?, ?)`,
-    ...PKG_CORE.map((k) => copy[k]), JSON.stringify(details), uniqueSlug('packages', copy.title),
-  ).lastInsertRowid;
-  req.flash('success', 'Copy created as a draft.');
-  res.redirect(`/admin/packages/${id}`);
-}));
-
-router.post('/packages/:id/status', h((req, res, next) => {
-  const pkg = one('SELECT * FROM packages WHERE id = ?', num(req.params.id));
-  if (!pkg) return next();
+router.post('/activities/:id/status', h((req, res, next) => {
+  const a = one('SELECT * FROM activities WHERE id = ?', num(req.params.id));
+  if (!a) return next();
   const status = req.body.status === 'published' ? 'published' : 'draft';
   if (status === 'published') {
-    const problems = publishProblems(pkg, parseDetails(pkg.details));
+    const problems = publishProblems(a);
     if (problems.length) throw new svc.AppError(`Can't publish yet: ${problems.join(' ')}`);
   }
-  run("UPDATE packages SET status = ?, updated_at = datetime('now') WHERE id = ?", status, pkg.id);
-  if (status === 'published' && pkg.status !== 'published') {
-    for (const a of all("SELECT id FROM agencies WHERE status = 'active'")) {
-      notify(a.id, 'New package available', `${pkg.title} (${pkg.nights}N, ${pkg.destination}) is now bookable.`, `/agent/packages/${pkg.id}`);
+  run("UPDATE activities SET status = ?, updated_at = datetime('now') WHERE id = ?", status, a.id);
+  if (status === 'published' && a.status !== 'published') {
+    for (const ag of all("SELECT id FROM agencies WHERE status = 'active'")) {
+      notify(ag.id, 'New activity', `${a.title} (${a.city}) is available for your quotes and packages.`, `/agent/activities/${a.id}`);
     }
   }
-  req.flash('success', status === 'published' ? 'Published: all active agents can now sell this package.' : 'Package unpublished.');
-  res.redirect(`/admin/packages/${pkg.id}`);
+  req.flash('success', status === 'published'
+    ? 'Published: agents can now add this activity to quotes and packages.'
+    : 'Unpublished: agents can no longer add it, and packages that use it show it as unavailable.');
+  res.redirect(`/admin/activities/${a.id}`);
 }));
 
-// What agents see: package page and calculator at net prices (no markup), for drafts too.
-router.get('/packages/:id/preview', h((req, res, next) => {
-  const pkg = one('SELECT * FROM packages WHERE id = ?', num(req.params.id));
-  if (!pkg) return next();
-  const details = parseDetails(pkg.details);
-  const q = req.query;
-  const calc = calcPackage(pkg, details, {
-    category: str(q.category), date: str(q.date), rooms: q.rooms, adults: q.adults, cwb: q.cwb, cnb: q.cnb, infants: q.infants, addons: q.addons,
-    withFlights: q.flights === undefined ? undefined : [].concat(q.flights).pop() === '1',
-  });
-  const previewMarkup = { markup_type: 'percent', markup_value: 0 };
-  const priced = priceQuote(previewMarkup, calc.lines.map((l) => ({ ...l, net_price: l.net, supplier: 'vaayu', sell_price: null })));
-  const net = fromPrice(details);
-  res.page('agent/package', {
-    title: `Preview: ${pkg.title}`, pkg, details, calc, priced, view: present(pkg, details, calc.options.category, true),
-    from: { net, sell: net }, customers: [], preview: true, previewMarkup, calcAction: `/admin/packages/${pkg.id}/preview`,
-  });
+router.post('/activities/:id/duplicate', h((req, res, next) => {
+  const a = one('SELECT * FROM activities WHERE id = ?', num(req.params.id));
+  if (!a) return next();
+  const copy = { ...a, title: `${a.title} (copy)` };
+  const id = run(
+    `INSERT INTO activities (${ACT_FIELDS.join(', ')}, slug) VALUES (${ACT_FIELDS.map(() => '?').join(', ')}, ?)`,
+    ...ACT_FIELDS.map((k) => copy[k]), uniqueSlug('activities', `${copy.title} ${copy.city}`),
+  ).lastInsertRowid;
+  req.flash('success', 'Copy created as a draft.');
+  res.redirect(`/admin/activities/${id}`);
 }));
 
-router.post('/packages/:id/delete', h((req, res) => {
-  run('DELETE FROM packages WHERE id = ?', num(req.params.id));
-  req.flash('success', 'Package deleted. Existing quotes keep their copy of the package.');
-  res.redirect('/admin/packages');
+router.post('/activities/:id/delete', h((req, res) => {
+  run('DELETE FROM activities WHERE id = ?', num(req.params.id));
+  req.flash('success', "Activity deleted. Existing quotes and bookings keep their lines; agents' packages show it as no longer offered.");
+  res.redirect('/admin/activities');
 }));
 
 // ---------- bookings ----------

@@ -6,9 +6,10 @@
  * or derived from the quote's markup (percent of net, or a flat amount spread across
  * lines in proportion to their net). The difference is the agent's commission.
  *
- * Lines with supplier "agent" are the agent's own services (e.g. their guide or
- * visa help). They have no VaayuTrip cost and can only be billed on the agent's
- * own branded invoice.
+ * Lines with supplier "agent" are the agent's own services (hotels they arrange,
+ * their guide, visa help). They have no VaayuTrip cost and can only be billed on the
+ * agent's own branded invoice. Their optional cost (what the service costs the agent)
+ * is private and only used to work out the agent's earning.
  *
  * Customer invoices come in two kinds:
  *  - customer_agent: issued by the agency under its own name and logo, all lines.
@@ -26,25 +27,42 @@ function priceQuote(quote, items) {
   const vaayuAuto = items.filter((i) => i.supplier === 'vaayu' && i.sell_price == null);
   const autoNetTotal = vaayuAuto.reduce((s, i) => s + i.net_price * i.qty, 0);
 
+  // A flat markup is split by net across the auto-priced lines; the last line takes the
+  // rounding remainder so the shares add up to the markup exactly.
+  const flatShare = new Map();
+  if (quote.markup_type === 'flat' && autoNetTotal) {
+    let given = 0;
+    vaayuAuto.forEach((i, idx) => {
+      const share = idx === vaayuAuto.length - 1
+        ? round2(quote.markup_value - given)
+        : round2((quote.markup_value * i.net_price * i.qty) / autoNetTotal);
+      given = round2(given + share);
+      flatShare.set(i, share);
+    });
+  }
+
   const lines = items.map((i) => {
     let unitSell;
+    let lineSell;
     if (i.sell_price != null) unitSell = i.sell_price;
     else if (i.supplier === 'agent') unitSell = i.net_price;
     else if (quote.markup_type === 'flat') {
-      const share = autoNetTotal ? (i.net_price * i.qty) / autoNetTotal : 0;
-      unitSell = i.net_price + (quote.markup_value * share) / (i.qty || 1);
+      lineSell = round2(i.net_price * i.qty + (flatShare.get(i) || 0));
+      unitSell = lineSell / (i.qty || 1);
     } else unitSell = i.net_price * (1 + quote.markup_value / 100);
 
     const unitNet = i.supplier === 'agent' ? 0 : i.net_price;
     const lineNet = round2(unitNet * i.qty);
-    const lineSell = round2(unitSell * i.qty);
+    if (lineSell === undefined) lineSell = round2(unitSell * i.qty);
+    const lineCost = i.supplier === 'agent' ? round2((i.cost || 0) * i.qty) : 0;
     return {
       ...i,
       unitNet: round2(unitNet),
       unitSell: round2(unitSell),
       lineNet,
       lineSell,
-      commission: round2(lineSell - lineNet),
+      lineCost,
+      commission: round2(lineSell - lineNet - lineCost),
       overridden: i.sell_price != null,
     };
   });
@@ -60,7 +78,8 @@ function priceQuote(quote, items) {
     vaayuSell: sum(vaayuLines, 'lineSell'),
     vaayuCommission: sum(vaayuLines, 'commission'),
     agentItemsTotal: sum(agentLines, 'lineSell'),
-    commission: round2(sum(vaayuLines, 'commission') + sum(agentLines, 'lineSell')),
+    agentCost: sum(agentLines, 'lineCost'),
+    commission: round2(sum(vaayuLines, 'commission') + sum(agentLines, 'commission')),
     hasAgentItems: agentLines.length > 0,
   };
 }

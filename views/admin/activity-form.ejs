@@ -1,0 +1,94 @@
+<% const isNew = !a.id; const linked = a.image_url && /^https:/i.test(a.image_url); %>
+<a href="/admin/activities">← All activities</a>
+<div class="page-head" style="margin-top:10px">
+  <div>
+    <h1><%= isNew ? 'New activity' : a.title %></h1>
+    <% if (!isNew) { %><p><span class="badge <%= a.status %>"><%= a.status %></span> · <%= a.city %><%= a.country !== 'India' ? `, ${a.country}` : '' %> · used in <%= a.packages %> agent package<%= a.packages === 1 ? '' : 's' %> · <%= a.bookings %> booking<%= a.bookings === 1 ? '' : 's' %></p><% } %>
+  </div>
+  <% if (!isNew) { %>
+    <div class="actions">
+      <form method="post" action="/admin/activities/<%= a.id %>/duplicate"><button class="btn">Duplicate</button></form>
+      <% if (a.status === 'published') { %>
+        <form method="post" action="/admin/activities/<%= a.id %>/status"><input type="hidden" name="status" value="draft"><button class="btn">Unpublish</button></form>
+      <% } else { %>
+        <form method="post" action="/admin/activities/<%= a.id %>/status"><input type="hidden" name="status" value="published"><button class="btn btn-accent" <%= problems.length ? 'disabled' : '' %>>Publish to agents</button></form>
+      <% } %>
+    </div>
+  <% } %>
+</div>
+
+<form method="post" action="<%= isNew ? '/admin/activities' : `/admin/activities/${a.id}` %>" enctype="multipart/form-data">
+<div class="split split-editor">
+  <div>
+    <div class="card">
+      <h2>Basics</h2>
+      <div class="field"><label for="title">Activity name</label><input id="title" name="title" value="<%= a.title || '' %>" required placeholder="e.g. Desert safari with BBQ dinner"></div>
+      <div class="row">
+        <div class="field"><label for="city">City</label><input id="city" name="city" value="<%= a.city || '' %>" required placeholder="e.g. Dubai"></div>
+        <div class="field"><label for="country">Country</label><input id="country" name="country" value="<%= a.country || 'India' %>" required><div class="hint">Outside India adds TCS on customer invoices.</div></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="category">Category</label><select id="category" name="category"><% categories.forEach(c => { %><option <%= c === a.category ? 'selected' : '' %>><%= c %></option><% }) %></select></div>
+        <div class="field"><label for="duration">Duration</label><input id="duration" name="duration" value="<%= a.duration || '' %>" placeholder="e.g. 6 hours, Full day"></div>
+      </div>
+      <div class="field"><label for="summary">One-line summary</label><input id="summary" name="summary" value="<%= a.summary || '' %>" maxlength="200" placeholder="Shown on catalogue cards and in itineraries"></div>
+      <div class="field"><label for="description">Description</label><textarea id="description" name="description"><%= a.description || '' %></textarea></div>
+      <div class="field"><label for="highlights">Highlights <span class="muted">(one per line)</span></label><textarea id="highlights" name="highlights" style="min-height:80px"><%= a.highlights || '' %></textarea></div>
+    </div>
+
+    <div class="card">
+      <h2>Net price</h2>
+      <div class="row">
+        <div class="field"><label for="price_basis">Priced</label>
+          <select id="price_basis" name="price_basis">
+            <option value="per_person" <%= a.price_basis !== 'per_group' ? 'selected' : '' %>>Per person (tickets, shared tours)</option>
+            <option value="per_group" <%= a.price_basis === 'per_group' ? 'selected' : '' %>>Per group (private tours, boats, vehicles)</option>
+          </select>
+        </div>
+        <div class="field"><label for="group_size">Guests per group</label><input id="group_size" type="number" min="1" name="group_size" value="<%= a.group_size || '' %>" placeholder="Per group only"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="net_adult">Net per adult, or per group (₹)</label><input id="net_adult" type="number" min="0" step="any" name="net_adult" value="<%= a.net_adult || '' %>" required></div>
+        <div class="field"><label for="net_child">Net per child 2–11 (₹)</label><input id="net_child" type="number" min="0" step="any" name="net_child" value="<%= a.net_child ?? '' %>" placeholder="Empty = adult price"><div class="hint">Per person only. 0 = children free. Infants are always free.</div></div>
+      </div>
+      <p class="muted" style="font-size:13px;margin:0">Agents see this net price and add their own markup. Changes apply to new quotes only.</p>
+    </div>
+
+    <div class="card">
+      <h2>Details for travellers</h2>
+      <div class="row">
+        <div class="field"><label for="pickup">Pickup / meeting point</label><input id="pickup" name="pickup" value="<%= a.pickup || '' %>" placeholder="e.g. Hotel pickup in Bur Dubai and Deira"></div>
+        <div class="field"><label for="timing">Timings</label><input id="timing" name="timing" value="<%= a.timing || '' %>" placeholder="e.g. Daily, pickup 15:00–15:30"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="inclusions">Included <span class="muted">(one per line)</span></label><textarea id="inclusions" name="inclusions"><%= a.inclusions || '' %></textarea></div>
+        <div class="field"><label for="exclusions">Not included <span class="muted">(one per line)</span></label><textarea id="exclusions" name="exclusions"><%= a.exclusions || '' %></textarea></div>
+      </div>
+      <div class="field"><label for="cancellation">Cancellation policy</label><input id="cancellation" name="cancellation" value="<%= a.cancellation || '' %>" placeholder="e.g. Free cancellation up to 24 hours before"></div>
+    </div>
+
+    <div class="card">
+      <h2>Photo</h2>
+      <% if (a.image_url) { %><img src="<%= a.image_url %>" alt="" class="photo-thumb"><label class="check" style="font-size:13px"><input type="checkbox" name="remove_cover" value="1"> Remove photo</label><% } %>
+      <div class="field"><label for="cover_file">Upload a photo</label><input id="cover_file" type="file" name="cover_file" accept="image/jpeg,image/png,image/webp"><div class="hint">JPG, PNG or WebP up to 5 MB. Without one, a cover with the city name is shown.</div></div>
+      <div class="field"><label for="image_url">Or an image link</label><input id="image_url" type="url" name="image_url" value="<%= linked ? a.image_url : '' %>" placeholder="https://…"></div>
+      <p class="muted" style="font-size:12.5px;margin:0">Use photos you own or have licensed.</p>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" style="position:sticky;top:76px">
+      <button class="btn btn-primary btn-lg" style="width:100%"><%= isNew ? 'Create activity' : 'Save activity' %></button>
+      <% if (problems.length) { %>
+        <div class="alert warn" style="margin:14px 0 0;font-size:13px"><b>Before publishing:</b><ul style="margin:6px 0 0;padding-left:18px"><% problems.forEach(p => { %><li><%= p %></li><% }) %></ul></div>
+      <% } else if (!isNew && a.status !== 'published') { %>
+        <div class="alert success" style="margin:14px 0 0;font-size:13px">Ready to publish.</div>
+      <% } %>
+    </div>
+  </div>
+</div>
+</form>
+
+<% if (!isNew) { %>
+  <form method="post" action="/admin/activities/<%= a.id %>/delete" data-confirm="Delete this activity? Agents' packages will show it as no longer offered. Unpublishing keeps its history instead."><button class="btn btn-danger btn-sm">Delete activity</button></form>
+<% } %>

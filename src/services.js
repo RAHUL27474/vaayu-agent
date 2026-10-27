@@ -3,6 +3,7 @@ const { one, all, run, tx, getSettings, notify } = require('./db');
 const { code, round2 } = require('./util');
 const { priceQuote, buildInvoice, agencyHasBranding, taxRate } = require('./pricing');
 const { parseDetails, calcPackage, snapshot, fromPrice } = require('./packages');
+const { activityMap, activityLines, isInternational } = require('./activities');
 
 class AppError extends Error {}
 
@@ -30,54 +31,45 @@ function createQuote(agency, { title, customerId = null, leadId = null, packageI
 }
 
 /**
- * Prices a package for the party (category, date, rooms, pax types, flights, add-ons)
- * and turns it into a quote with net lines and a frozen copy of the package details.
- * opts: { title, customerId, leadId, date, category, rooms, adults, cwb, cnb, infants, withFlights, addons }
+ * Turns one of the agency's own packages into a quote for a party: VaayuTrip activities at net,
+ * the agent's hotels and services at their price, and a frozen copy of the itinerary.
+ * opts: { title, customerId, leadId, date, adults, children, rooms }
  */
 function createQuoteFromPackage(agency, packageId, opts = {}) {
-  const pkg = one("SELECT * FROM packages WHERE id = ? AND status = 'published'", packageId);
+  const pkg = one('SELECT * FROM packages WHERE id = ? AND agency_id = ?', packageId, agency.id);
   if (!pkg) throw new AppError('Package not found');
   const details = parseDetails(pkg.details);
-  const calc = calcPackage(pkg, details, opts);
+  const acts = activityMap(details.activities.map((a) => a.id));
+  const calc = calcPackage(pkg, details, opts, acts);
   if (calc.errors.length) throw new AppError(calc.errors[0]);
+  if (!calc.lines.length) throw new AppError('This package has nothing priced yet. Add activities, hotel prices or your services first.');
   const o = calc.options;
   return tx(() => {
     const quoteId = run(
-      `INSERT INTO quotes (agency_id, customer_id, lead_id, package_id, code, title, travel_date, adults, children, infants, markup_type, markup_value,
+      `INSERT INTO quotes (agency_id, customer_id, lead_id, package_id, code, title, travel_date, adults, children, markup_type, markup_value,
          invoice_mode, is_international, package_snapshot)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       agency.id, opts.customerId || null, opts.leadId || null, pkg.id, code('Q'), opts.title || pkg.title, o.date || null,
-      o.adults, o.cwb + o.cnb, o.infants, agency.markup_type, agency.markup_value, defaultInvoiceMode(agency),
-      pkg.is_international ? 1 : 0, JSON.stringify(snapshot(pkg, details, calc)),
+      o.adults, o.children, agency.markup_type, agency.markup_value, defaultInvoiceMode(agency),
+      pkg.is_international ? 1 : 0, JSON.stringify(snapshot(pkg, details, calc, acts)),
     ).lastInsertRowid;
-    calc.lines.forEach((l, i) => {
-      run('INSERT INTO quote_items (quote_id, type, title, description, net_price, qty, sort) VALUES (?, ?, ?, ?, ?, ?, ?)', quoteId, l.type, l.title, l.description, l.net, l.qty, i);
-    });
+    calc.lines.forEach((l) => addQuoteItem(quoteId, l));
     if (opts.leadId) run("UPDATE leads SET status = 'quoted' WHERE id = ? AND agency_id = ?", opts.leadId, agency.id);
     return quoteId;
   });
 }
 
-// Fixed departures: seats are held when a quote for that date is booked, released on cancellation.
-function adjustDepartureSeats(quote, delta) {
-  const snap = quote.package_snapshot ? JSON.parse(quote.package_snapshot) : null;
-  if (!snap || snap.packageType !== 'fixed' || !snap.party.date) return;
-  const pkg = one('SELECT id, details FROM packages WHERE id = ?', snap.packageId);
-  if (!pkg) return;
-  const details = parseDetails(pkg.details);
-  const dep = details.departures.find((d) => d.date === snap.party.date);
-  if (!dep) return;
-  const pax = snap.party.adults + snap.party.cwb + snap.party.cnb;
-  if (delta > 0 && dep.seats - dep.booked < pax) throw new AppError(`Only ${dep.seats - dep.booked} seats left on this departure.`);
-  dep.booked = Math.max(0, dep.booked + delta * pax);
-  run('UPDATE packages SET details = ? WHERE id = ?', JSON.stringify(details), pkg.id);
+/** Adds a VaayuTrip activity to a quote for a party ({ adults, children }). */
+function addActivityToQuote(quoteId, activity, party) {
+  for (const l of activityLines(activity, party)) addQuoteItem(quoteId, l);
+  if (isInternational(activity)) run('UPDATE quotes SET is_international = 1 WHERE id = ?', quoteId);
 }
 
-function addQuoteItem(quoteId, { type, title, description = '', supplier = 'vaayu', net = 0, sell = null, qty = 1 }) {
+function addQuoteItem(quoteId, { type, title, description = '', supplier = 'vaayu', net = 0, sell = null, qty = 1, activityId = null, cost = 0 }) {
   const max = one('SELECT COALESCE(MAX(sort), -1) AS m FROM quote_items WHERE quote_id = ?', quoteId).m;
   run(
-    'INSERT INTO quote_items (quote_id, type, title, description, supplier, net_price, sell_price, qty, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    quoteId, type, title, description, supplier, net, sell, qty, max + 1,
+    'INSERT INTO quote_items (quote_id, type, title, description, supplier, net_price, sell_price, qty, sort, activity_id, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    quoteId, type, title, description, supplier, net, sell, qty, max + 1, activityId, supplier === 'agent' ? cost || 0 : 0,
   );
   run("UPDATE quotes SET updated_at = datetime('now') WHERE id = ?", quoteId);
 }
@@ -142,14 +134,13 @@ function bookQuote(agencyId, quoteId) {
 
     const bookingCode = code('VT');
     const bookingId = run(
-      `INSERT INTO bookings (agency_id, quote_id, customer_id, code, title, travel_date, total_net, total_sell, paid_wallet, paid_credit)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      agencyId, quoteId, full.quote.customer_id, bookingCode, full.quote.title, full.quote.travel_date, full.priced.net, full.priced.sell, fromWallet, fromCredit,
+      `INSERT INTO bookings (agency_id, quote_id, customer_id, code, title, travel_date, total_net, total_sell, total_cost, paid_wallet, paid_credit)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      agencyId, quoteId, full.quote.customer_id, bookingCode, full.quote.title, full.quote.travel_date, full.priced.net, full.priced.sell, full.priced.agentCost, fromWallet, fromCredit,
     ).lastInsertRowid;
     if (fromWallet) moveWallet(agencyId, 'booking', -fromWallet, bookingCode, full.quote.title);
     if (fromCredit) run('UPDATE agencies SET credit_used = credit_used + ? WHERE id = ?', fromCredit, agencyId);
     run("UPDATE quotes SET status = 'booked', updated_at = datetime('now') WHERE id = ?", quoteId);
-    adjustDepartureSeats(full.quote, +1);
     if (full.quote.lead_id) run("UPDATE leads SET status = 'won' WHERE id = ?", full.quote.lead_id);
 
     issueInvoice(agency, quoteId, 'b2b', bookingId);
@@ -172,8 +163,6 @@ function approveCancellation(bookingId, refund) {
     run("UPDATE bookings SET status = 'cancelled', refund_amount = ? WHERE id = ?", refund, bookingId);
     if (b.quote_id) {
       run("UPDATE quotes SET status = 'cancelled' WHERE id = ?", b.quote_id);
-      const quote = one('SELECT * FROM quotes WHERE id = ?', b.quote_id);
-      if (quote) adjustDepartureSeats(quote, -1);
     }
     notify(b.agency_id, 'Cancellation approved', `${b.code}: ₹${refund.toLocaleString('en-IN')} refunded.`, `/agent/bookings/${bookingId}`);
   });
@@ -189,18 +178,13 @@ function approveTopup(requestId) {
   });
 }
 
-/**
- * "From" price per person (twin sharing, cheapest season) and the agent's selling price for it,
- * as shown on package cards, the agent website and the API. A flat markup is per booking,
- * so it is split over the usual two travellers.
- */
+/** Price per person (two adults sharing a room) of one of the agency's packages: { net, sell }. */
 function packageSellPrice(agency, pkg) {
-  const net = fromPrice(parseDetails(pkg.details));
-  const sell = agency.markup_type === 'flat' ? net + agency.markup_value / 2 : net * (1 + agency.markup_value / 100);
-  return { net, sell: round2(sell) };
+  const d = parseDetails(pkg.details);
+  return fromPrice(agency, pkg, d, activityMap(d.activities.map((a) => a.id)));
 }
 
 module.exports = {
-  AppError, getQuote, createQuote, createQuoteFromPackage, addQuoteItem, moveWallet, issueInvoice,
+  AppError, getQuote, createQuote, createQuoteFromPackage, addActivityToQuote, addQuoteItem, moveWallet, issueInvoice,
   bookQuote, approveCancellation, approveTopup, packageSellPrice, defaultInvoiceMode,
 };

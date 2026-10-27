@@ -1,13 +1,13 @@
 /**
  * Agent REST API. Authenticate with the agency's key:
  *   Authorization: Bearer vt_live_...
- * Prices returned are the agency's selling prices (VaayuTrip net + their markup).
+ * Packages are the agency's own published packages; prices are its selling prices.
  */
 const express = require('express');
 const { one, all, run, notify } = require('../db');
 const { num } = require('../util');
 const { packageSellPrice } = require('../services');
-const { parseDetails, present, categoriesOf } = require('../packages');
+const { parseDetails, present } = require('../packages');
 
 const router = express.Router();
 
@@ -28,39 +28,33 @@ const publicPackage = (agency, p) => ({
   theme: p.theme,
   summary: p.summary,
   image_url: p.image_url,
-  package_type: p.package_type,
   international: Boolean(p.is_international),
   price_per_person_from: packageSellPrice(agency, p).sell,
-  price_basis: 'per person, twin sharing, cheapest season, before taxes',
+  price_basis: 'per person, two adults sharing a room, before taxes',
   currency: 'INR',
 });
 
-// Full package content for agents' own websites. Net rates are deliberately not exposed.
+// Full package content for agents' own websites. Net rates and hotel prices are deliberately not exposed.
 function packageDetail(p) {
-  const d = parseDetails(p.details);
-  const v = present(p, d);
+  const v = present(p, parseDetails(p.details));
   return {
     route: v.route,
     highlights: v.highlights,
-    gallery: v.gallery,
     itinerary: v.days,
-    hotels: d.stays,
-    categories: categoriesOf(d),
-    flights: d.flights,
+    hotels: v.stays,
     inclusions: v.inclusions,
     exclusions: v.exclusions,
     policies: v.policies,
-    departures: p.package_type === 'fixed' ? d.departures.map((x) => ({ date: x.date, seats_left: x.seats - x.booked })) : [],
   };
 }
 
 router.get('/packages', (req, res) => {
-  const rows = all("SELECT * FROM packages WHERE status = 'published' ORDER BY id");
+  const rows = all("SELECT * FROM packages WHERE agency_id = ? AND status = 'published' ORDER BY id", req.apiAgency.id);
   res.json({ data: rows.map((p) => publicPackage(req.apiAgency, p)) });
 });
 
 router.get('/packages/:slug', (req, res) => {
-  const p = one("SELECT * FROM packages WHERE slug = ? AND status = 'published'", req.params.slug);
+  const p = one("SELECT * FROM packages WHERE slug = ? AND agency_id = ? AND status = 'published'", req.params.slug, req.apiAgency.id);
   if (!p) return res.status(404).json({ error: 'Package not found' });
   res.json({
     data: {
@@ -73,7 +67,7 @@ router.get('/packages/:slug', (req, res) => {
 router.post('/leads', (req, res) => {
   const b = req.body || {};
   if (!b.name || !b.phone) return res.status(422).json({ error: 'name and phone are required' });
-  const pkg = b.package_slug ? one('SELECT id, destination FROM packages WHERE slug = ?', b.package_slug) : null;
+  const pkg = b.package_slug ? one('SELECT id, destination FROM packages WHERE slug = ? AND agency_id = ?', String(b.package_slug), req.apiAgency.id) : null;
   const id = run(
     "INSERT INTO leads (agency_id, package_id, name, phone, email, destination, travel_date, pax, budget, notes, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'api')",
     req.apiAgency.id, pkg?.id || null, String(b.name), String(b.phone), b.email || null, b.destination || pkg?.destination || null,

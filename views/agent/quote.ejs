@@ -29,7 +29,7 @@
         <table class="table">
           <thead><tr><th>Item</th><th class="num">Net</th><th class="num" style="width:130px">Your price</th><th class="num" style="width:86px">Qty</th><th class="num">Total</th><th class="num">You earn</th><th></th></tr></thead>
           <tbody>
-            <% if (!priced.lines.length) { %><tr><td colspan="7" class="empty">No items yet. Add a package, flight or hotel, or your own service below.</td></tr><% } %>
+            <% if (!priced.lines.length) { %><tr><td colspan="7" class="empty">No items yet. Add an activity, flight or hotel, or your own service below.</td></tr><% } %>
             <% priced.lines.forEach(l => { %>
               <tr>
                 <td>
@@ -37,7 +37,7 @@
                   <% if (l.description) { %><br><small><%= l.description %></small><% } %>
                   <br><span class="badge <%= l.supplier === 'agent' ? 'info' : '' %>" style="margin-top:4px"><%= l.supplier === 'agent' ? 'Your service' : l.type %></span>
                 </td>
-                <td class="num"><%= l.supplier === 'agent' ? '—' : inr(l.unitNet) %></td>
+                <td class="num"><% if (l.supplier === 'agent') { %><%= l.cost ? inr(l.cost) : '—' %><% if (l.cost) { %><br><small class="muted">your cost</small><% } %><% } else { %><%= inr(l.unitNet) %><% } %></td>
                 <td class="num">
                   <% if (locked) { %><%= inr(l.unitSell) %><% } else { %>
                   <input type="number" step="1" min="<%= l.supplier === 'agent' ? 0 : l.unitNet %>" name="sell_<%= l.id %>" value="<%= l.overridden || l.supplier === 'agent' ? l.unitSell : '' %>" placeholder="<%= Math.round(l.unitSell) %>" style="text-align:right">
@@ -59,11 +59,12 @@
       <div class="grid grid-2">
         <form class="card" method="post" action="/agent/quotes/<%= quote.id %>/items/custom">
           <h3>Add your own service</h3>
-          <p class="muted" style="font-size:13px">Guide, local tour, visa help, decoration… Billed only on your branded invoice; 100% yours.</p>
+          <p class="muted" style="font-size:13px">Hotel you book, guide, visa help, decoration… Billed only on your branded invoice. Add what it costs you to see your real earning.</p>
           <div class="field"><label for="c-title">Service</label><input id="c-title" name="title" required placeholder="e.g. Private photographer, 2 hours"></div>
           <div class="field"><label for="c-desc">Details</label><input id="c-desc" name="description"></div>
           <div class="row">
-            <div class="field"><label for="c-price">Price</label><input id="c-price" type="number" min="0" name="price" required></div>
+            <div class="field"><label for="c-price">Your price</label><input id="c-price" type="number" min="0" name="price" required></div>
+            <div class="field"><label for="c-cost">Your cost <span class="muted">(private)</span></label><input id="c-cost" type="number" min="0" name="cost" placeholder="0"></div>
             <div class="field"><label for="c-qty">Qty</label><input id="c-qty" type="number" min="1" name="qty" value="1"></div>
           </div>
           <button class="btn">Add service</button>
@@ -83,7 +84,7 @@
 
     <% if (pkgView) { %>
       <details class="card more" style="padding:16px 20px">
-        <summary>Package details shown to the customer · <%= pkgView.party.category %>, <%= pkgView.party.rooms %> room<%= pkgView.party.rooms > 1 ? 's' : '' %><%= pkgView.party.withFlights ? ', with flights' : '' %></summary>
+        <summary>Package details shown to the customer · <%= pkgView.party.rooms %> room<%= pkgView.party.rooms > 1 ? 's' : '' %><%= pkgView.party.category ? ` · ${pkgView.party.category}` : '' %></summary>
         <div style="margin-top:14px"><%- include('../partials/package-full', { p: pkgView, showCategory: pkgView.party.category }) %></div>
       </details>
     <% } %>
@@ -130,7 +131,7 @@
       <table class="totals">
         <tr><td class="muted">VaayuTrip net</td><td class="num"><%= inr(priced.net) %></td></tr>
         <tr><td class="muted">Your commission</td><td class="num profit">+ <%= inr(priced.vaayuCommission) %></td></tr>
-        <% if (priced.agentItemsTotal) { %><tr><td class="muted">Your own services</td><td class="num profit">+ <%= inr(priced.agentItemsTotal) %></td></tr><% } %>
+        <% if (priced.agentItemsTotal) { %><tr><td class="muted">Your own services<%= priced.agentCost ? ` (cost ${inr(priced.agentCost)})` : '' %></td><td class="num">+ <%= inr(priced.agentItemsTotal) %></td></tr><% } %>
         <tr><td>Customer subtotal</td><td class="num"><%= inr(customerTotal.subtotal) %></td></tr>
         <tr><td class="muted">GST <%= customerTotal.taxRate %>%</td><td class="num"><%= inr(customerTotal.tax) %></td></tr>
         <% if (customerTotal.tcs) { %><tr><td class="muted">TCS <%= customerTotal.tcsRate %>% (international)</td><td class="num"><%= inr(customerTotal.tcs) %></td></tr><% } %>
@@ -140,6 +141,7 @@
       <table class="totals">
         <tr><td>You pay VaayuTrip</td><td class="num"><b><%= inr(netPayable.total) %></b></td></tr>
         <tr><td class="muted" colspan="2" style="font-size:12px">Net <%= inr(netPayable.subtotal) %> + GST <%= inr(netPayable.tax) %></td></tr>
+        <% if (priced.agentCost) { %><tr><td>You pay your suppliers</td><td class="num"><%= inr(priced.agentCost) %></td></tr><% } %>
         <tr><td><b>Your earning</b></td><td class="num profit" style="font-size:18px"><%= inr(priced.commission) %></td></tr>
       </table>
       <% if (quote.emi_enabled && customerTotal.total) { %><p class="muted" style="font-size:12.5px;margin:12px 0 0">Customer EMI from <b><%= inr(emi[emi.length - 1].monthly) %>/month</b> (12 months)</p><% } %>

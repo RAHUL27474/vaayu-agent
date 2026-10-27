@@ -11,7 +11,7 @@
         <td><span class="badge <%= b.status %>"><%= b.status.replace('_', ' ') %></span></td>
         <td class="num"><%= inr(b.paid_wallet + b.paid_credit) %></td>
         <td class="num"><%= inr(b.total_sell) %></td>
-        <td class="num profit"><%= b.status === 'cancelled' ? '—' : inr(b.total_sell - b.total_net) %></td>
+        <td class="num profit"><%= b.status === 'cancelled' ? '—' : inr(b.total_sell - b.total_net - b.total_cost) %></td>
       </tr>
     <% }) %>
   </table></div>

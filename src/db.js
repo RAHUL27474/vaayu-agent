@@ -254,6 +254,33 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
   body TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Activities VaayuTrip supplies (tours, tickets, experiences). Agents build their own packages from them.
+CREATE TABLE IF NOT EXISTS activities (
+  id INTEGER PRIMARY KEY,
+  title TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  city TEXT NOT NULL,
+  country TEXT NOT NULL DEFAULT 'India',
+  category TEXT NOT NULL DEFAULT 'Sightseeing',
+  duration TEXT,                                   -- e.g. "4 hours", "Full day"
+  summary TEXT,
+  description TEXT,
+  highlights TEXT,                                 -- one per line
+  inclusions TEXT,
+  exclusions TEXT,
+  pickup TEXT,                                     -- hotel pickup or meeting point
+  timing TEXT,                                     -- start times, days of operation
+  cancellation TEXT,
+  image_url TEXT,
+  price_basis TEXT NOT NULL DEFAULT 'per_person',  -- per_person | per_group
+  group_size INTEGER,                              -- per_group: guests per group/vehicle
+  net_adult REAL NOT NULL DEFAULT 0,               -- per_person: net per adult; per_group: net per group
+  net_child REAL,                                  -- per_person: net per child (2-11); NULL = adult price
+  status TEXT NOT NULL DEFAULT 'draft',            -- draft | published
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
 
 const one = (sql, ...params) => db.prepare(sql).get(...params);
@@ -274,6 +301,10 @@ addColumn('agencies', 'tax_doc', 'TEXT');                                       
 addColumn('quotes', 'package_snapshot', 'TEXT');                                 // JSON frozen at quote time
 addColumn('quotes', 'is_international', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('quotes', 'infants', 'INTEGER NOT NULL DEFAULT 0');
+addColumn('packages', 'agency_id', 'INTEGER REFERENCES agencies(id) ON DELETE CASCADE');  // the agency that built it
+addColumn('quote_items', 'activity_id', 'INTEGER REFERENCES activities(id) ON DELETE SET NULL');
+addColumn('quote_items', 'cost', 'REAL NOT NULL DEFAULT 0');                      // agent's own services: what they cost the agent, per unit
+addColumn('bookings', 'total_cost', 'REAL NOT NULL DEFAULT 0');                    // agent's own costs for their services on the booking
 
 function tx(fn) {
   db.exec('BEGIN');

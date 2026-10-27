@@ -5,8 +5,8 @@
   </div>
   <div class="actions">
     <a class="btn" href="/agent/flights">✈ Search flights</a>
-    <a class="btn" href="/agent/hotels">🏨 Search hotels</a>
-    <a class="btn btn-primary" href="/agent/packages">Browse packages</a>
+    <a class="btn" href="/agent/activities">🎟 Activities</a>
+    <a class="btn btn-primary" href="/agent/packages/new">+ Build a package</a>
   </div>
 </div>
 
@@ -52,7 +52,7 @@
 <div class="grid grid-2">
   <div class="card flush">
     <div class="card-head"><h3>Recent quotes</h3><a href="/agent/quotes">All quotes</a></div>
-    <% if (!quotes.length) { %><div class="empty">No quotes yet. Start from a <a href="/agent/packages">package</a>.</div><% } else { %>
+    <% if (!quotes.length) { %><div class="empty">No quotes yet. Start from <a href="/agent/packages">one of your packages</a> or an <a href="/agent/activities">activity</a>.</div><% } else { %>
     <table class="table" style="margin-top:10px">
       <% quotes.forEach(q => { %>
         <tr class="click" data-href="/agent/quotes/<%= q.id %>"><td><b><%= q.title %></b><br><small><%= q.code %></small></td><td><span class="badge <%= q.status %>"><%= q.status %></span></td></tr>
@@ -82,12 +82,12 @@
     <% } %>
   </div>
   <div class="card">
-    <div class="card-head"><h3>New from VaayuTrip</h3><a href="/agent/packages">All packages</a></div>
-    <% featured.forEach(p => { %>
-      <a href="/agent/packages/<%= p.id %>" style="display:flex;gap:12px;align-items:center;padding:8px 0;color:inherit">
-        <img src="<%= cover(p) %>" alt="" style="width:72px;height:52px;object-fit:cover;border-radius:8px">
-        <div style="flex:1"><b><%= p.title %></b><br><small><%= p.nights %>N · <%= p.destination %></small></div>
-        <div class="num"><small class="muted">from</small> <%= inr(p.price.net) %><small class="muted"> pp</small><br><small class="profit">+<%= inr(p.price.sell - p.price.net) %></small></div>
+    <div class="card-head"><h3>New activities from VaayuTrip</h3><a href="/agent/activities">All activities</a></div>
+    <% featured.forEach(x => { %>
+      <a href="/agent/activities/<%= x.id %>" style="display:flex;gap:12px;align-items:center;padding:8px 0;color:inherit">
+        <img src="<%= cover({ image_url: x.image_url, destination: x.city }) %>" alt="" style="width:72px;height:52px;object-fit:cover;border-radius:8px">
+        <div style="flex:1"><b><%= x.title %></b><br><small><%= x.city %> · <%= x.duration %></small></div>
+        <div class="num"><%= inr(x.net) %><small class="muted"> pp net</small><br><small class="profit">+<%= inr(x.sell - x.net) %></small></div>
       </a>
     <% }) %>
   </div>

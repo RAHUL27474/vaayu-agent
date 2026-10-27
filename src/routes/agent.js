@@ -3,12 +3,18 @@ const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const { one, all, run, tx, getSettings, notify, UPLOADS_DIR } = require('../db');
-const { num, code, round2 } = require('../util');
+const { num, code, round2, uniqueSlug } = require('../util');
 const { requireAgent, requireActiveAgency, h } = require('../auth');
 const svc = require('../services');
 const { priceQuote, emiPlans, agencyHasBranding, withTax } = require('../pricing');
 const inventory = require('../inventory');
-const { parseDetails, calcPackage, present } = require('../packages');
+const {
+  MEAL_PLANS, STAY_TYPES, EXTRA_TYPES, emptyDetails, parseDetails, detailsFromForm, calcPackage, priceLines, fromPrice, publishProblems, present,
+} = require('../packages');
+const {
+  CATEGORIES: ACTIVITY_CATEGORIES, activityLines, activityMap, netPerPerson, sellPerPerson, isInternational, published: publishedActivity,
+} = require('../activities');
+const { withCover, coverFrom } = require('../photos');
 const { COUNTRIES, withTaxDoc, checkTax, removeDoc } = require('../kyc');
 
 const router = express.Router();
@@ -51,7 +57,7 @@ router.get('/', h((req, res) => {
   const a = req.agency.id;
   const month = new Date().toISOString().slice(0, 7);
   const stats = one(
-    `SELECT COUNT(*) AS bookings, COALESCE(SUM(total_sell), 0) AS sales, COALESCE(SUM(total_sell - total_net), 0) AS earnings
+    `SELECT COUNT(*) AS bookings, COALESCE(SUM(total_sell), 0) AS sales, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS earnings
      FROM bookings WHERE agency_id = ? AND status != 'cancelled' AND substr(created_at, 1, 7) = ?`, a, month,
   );
   const openLeads = one("SELECT COUNT(*) AS n FROM leads WHERE agency_id = ? AND status IN ('new', 'contacted')", a).n;
@@ -59,11 +65,12 @@ router.get('/', h((req, res) => {
   const bookings = all('SELECT * FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 5', a);
   const leads = all("SELECT * FROM leads WHERE agency_id = ? AND status = 'new' ORDER BY id DESC LIMIT 5", a);
   const upcoming = all("SELECT * FROM bookings WHERE agency_id = ? AND status = 'confirmed' AND travel_date >= date('now') ORDER BY travel_date LIMIT 5", a);
-  const featured = all("SELECT * FROM packages WHERE status = 'published' ORDER BY updated_at DESC LIMIT 3").map((p) => ({ ...p, price: svc.packageSellPrice(req.agency, p) }));
+  const featured = all("SELECT * FROM activities WHERE status = 'published' ORDER BY created_at DESC, id DESC LIMIT 4").map((x) => ({ ...x, net: netPerPerson(x), sell: sellPerPerson(req.agency, x) }));
+  const hasPackage = Boolean(one('SELECT 1 FROM packages WHERE agency_id = ?', a));
   const branded = agencyHasBranding(req.agency);
   // Last 6 calendar months, oldest first, including months without bookings.
   const earned = Object.fromEntries(all(
-    `SELECT substr(created_at, 1, 7) AS month, SUM(total_sell - total_net) AS earnings, COUNT(*) AS n FROM bookings
+    `SELECT substr(created_at, 1, 7) AS month, SUM(total_sell - total_net - total_cost) AS earnings, COUNT(*) AS n FROM bookings
      WHERE agency_id = ? AND status != 'cancelled' AND created_at >= date('now', 'start of month', '-5 months') GROUP BY month`, a,
   ).map((m) => [m.month, m]));
   const chart = [...Array(6)].map((_, i) => {
@@ -79,65 +86,254 @@ router.get('/', h((req, res) => {
     { done: Boolean(req.agency.tax_doc), label: 'Upload your tax registration', href: '/agent/settings#tax' },
     { done: req.agency.status === 'active', label: 'Get approved by VaayuTrip', href: '/agent/support' },
     { done: branded, label: 'Add your logo for branded invoices', href: '/agent/settings' },
-    { done: hasQuote, label: 'Create your first quote', href: '/agent/packages' },
+    { done: hasPackage, label: 'Build your first package from our activities', href: '/agent/packages/new' },
+    { done: hasQuote, label: 'Send your first quote', href: '/agent/packages' },
     { done: hasBooking, label: 'Make your first booking', href: '/agent/quotes' },
   ];
   res.page('agent/dashboard', { title: 'Dashboard', stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers: liveOffers(2) });
 }));
 
-// ---------- packages from VaayuTrip ----------
+// ---------- activities from VaayuTrip ----------
 
-router.get('/packages', h((req, res) => {
-  const q = str(req.query.q);
-  const theme = str(req.query.theme);
-  let sql = "SELECT * FROM packages WHERE status = 'published'";
-  const params = [];
-  if (q) { sql += ' AND (title LIKE ? OR destination LIKE ?)'; params.push(`%${q}%`, `%${q}%`); }
-  if (theme) { sql += ' AND theme = ?'; params.push(theme); }
-  const packages = all(`${sql} ORDER BY updated_at DESC`, ...params).map((p) => ({ ...p, price: svc.packageSellPrice(req.agency, p) }));
-  const themes = all("SELECT DISTINCT theme FROM packages WHERE status = 'published' AND theme IS NOT NULL ORDER BY theme").map((r) => r.theme);
-  res.page('agent/packages', { title: 'Holiday packages', packages, themes, q, theme });
+// Party for activity prices (query string or form body).
+const partyOf = (src) => ({ adults: Math.max(1, Math.round(num(src.adults, 2))), children: Math.max(0, Math.round(num(src.children, 0))) });
+const ownPackages = (agencyId) => all('SELECT id, title, nights, destination FROM packages WHERE agency_id = ? ORDER BY updated_at DESC', agencyId);
+const withPrices = (agency) => (a) => ({ ...a, net: netPerPerson(a), sell: sellPerPerson(agency, a) });
+
+router.get('/activities', h((req, res) => {
+  const f = {
+    q: str(req.query.q),
+    city: str(req.query.city),
+    category: ACTIVITY_CATEGORIES.includes(req.query.category) ? req.query.category : '',
+    region: ['india', 'abroad'].includes(req.query.region) ? req.query.region : '',
+  };
+  const where = [["status = 'published'"]];
+  if (f.q) where.push(['(title LIKE ? OR city LIKE ? OR country LIKE ? OR summary LIKE ?)', ...Array(4).fill(`%${f.q}%`)]);
+  if (f.city) where.push(['city = ?', f.city]);
+  if (f.category) where.push(['category = ?', f.category]);
+  if (f.region) where.push([f.region === 'india' ? "country = 'India'" : "country != 'India'"]);
+  const activities = all(
+    `SELECT * FROM activities WHERE ${where.map(([c]) => c).join(' AND ')} ORDER BY country != 'India', city, title`,
+    ...where.flatMap(([, ...p]) => p),
+  ).map(withPrices(req.agency));
+  const cities = all("SELECT city, country, COUNT(*) AS n FROM activities WHERE status = 'published' GROUP BY city, country ORDER BY country != 'India', city");
+  res.page('agent/activities', { title: 'Activities', activities, cities, categories: ACTIVITY_CATEGORIES, f });
 }));
 
-// Party options from the package calculator (query string or form body).
-function partyOptions(src) {
+router.get('/activities/:id', h((req, res, next) => {
+  const a = publishedActivity(num(req.params.id));
+  if (!a) return next();
+  const party = partyOf(req.query);
+  const lines = activityLines(a, party).map((l) => ({ ...l, supplier: 'vaayu', sell: null }));
+  const more = all("SELECT * FROM activities WHERE status = 'published' AND city = ? AND id != ? ORDER BY title LIMIT 4", a.city, a.id).map(withPrices(req.agency));
+  res.page('agent/activity', {
+    title: a.title, a: withPrices(req.agency)(a), party, lines, priced: priceLines(req.agency, lines), more,
+    quotes: openQuotes(req.agency.id), packages: ownPackages(req.agency.id), customers: customersOf(req.agency.id),
+  });
+}));
+
+router.post('/activities/:id/quote', h((req, res, next) => {
+  const a = publishedActivity(num(req.params.id));
+  if (!a) return next();
+  const party = partyOf(req.body);
+  let quoteId = num(req.body.quote_id, 0);
+  if (quoteId) {
+    const q = one('SELECT status FROM quotes WHERE id = ? AND agency_id = ?', quoteId, req.agency.id);
+    if (!q) throw new svc.AppError('Quote not found');
+    assertEditable(q);
+  } else {
+    const customerId = num(req.body.customer_id, 0);
+    quoteId = svc.createQuote(req.agency, {
+      title: str(req.body.new_title) || a.title, ...party, travelDate: str(req.body.date) || null,
+      customerId: customerId && one('SELECT 1 FROM customers WHERE id = ? AND agency_id = ?', customerId, req.agency.id) ? customerId : null,
+    });
+  }
+  svc.addActivityToQuote(quoteId, a, party);
+  req.flash('success', `${a.title} added to the quote.`);
+  res.redirect(`/agent/quotes/${quoteId}#items`);
+}));
+
+router.post('/activities/:id/add-to-package', h((req, res, next) => {
+  const a = publishedActivity(num(req.params.id));
+  if (!a) return next();
+  const day = Math.max(1, Math.min(60, Math.round(num(req.body.day, 1))));
+  let pkg = num(req.body.package_id, 0) ? ownPackage(req, num(req.body.package_id)) : null;
+  if (req.body.package_id && req.body.package_id !== 'new' && !pkg) throw new svc.AppError('Package not found');
+  if (!pkg) {
+    const id = insertPackage(req.agency, {
+      title: `${a.city} holiday`, destination: a.city, nights: Math.max(3, day - 1), is_international: isInternational(a) ? 1 : 0,
+    }, newPackageDetails());
+    pkg = ownPackage(req, id);
+  }
+  const d = parseDetails(pkg.details);
+  d.activities.push({ day, id: a.id, title: a.title });
+  d.activities.sort((x, y) => x.day - y.day);
+  while (d.days.length < day) d.days.push({ title: `Day ${d.days.length + 1}`, description: '', meals: { b: false, l: false, d: false }, overnight: '' });
+  run(
+    "UPDATE packages SET details = ?, is_international = MAX(is_international, ?), updated_at = datetime('now') WHERE id = ?",
+    JSON.stringify(d), isInternational(a) ? 1 : 0, pkg.id,
+  );
+  req.flash('success', `${a.title} added to day ${day} of ${pkg.title}. Fill in the rest of the package and save.`);
+  res.redirect(`/agent/packages/${pkg.id}/edit#activities`);
+}));
+
+// ---------- my packages (built by the agency from activities + its own services) ----------
+
+const PKG_CORE = ['title', 'destination', 'nights', 'theme', 'summary', 'inclusions', 'exclusions', 'image_url', 'is_international', 'departure_city'];
+
+function ownPackage(req, id) {
+  return one('SELECT * FROM packages WHERE id = ? AND agency_id = ?', id, req.agency.id);
+}
+
+function insertPackage(agency, core, details) {
+  const row = { nights: 3, is_international: 0, ...core };
+  return run(
+    `INSERT INTO packages (${PKG_CORE.join(', ')}, details, slug, agency_id, status) VALUES (${PKG_CORE.map(() => '?').join(', ')}, ?, ?, ?, 'draft')`,
+    ...PKG_CORE.map((k) => row[k] ?? null), JSON.stringify(details), uniqueSlug('packages', row.title), agency.id,
+  ).lastInsertRowid;
+}
+
+function newPackageDetails() {
+  const d = emptyDetails();
+  d.days = [{ title: 'Arrival', description: '', meals: { b: false, l: false, d: true }, overnight: '' }];
+  d.policies.cancellation = [{ days: 30, percent: 10 }, { days: 15, percent: 25 }, { days: 7, percent: 50 }, { days: 0, percent: 100 }];
+  d.policies.child = 'Infants below 2 years travel free. Children 2–11 years pay the child price for activities. 12 years and above: adult price.';
+  d.policies.notes = 'Hotel check-in 14:00, check-out 11:00. Valid government photo ID required for all travellers. Activity timings may change with weather and local conditions.';
+  return d;
+}
+
+// Every published activity, for the builder's pickers and for validating the form.
+const activityCatalogue = () => new Map(all("SELECT * FROM activities WHERE status = 'published' ORDER BY country != 'India', city, title").map((a) => [a.id, a]));
+
+function packageCore(b, d, catalogue) {
+  const routeNights = d.route.reduce((s, r) => s + r.nights, 0);
   return {
-    category: str(src.category),
-    date: str(src.date),
-    rooms: src.rooms,
-    adults: src.adults,
-    cwb: src.cwb,
-    cnb: src.cnb,
-    infants: src.infants,
-    // A hidden flights=0 precedes the checkbox, so a ticked box arrives as ['0', '1'].
-    withFlights: src.flights === undefined ? undefined : [].concat(src.flights).pop() === '1',
-    addons: src.addons,
+    title: str(b.title),
+    destination: str(b.destination),
+    nights: routeNights || Math.max(1, Math.round(num(b.nights, 1))),
+    theme: str(b.theme) || null,
+    summary: str(b.summary) || null,
+    inclusions: str(b.inclusions) || null,
+    exclusions: str(b.exclusions) || null,
+    // International when ticked or when any activity is outside India (TCS applies on customer invoices).
+    is_international: b.is_international || d.activities.some((x) => isInternational(catalogue.get(x.id))) ? 1 : 0,
+    departure_city: str(b.departure_city) || null,
   };
 }
 
-// Package details plus a live price calculator: the form re-submits to this page with GET.
+function builderData(req, pkg, details) {
+  const catalogue = activityCatalogue();
+  return {
+    pkg, d: details, catalogue: [...catalogue.values()].map(withPrices(req.agency)), mealPlans: MEAL_PLANS, stayTypes: STAY_TYPES, extraTypes: EXTRA_TYPES,
+    problems: pkg.id ? publishProblems(pkg, details) : [],
+    from: pkg.id ? fromPrice(req.agency, pkg, details) : null,
+  };
+}
+
+router.get('/packages', h((req, res) => {
+  const packages = all(
+    'SELECT p.*, (SELECT COUNT(*) FROM quotes q WHERE q.package_id = p.id) AS quotes FROM packages p WHERE p.agency_id = ? ORDER BY p.updated_at DESC', req.agency.id,
+  ).map((p) => {
+    const d = parseDetails(p.details);
+    return { ...p, price: fromPrice(req.agency, p, d), activities: d.activities.length, problems: publishProblems(p, d) };
+  });
+  res.page('agent/packages', { title: 'My packages', packages });
+}));
+
+router.get('/packages/new', h((req, res) => {
+  const destination = str(req.query.destination);
+  res.page('agent/package-form', { title: 'New package', ...builderData(req, { nights: 3, status: 'draft', destination, title: '' }, newPackageDetails()) });
+}));
+
+router.post('/packages', withCover(svc.AppError), h((req, res) => {
+  const catalogue = activityCatalogue();
+  const details = detailsFromForm(req.body, catalogue);
+  const core = { ...packageCore(req.body, details, catalogue), image_url: coverFrom(req, null) };
+  if (!core.title || !core.destination) throw new svc.AppError('Give the package a name and destination.');
+  const id = insertPackage(req.agency, core, details);
+  req.flash('success', 'Package saved. Price it for a customer below, or publish it to your website.');
+  res.redirect(`/agent/packages/${id}`);
+}));
+
+// Package page with a price calculator: the form re-submits to this page with GET.
 router.get('/packages/:id', h((req, res, next) => {
-  const pkg = one("SELECT * FROM packages WHERE id = ? AND status = 'published'", num(req.params.id));
+  const pkg = ownPackage(req, num(req.params.id));
   if (!pkg) return next();
   const details = parseDetails(pkg.details);
-  const calc = calcPackage(pkg, details, partyOptions(req.query));
-  const markup = { markup_type: req.agency.markup_type, markup_value: req.agency.markup_value };
-  const priced = priceQuote(markup, calc.lines.map((l) => ({ ...l, net_price: l.net, supplier: 'vaayu', sell_price: null })));
+  const acts = activityMap(details.activities.map((a) => a.id));
+  const calc = calcPackage(pkg, details, req.query, acts);
   res.page('agent/package', {
-    title: pkg.title, pkg, details, calc, priced, calculated: Object.keys(req.query).length > 0,
-    view: present(pkg, details, calc.options.category, true),
-    from: svc.packageSellPrice(req.agency, pkg), customers: customersOf(req.agency.id),
+    title: pkg.title, pkg, details, calc, priced: priceLines(req.agency, calc.lines),
+    view: present(pkg, details, acts), from: fromPrice(req.agency, pkg, details, acts),
+    problems: publishProblems(pkg, details), customers: customersOf(req.agency.id),
     // The agent's own website only serves active agencies with the site switched on.
-    siteUrl: req.agency.status === 'active' && req.agency.website_enabled ? `${req.protocol}://${req.get('host')}/site/${req.agency.slug}/p/${pkg.slug}` : null,
+    siteUrl: pkg.status === 'published' && req.agency.status === 'active' && req.agency.website_enabled
+      ? `${req.protocol}://${req.get('host')}/site/${req.agency.slug}/p/${pkg.slug}` : null,
   });
 }));
 
+router.get('/packages/:id/edit', h((req, res, next) => {
+  const pkg = ownPackage(req, num(req.params.id));
+  if (!pkg) return next();
+  res.page('agent/package-form', { title: `Edit ${pkg.title}`, ...builderData(req, pkg, parseDetails(pkg.details)) });
+}));
+
+router.post('/packages/:id', withCover(svc.AppError), h((req, res, next) => {
+  const pkg = ownPackage(req, num(req.params.id));
+  if (!pkg) return next();
+  const catalogue = activityCatalogue();
+  const details = detailsFromForm(req.body, catalogue);
+  const core = { ...packageCore(req.body, details, catalogue), image_url: coverFrom(req, pkg.image_url) };
+  if (!core.title || !core.destination) throw new svc.AppError('Give the package a name and destination.');
+  run(
+    `UPDATE packages SET ${PKG_CORE.map((k) => `${k} = ?`).join(', ')}, details = ?, updated_at = datetime('now') WHERE id = ?`,
+    ...PKG_CORE.map((k) => core[k]), JSON.stringify(details), pkg.id,
+  );
+  const problems = publishProblems(core, details);
+  if (pkg.status === 'published' && problems.length) {
+    run("UPDATE packages SET status = 'draft' WHERE id = ?", pkg.id);
+    req.flash('warn', `Package taken off your website: ${problems[0]}`);
+  } else {
+    req.flash('success', 'Package saved.');
+  }
+  res.redirect(`/agent/packages/${pkg.id}`);
+}));
+
+router.post('/packages/:id/status', h((req, res, next) => {
+  const pkg = ownPackage(req, num(req.params.id));
+  if (!pkg) return next();
+  const status = req.body.status === 'published' ? 'published' : 'draft';
+  if (status === 'published') {
+    const problems = publishProblems(pkg, parseDetails(pkg.details));
+    if (problems.length) throw new svc.AppError(`Can't publish yet: ${problems.join(' ')}`);
+  }
+  run("UPDATE packages SET status = ?, updated_at = datetime('now') WHERE id = ?", status, pkg.id);
+  req.flash('success', status === 'published' ? 'Published: the package is live on your website and API.' : 'Unpublished: the package is hidden from your website and API.');
+  res.redirect(`/agent/packages/${pkg.id}`);
+}));
+
+router.post('/packages/:id/duplicate', h((req, res, next) => {
+  const pkg = ownPackage(req, num(req.params.id));
+  if (!pkg) return next();
+  const id = insertPackage(req.agency, { ...pkg, title: `${pkg.title} (copy)` }, parseDetails(pkg.details));
+  req.flash('success', 'Copy created as a draft.');
+  res.redirect(`/agent/packages/${id}/edit`);
+}));
+
+router.post('/packages/:id/delete', h((req, res) => {
+  run('DELETE FROM packages WHERE id = ? AND agency_id = ?', num(req.params.id), req.agency.id);
+  req.flash('success', 'Package deleted. Quotes made from it keep their copy.');
+  res.redirect('/agent/packages');
+}));
+
 router.post('/packages/:id/quote', h((req, res) => {
+  const customerId = num(req.body.customer_id, 0);
   const quoteId = svc.createQuoteFromPackage(req.agency, num(req.params.id), {
-    ...partyOptions(req.body),
-    customerId: num(req.body.customer_id, 0) || null,
+    adults: req.body.adults, children: req.body.children, rooms: req.body.rooms, date: str(req.body.date),
+    title: str(req.body.title) || undefined,
+    customerId: customerId && one('SELECT 1 FROM customers WHERE id = ? AND agency_id = ?', customerId, req.agency.id) ? customerId : null,
   });
-  req.flash('success', 'Quote created from the package. Adjust prices and items, then share it with your customer.');
+  req.flash('success', 'Quote created from your package. Adjust prices and items, then share it with your customer.');
   res.redirect(`/agent/quotes/${quoteId}`);
 }));
 
@@ -271,7 +467,7 @@ router.post('/quotes/:id/items/custom', h((req, res) => {
   if (!title) throw new svc.AppError('Give the item a name.');
   svc.addQuoteItem(quote.id, {
     type: str(req.body.type) || 'other', title, description: str(req.body.description), supplier: 'agent',
-    net: 0, sell: Math.max(0, num(req.body.price, 0)), qty: Math.max(1, num(req.body.qty, 1)),
+    net: 0, sell: Math.max(0, num(req.body.price, 0)), cost: Math.max(0, num(req.body.cost, 0)), qty: Math.max(1, num(req.body.qty, 1)),
   });
   req.flash('success', 'Your own service was added. It appears on your branded invoice.');
   res.redirect(`/agent/quotes/${quote.id}#items`);
@@ -406,7 +602,7 @@ router.get('/leads', h((req, res) => {
      WHERE l.agency_id = ? ${status ? 'AND l.status = ?' : ''} ORDER BY l.id DESC`, req.agency.id, ...(status ? [status] : []),
   );
   const counts = Object.fromEntries(all('SELECT status, COUNT(*) AS n FROM leads WHERE agency_id = ? GROUP BY status', req.agency.id).map((r) => [r.status, r.n]));
-  res.page('agent/leads', { title: 'Leads', leads, status, counts, statuses: LEAD_STATUSES, packages: all("SELECT id, title FROM packages WHERE status = 'published' ORDER BY title") });
+  res.page('agent/leads', { title: 'Leads', leads, status, counts, statuses: LEAD_STATUSES, packages: ownPackages(req.agency.id) });
 }));
 
 router.post('/leads', h((req, res) => {
@@ -414,7 +610,7 @@ router.post('/leads', h((req, res) => {
   if (!name) throw new svc.AppError('Lead name is required.');
   run('INSERT INTO leads (agency_id, name, phone, email, destination, travel_date, pax, budget, package_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     req.agency.id, name, str(req.body.phone) || null, str(req.body.email) || null, str(req.body.destination) || null, str(req.body.travel_date) || null,
-    num(req.body.pax, 0) || null, num(req.body.budget, 0) || null, num(req.body.package_id, 0) || null, str(req.body.notes) || null);
+    num(req.body.pax, 0) || null, num(req.body.budget, 0) || null, ownPackage(req, num(req.body.package_id, 0))?.id || null, str(req.body.notes) || null);
   req.flash('success', 'Lead added.');
   res.redirect('/agent/leads');
 }));
@@ -438,21 +634,16 @@ router.post('/leads/:id/quote', h((req, res, next) => {
     }
     return customerId;
   });
-  const opts = { customerId, leadId: lead.id, travelDate: lead.travel_date, date: lead.travel_date, adults: lead.pax || 2, rooms: Math.max(1, Math.ceil((lead.pax || 2) / 2)) };
+  const opts = { customerId, leadId: lead.id, travelDate: lead.travel_date, date: lead.travel_date, adults: lead.pax || 2 };
+  const pkg = lead.package_id && ownPackage(req, lead.package_id);
   let id;
-  if (lead.package_id) {
-    const pkgOpts = { ...opts, title: `${one('SELECT title FROM packages WHERE id = ?', lead.package_id).title} — ${lead.name}` };
-    try {
-      id = svc.createQuoteFromPackage(req.agency, lead.package_id, pkgOpts);
-    } catch (e) {
-      // The lead's date or party may not fit the package (season, room limits); start from the default party instead.
-      if (!(e instanceof svc.AppError)) throw e;
-      id = svc.createQuoteFromPackage(req.agency, lead.package_id, { ...pkgOpts, date: '', rooms: undefined, adults: undefined });
-      req.flash('warn', `${e.message} The quote uses default dates and rooms; adjust them before sending.`);
-    }
-  } else {
-    id = svc.createQuote(req.agency, { ...opts, title: `${lead.destination || 'Trip'} — ${lead.name}` });
+  try {
+    id = pkg ? svc.createQuoteFromPackage(req.agency, pkg.id, { ...opts, title: `${pkg.title} — ${lead.name}` }) : null;
+  } catch (e) {
+    if (!(e instanceof svc.AppError)) throw e;
+    req.flash('warn', `${e.message} Started an empty quote instead.`);
   }
+  if (!id) id = svc.createQuote(req.agency, { ...opts, title: `${pkg ? pkg.title : lead.destination || 'Trip'} — ${lead.name}` });
   run("UPDATE leads SET status = 'quoted' WHERE id = ?", lead.id);
   req.flash('success', 'Quote created for this lead.');
   res.redirect(`/agent/quotes/${id}`);
@@ -639,17 +830,17 @@ router.get('/reports', h((req, res) => {
     `SELECT COUNT(*) FILTER (WHERE status != 'cancelled') AS bookings,
        COALESCE(SUM(total_sell) FILTER (WHERE status != 'cancelled'), 0) AS sales,
        COALESCE(SUM(total_net) FILTER (WHERE status != 'cancelled'), 0) AS net,
-       COALESCE(SUM(total_sell - total_net) FILTER (WHERE status != 'cancelled'), 0) AS earnings,
+       COALESCE(SUM(total_sell - total_net - total_cost) FILTER (WHERE status != 'cancelled'), 0) AS earnings,
        COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled,
        COALESCE(SUM(refund_amount) FILTER (WHERE status = 'cancelled'), 0) AS refunds
      FROM bookings WHERE ${inRange}`, ...range,
   );
   const months = all(
-    `SELECT substr(created_at, 1, 7) AS month, COUNT(*) AS bookings, SUM(total_sell) AS sales, SUM(total_sell - total_net) AS earnings
+    `SELECT substr(created_at, 1, 7) AS month, COUNT(*) AS bookings, SUM(total_sell) AS sales, SUM(total_sell - total_net - total_cost) AS earnings
      FROM bookings WHERE ${inRange} AND status != 'cancelled' GROUP BY month ORDER BY month`, ...range,
   );
   const destinations = all(
-    `SELECT COALESCE(p.destination, 'Custom trips') AS destination, COUNT(*) AS bookings, SUM(b.total_sell) AS sales, SUM(b.total_sell - b.total_net) AS earnings
+    `SELECT COALESCE(p.destination, 'Custom trips') AS destination, COUNT(*) AS bookings, SUM(b.total_sell) AS sales, SUM(b.total_sell - b.total_net - b.total_cost) AS earnings
      FROM bookings b LEFT JOIN quotes q ON q.id = b.quote_id LEFT JOIN packages p ON p.id = q.package_id
      WHERE b.agency_id = ? AND date(b.created_at) BETWEEN ? AND ? AND b.status != 'cancelled'
      GROUP BY 1 ORDER BY sales DESC LIMIT 8`, ...range,
@@ -666,13 +857,13 @@ router.get('/reports', h((req, res) => {
 router.get('/reports/bookings.csv', h((req, res) => {
   const { from, to } = reportPeriod(req.query);
   const rows = all(
-    `SELECT b.code, b.created_at, b.title, c.name AS customer, b.travel_date, b.status, b.total_net, b.total_sell, b.paid_wallet, b.paid_credit, b.refund_amount
+    `SELECT b.code, b.created_at, b.title, c.name AS customer, b.travel_date, b.status, b.total_net, b.total_sell, b.total_cost, b.paid_wallet, b.paid_credit, b.refund_amount
      FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id
      WHERE b.agency_id = ? AND date(b.created_at) BETWEEN ? AND ? ORDER BY b.id`, req.agency.id, from, to,
   );
   sendCsv(res, `bookings_${from}_to_${to}.csv`,
-    ['Booking ID', 'Booked on', 'Trip', 'Customer', 'Travel date', 'Status', 'Net (VaayuTrip)', 'Selling price', 'Your earnings', 'Paid from wallet', 'Paid from credit', 'Refund'],
-    rows.map((b) => [b.code, b.created_at.slice(0, 10), b.title, b.customer, b.travel_date, b.status, b.total_net, b.total_sell, round2(b.total_sell - b.total_net), b.paid_wallet, b.paid_credit, b.refund_amount]));
+    ['Booking ID', 'Booked on', 'Trip', 'Customer', 'Travel date', 'Status', 'Net (VaayuTrip)', 'Selling price', 'Your own costs', 'Your earnings', 'Paid from wallet', 'Paid from credit', 'Refund'],
+    rows.map((b) => [b.code, b.created_at.slice(0, 10), b.title, b.customer, b.travel_date, b.status, b.total_net, b.total_sell, b.total_cost, round2(b.total_sell - b.total_net - b.total_cost), b.paid_wallet, b.paid_credit, b.refund_amount]));
 }));
 
 router.get('/reports/ledger.csv', h((req, res) => {

@@ -28,7 +28,7 @@
     <% if (isAdmin) { %>
       <%- navItem('/admin', '◧', 'Dashboard') %>
       <div class="nav-section">Catalogue</div>
-      <%- navItem('/admin/packages', '🧳', 'Packages') %>
+      <%- navItem('/admin/activities', '🎟', 'Activities') %>
       <div class="nav-section">Partners</div>
       <%- navItem('/admin/agents', '🏢', 'Agents') %>
       <%- navItem('/admin/topups', '⬆', 'Top-up requests', typeof pendingTopups !== 'undefined' && pendingTopups ? pendingTopups : '') %>
@@ -42,12 +42,13 @@
     <% } else { %>
       <%- navItem('/agent', '◧', 'Dashboard') %>
       <div class="nav-section">Book</div>
-      <%- navItem('/agent/packages', '🧳', 'Holiday packages') %>
+      <%- navItem('/agent/activities', '🎟', 'Activities') %>
       <%- navItem('/agent/flights', '✈', 'Flights') %>
       <%- navItem('/agent/hotels', '🏨', 'Hotels') %>
       <%- navItem('/agent/transfers', '🚕', 'Transfers & cabs') %>
       <%- navItem('/agent/insurance', '🛡', 'Travel insurance') %>
       <div class="nav-section">Sell</div>
+      <%- navItem('/agent/packages', '🧳', 'My packages') %>
       <%- navItem('/agent/leads', '🎯', 'Leads') %>
       <%- navItem('/agent/customers', '👥', 'Customers') %>
       <%- navItem('/agent/quotes', '📝', 'Quotes') %>
