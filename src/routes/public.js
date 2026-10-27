@@ -31,7 +31,7 @@ router.get('/', h((req, res) => {
 }));
 
 // Generated cover card for packages and hotels without an uploaded photo.
-const COVER_PALETTES = [['#4f46e5', '#1e1b4b'], ['#0f766e', '#042f2e'], ['#7c3aed', '#2e1065'], ['#c2410c', '#431407'], ['#be123c', '#4c0519'], ['#1d4ed8', '#0f172a'], ['#047857', '#022c22'], ['#b45309', '#3b1d06']];
+const COVER_PALETTES = [['#0369a1', '#0c2a43'], ['#0f766e', '#042f2e'], ['#7c3aed', '#2e1065'], ['#c2410c', '#431407'], ['#be123c', '#4c0519'], ['#1d4ed8', '#0f172a'], ['#047857', '#022c22'], ['#b45309', '#3b1d06']];
 router.get('/cover/:name.svg', (req, res) => {
   const name = String(req.params.name || 'Holiday').slice(0, 40);
   const esc = (s) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -47,7 +47,7 @@ router.get('/cover/:name.svg', (req, res) => {
 <rect width="1200" height="800" fill="url(#g)"/><rect width="1200" height="800" fill="url(#r)"/>
 <g fill="none" stroke="#fff" stroke-opacity=".09" stroke-width="2"><circle cx="${cx}" cy="180" r="140"/><circle cx="${cx}" cy="180" r="240"/><circle cx="${cx}" cy="180" r="340"/></g>
 <path d="M0 640 C220 590 420 680 640 630 S1020 570 1200 620 L1200 800 L0 800 Z" fill="#000" opacity=".18"/>
-<rect x="72" y="${y - size - 10}" width="48" height="5" rx="2.5" fill="#fbbf24"/>
+<rect x="72" y="${y - size - 10}" width="48" height="5" rx="2.5" fill="#fb923c"/>
 <text x="70" y="${y}" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="800" letter-spacing="-1" fill="#fff">${esc(name)}</text>
 <text x="72" y="${y + 50}" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="600" fill="#fff" opacity=".75" letter-spacing="4">VAAYUTRIP HOLIDAYS</text>
 </svg>`);

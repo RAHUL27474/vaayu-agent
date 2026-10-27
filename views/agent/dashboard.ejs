@@ -1,14 +1,34 @@
 <div class="page-head">
   <div>
     <h1>Namaste, <%= user.name.split(' ')[0] %></h1>
-    <p><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) %></p>
+    <p><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) %> · Here's your business today.</p>
   </div>
-  <div class="actions">
-    <a class="btn" href="/agent/flights"><%- icon('plane') %>Airfares</a>
-    <a class="btn" href="/agent/hotels"><%- icon('bed') %>Hotels</a>
-    <a class="btn" href="/agent/activities"><%- icon('ticket') %>Activities</a>
-    <a class="btn btn-primary" href="/agent/packages/new"><%- icon('plus') %>Build a package</a>
+</div>
+
+<form class="book-panel" method="get" action="/agent/search">
+  <div class="book-head">
+    <h2>What are you booking today?</h2>
+    <span>Net rates from VaayuTrip · your markup added automatically</span>
   </div>
+  <div class="svc-tabs" role="radiogroup" aria-label="Service">
+    <% services.forEach((s, i) => { %>
+      <label class="svc-tab"><input type="radio" name="svc" value="<%= s.path %>" <%= s.path === 'hotels' ? 'checked' : '' %>><%- icon(s.icon) %><span><%= s.label %></span></label>
+    <% }) %>
+  </div>
+  <div class="book-fields">
+    <div class="field"><label for="bk-dest">Destination</label>
+      <select id="bk-dest" name="dest"><option value="">All destinations</option><% destinations.forEach(d => { %><option><%= d %></option><% }) %></select>
+    </div>
+    <div class="field grow"><label for="bk-q">City, hotel or experience</label><input id="bk-q" type="search" name="q" placeholder="e.g. Ubud, Burj Khalifa, Emirates"></div>
+    <button class="btn btn-accent btn-lg"><%- icon('search') %>Search net rates</button>
+  </div>
+</form>
+
+<div class="quick-grid">
+  <a class="quick" href="/agent/packages/new"><span class="q-ico"><%- icon('briefcase') %></span><b>Build a package</b><small>Day-wise trip from our inventory</small></a>
+  <a class="quick" href="/agent/quotes"><span class="q-ico"><%- icon('file') %></span><b>Quotes</b><small><%= quotes.length ? `${quotes.length} recent` : 'Share prices on WhatsApp' %></small></a>
+  <a class="quick" href="/agent/leads"><span class="q-ico"><%- icon('target') %></span><b>Leads</b><small><%= openLeads %> open lead<%= openLeads === 1 ? '' : 's' %></small></a>
+  <a class="quick" href="/agent/wallet"><span class="q-ico"><%- icon('wallet') %></span><b>Top up wallet</b><small>Balance <%= inr(agency.wallet_balance) %></small></a>
 </div>
 
 <% if (agency.status !== 'active') { %>

@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="220" height="48" viewBox="0 0 220 48">
-  <defs><linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#4338ca"/></linearGradient></defs>
+  <defs><linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14b8a6"/><stop offset="1" stop-color="#0f766e"/></linearGradient></defs>
   <rect x="2" y="4" width="40" height="40" rx="10" fill="url(#m)"/>
   <path d="M10 19c6-5 14-5 20 0 3 2.5 6 2.5 8 .5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
-  <path d="M10 27c6-5 14-5 20 0 3 2.5 6 2.5 8 .5" fill="none" stroke="#c7d2fe" stroke-width="3" stroke-linecap="round"/>
-  <path d="M14 35c4-3 9-3 13 0" fill="none" stroke="#fbbf24" stroke-width="3" stroke-linecap="round"/>
-  <text x="52" y="32" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="24" font-weight="800" fill="#0f172a" letter-spacing="-0.5">Vaayu<tspan fill="#4f46e5">Trip</tspan></text>
+  <path d="M10 27c6-5 14-5 20 0 3 2.5 6 2.5 8 .5" fill="none" stroke="#99f6e4" stroke-width="3" stroke-linecap="round"/>
+  <path d="M14 35c4-3 9-3 13 0" fill="none" stroke="#fb923c" stroke-width="3" stroke-linecap="round"/>
+  <text x="52" y="32" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="24" font-weight="800" fill="#0f172a" letter-spacing="-0.5">Vaayu<tspan fill="#0f766e">Trip</tspan></text>
 </svg>

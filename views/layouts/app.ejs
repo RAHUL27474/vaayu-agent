@@ -163,6 +163,15 @@
       <% flash.forEach(f => { %><div class="alert <%= f.type %>" role="status"><%- icon(f.type === 'error' ? 'xCircle' : 'checkCircle') %><span><%= f.message %></span></div><% }) %>
       <%- body %>
     </main>
+    <% if (agency) { const bookPaths = ['/agent/activities', '/agent/hotels', '/agent/flights', '/agent/transfers', '/agent/visas', '/agent/insurance']; %>
+      <nav class="bottom-nav" aria-label="Quick menu">
+        <a href="/agent" class="<%= isActive('/agent') ? 'on' : '' %>"><%- icon('dashboard') %><span>Home</span></a>
+        <a href="/agent/hotels" class="<%= bookPaths.some(isActive) ? 'on' : '' %>"><%- icon('search') %><span>Book</span></a>
+        <a href="/agent/quotes" class="<%= isActive('/agent/quotes') ? 'on' : '' %>"><%- icon('file') %><span>Quotes</span></a>
+        <a href="/agent/bookings" class="<%= isActive('/agent/bookings') ? 'on' : '' %>"><%- icon('clipboard') %><span>Bookings</span></a>
+        <button type="button" data-nav-toggle aria-label="More"><%- icon('menu') %><span>More</span></button>
+      </nav>
+    <% } %>
   </div>
 </div>
 <script src="/js/app.js"></script>

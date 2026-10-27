@@ -14,6 +14,9 @@
   <div><h1><%= cfg.plural %></h1><p><%= intro %> from VaayuTrip in Dubai, Bali, Vietnam, Cambodia, the UK and Europe. Add them to a quote, or build them into your own packages. Your default markup is <%= mk %>.</p></div>
   <a class="btn btn-primary" href="/agent/packages/new"><%- icon('plus') %>Build a package</a>
 </div>
+<nav class="svc-nav" aria-label="Services">
+  <% services.forEach(s => { %><a class="<%= s.kind === kind ? 'on' : '' %>" href="/agent/<%= s.path %><%= f.dest ? '?dest=' + encodeURIComponent(f.dest) : '' %>"><%- icon(s.icon) %><span><%= s.label %></span></a><% }) %>
+</nav>
 <div class="chips filter-chips" style="margin-bottom:12px">
   <a class="<%= !f.dest ? 'on' : '' %>" href="<%= qs({ dest: '', city: '' }) %>">All destinations</a>
   <% destinations.forEach(d => { %><a class="<%= f.dest === d ? 'on' : '' %>" href="<%= qs({ dest: d, city: '' }) %>"><%= d %></a><% }) %>

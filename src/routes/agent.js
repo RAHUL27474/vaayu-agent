@@ -89,7 +89,8 @@ router.get('/', h((req, res) => {
     { done: hasQuote, label: 'Send your first quote', href: '/agent/packages' },
     { done: hasBooking, label: 'Make your first booking', href: '/agent/quotes' },
   ];
-  res.page('agent/dashboard', { title: 'Dashboard', stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers: liveOffers(2) });
+  const services = Object.entries(KIND_BY_PATH).map(([path, kind]) => ({ path, kind, label: KINDS[kind].plural, icon: KINDS[kind].icon }));
+  res.page('agent/dashboard', { title: 'Dashboard', stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers: liveOffers(2), services, destinations: Object.keys(DESTINATIONS) });
 }));
 
 // ---------- VaayuTrip inventory: activities, hotels, airfares, transfers, visas, insurance ----------
@@ -107,6 +108,16 @@ function partyOf(src) {
 }
 const ownPackages = (agencyId) => all('SELECT id, title, nights, destination FROM packages WHERE agency_id = ? ORDER BY updated_at DESC', agencyId);
 const withPrices = (agency) => (p) => ({ ...p, price: cardPrice(agency, p), line: describe(p) });
+
+// Dashboard booking panel: send the agent to the chosen service's catalogue with the destination and search applied.
+router.get('/search', (req, res) => {
+  const path = KIND_BY_PATH[req.query.svc] ? req.query.svc : 'hotels';
+  const qs = new URLSearchParams();
+  if (DESTINATIONS[req.query.dest]) qs.set('dest', req.query.dest);
+  const q = str(req.query.q).slice(0, 80);
+  if (q) qs.set('q', q);
+  res.redirect(`/agent/${path}${qs.toString() ? `?${qs}` : ''}`);
+});
 
 for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
   const cfg = KINDS[kind];
@@ -129,7 +140,8 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
     ).map(withPrices(req.agency));
     const cities = all("SELECT city, country, COUNT(*) AS n FROM products WHERE status = 'published' AND kind = ? GROUP BY city, country ORDER BY country, city", kind)
       .filter((c) => !f.dest || DESTINATIONS[f.dest].includes(c.country) || c.country === ALL_DESTINATIONS);
-    res.page('agent/catalogue', { title: cfg.plural, kind, cfg, products, cities, f, destinations: Object.keys(DESTINATIONS) });
+    const services = Object.entries(KIND_BY_PATH).map(([p, k]) => ({ path: p, kind: k, label: KINDS[k].plural, icon: KINDS[k].icon }));
+    res.page('agent/catalogue', { title: cfg.plural, kind, cfg, products, cities, f, services, destinations: Object.keys(DESTINATIONS) });
   }));
 
   router.get(`/${path}/:id`, h((req, res, next) => {

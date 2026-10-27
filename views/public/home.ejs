@@ -5,8 +5,8 @@
       <h1>Your travel business, <em>powered by VaayuTrip</em>.</h1>
       <p class="lead">Airfares, hotels, activities, transfers, visas and travel insurance at agent net rates for Dubai, Bali, Vietnam, Cambodia, the UK and Europe. Build your own holiday packages from them, set your price, and send quotes and invoices with your own logo.</p>
       <div class="actions" style="margin-top:24px">
-        <a class="btn btn-primary btn-lg" href="/signup">Become a partner, free<%- icon('arrowRight') %></a>
-        <a class="btn btn-lg" href="/login">Log in to your portal</a>
+        <a class="btn btn-accent btn-lg" href="/signup">Become a partner, free<%- icon('arrowRight') %></a>
+        <a class="btn btn-lg" href="#how">See how it works</a>
       </div>
       <ul class="hero-points">
         <li>No joining fee</li>
@@ -14,17 +14,33 @@
         <li>Your logo on every invoice</li>
       </ul>
     </div>
-    <div class="panel">
-      <div class="card-head"><h3>Your package, your price</h3><span class="badge ok">Your logo</span></div>
-      <table class="table">
-        <tr><td>Delhi–Dubai return, 2 adults</td><td class="num">₹48,000 <small class="muted">net</small></td></tr>
-        <tr><td>Dubai hotel, 4 nights</td><td class="num">₹24,800 <small class="muted">net</small></td></tr>
-        <tr><td>Desert safari + Burj Khalifa, 2 adults</td><td class="num">₹14,600 <small class="muted">net</small></td></tr>
-        <tr><td>Your markup (12%)</td><td class="num profit">+ ₹10,488</td></tr>
-        <tr><td><b>Customer pays</b></td><td class="num"><b>₹97,888</b> <small class="muted">+ GST + TCS</small></td></tr>
-      </table>
-      <p class="muted" style="margin:12px 0 0;font-size:13px">Day-wise itinerary · Shareable link · Payment link · EMI</p>
+    <div class="hero-login">
+      <% if (user) { %>
+        <h3>Welcome back, <%= user.name.split(' ')[0] %></h3>
+        <p class="muted">You're logged in.</p>
+        <a class="btn btn-primary btn-lg" style="width:100%" href="<%= user.role === 'admin' ? '/admin' : user.role === 'backend' ? '/backend' : '/agent' %>">Open your portal<%- icon('arrowRight') %></a>
+      <% } else { %>
+        <h3>Partner login</h3>
+        <p class="muted">Agents and VaayuTrip team members.</p>
+        <form method="post" action="/login">
+          <div class="field"><label for="h-email">Email</label><input id="h-email" type="email" name="email" autocomplete="username" required placeholder="you@agency.com"></div>
+          <div class="field"><label for="h-pass">Password</label><input id="h-pass" type="password" name="password" autocomplete="current-password" required placeholder="Your password"></div>
+          <button class="btn btn-primary btn-lg" type="submit" style="width:100%">Log in</button>
+        </form>
+        <div class="hero-login-foot">New to VaayuTrip? <a href="/signup">Create a free partner account</a></div>
+      <% } %>
     </div>
+  </div>
+</section>
+
+<section class="svc-strip" aria-label="What you can book">
+  <div class="inner">
+    <div><span class="s-ico"><%- icon('plane') %></span><b>Airfares</b><small>Fixed B2B fares</small></div>
+    <div><span class="s-ico"><%- icon('bed') %></span><b>Hotels</b><small>Per room per night</small></div>
+    <div><span class="s-ico"><%- icon('ticket') %></span><b>Activities</b><small>Tours &amp; tickets</small></div>
+    <div><span class="s-ico"><%- icon('car') %></span><b>Transfers</b><small>Airport &amp; intercity</small></div>
+    <div><span class="s-ico"><%- icon('passport') %></span><b>Visas</b><small>Processing support</small></div>
+    <div><span class="s-ico"><%- icon('shield') %></span><b>Insurance</b><small>Per traveller</small></div>
   </div>
 </section>
 
@@ -77,14 +93,16 @@
         <li><b>B2B invoice.</b> Every booking also gets a VaayuTrip invoice to you at net rates, for your accounts.</li>
       </ol>
     </div>
-    <div class="card">
-      <h3>Popular activities</h3>
-      <% activities.forEach(a => { %>
-        <div style="display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-2)">
-          <img src="<%= cover({ image_url: a.image_url, destination: a.city }) %>" alt="" style="width:64px;height:48px;object-fit:cover;border-radius:6px">
-          <div><b><%= a.title %></b><br><small><%= a.city %>, <%= a.country %> · <%= a.duration %></small></div>
-        </div>
-      <% }) %>
+    <div class="panel margin-panel">
+      <div class="card-head"><h3>Your package, your price</h3><span class="badge ok">Your logo</span></div>
+      <table class="table">
+        <tr><td>Delhi–Dubai return, 2 adults</td><td class="num">₹48,000 <small class="muted">net</small></td></tr>
+        <tr><td>Dubai hotel, 4 nights</td><td class="num">₹24,800 <small class="muted">net</small></td></tr>
+        <tr><td>Desert safari + Burj Khalifa, 2 adults</td><td class="num">₹14,600 <small class="muted">net</small></td></tr>
+        <tr><td>Your markup (12%)</td><td class="num profit">+ ₹10,488</td></tr>
+        <tr><td><b>Customer pays</b></td><td class="num"><b>₹97,888</b> <small class="muted">+ GST + TCS</small></td></tr>
+      </table>
+      <p class="muted" style="margin:12px 0 0;font-size:13px">Day-wise itinerary · Shareable link · Payment link · EMI</p>
     </div>
   </div>
 </section>
