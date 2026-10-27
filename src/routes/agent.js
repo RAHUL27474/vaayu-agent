@@ -9,6 +9,7 @@ const svc = require('../services');
 const { priceQuote, emiPlans, agencyHasBranding, withTax } = require('../pricing');
 const inventory = require('../inventory');
 const { parseDetails, calcPackage, present } = require('../packages');
+const { COUNTRIES, withTaxDoc, checkTax, removeDoc } = require('../kyc');
 
 const router = express.Router();
 router.use(requireAgent);
@@ -520,17 +521,42 @@ router.get('/notifications', h((req, res) => {
 }));
 
 router.get('/settings', (req, res) => {
-  res.page('agent/settings', { title: 'Company & branding', branded: agencyHasBranding(req.agency) });
+  res.page('agent/settings', { title: 'Company & branding', branded: agencyHasBranding(req.agency), countries: COUNTRIES });
 });
+
+router.post('/settings/tax', withTaxDoc('tax_doc'), h((req, res) => {
+  const a = req.agency;
+  const tax = checkTax({ country: req.body.country, gstin: req.body.gstin, taxId: req.body.tax_id }, {
+    docUploaded: Boolean(req.file), needDoc: !a.tax_doc, rejected: req.taxDocRejected, uploadError: req.uploadError,
+  });
+  if (tax.errors.length) {
+    if (req.file) removeDoc(req.file.filename);
+    tax.errors.forEach((m) => req.flash('error', m));
+    return res.redirect('/agent/settings#tax');
+  }
+  const changed = req.file || tax.country !== a.country || tax.gstin !== a.gstin || tax.taxId !== a.tax_id;
+  if (!changed) {
+    req.flash('success', 'Tax details unchanged.');
+    return res.redirect('/agent/settings#tax');
+  }
+  if (req.file) removeDoc(a.tax_doc);
+  run(
+    "UPDATE agencies SET country = ?, gstin = ?, tax_id = ?, pan = COALESCE(?, pan), tax_doc = ?, kyc_status = 'pending' WHERE id = ?",
+    tax.country, tax.gstin, tax.taxId, tax.pan, req.file ? req.file.filename : a.tax_doc, a.id,
+  );
+  notify(null, 'Tax details updated', `${a.name} updated its tax registration; KYC needs a fresh check.`, `/admin/agents/${a.id}`);
+  req.flash('success', 'Tax details saved. Our team will re-verify your KYC shortly.');
+  res.redirect('/agent/settings#tax');
+}));
 
 router.post('/settings', upload.single('logo'), h((req, res) => {
   const b = req.body;
   const logo = req.file ? `/uploads/${req.file.filename}` : b.remove_logo ? null : req.agency.logo_path;
   if (req.logoRejected) req.flash('error', 'Logo must be a PNG, JPG or WebP image; it was not changed.');
   run(
-    `UPDATE agencies SET name = ?, legal_name = ?, gstin = ?, pan = ?, phone = ?, email = ?, address = ?, city = ?, brand_color = ?, logo_path = ?,
+    `UPDATE agencies SET name = ?, legal_name = ?, pan = ?, phone = ?, email = ?, address = ?, city = ?, brand_color = ?, logo_path = ?,
        markup_type = ?, markup_value = ? WHERE id = ?`,
-    str(b.name) || req.agency.name, str(b.legal_name) || null, str(b.gstin).toUpperCase() || null, str(b.pan).toUpperCase() || null, str(b.phone) || null,
+    str(b.name) || req.agency.name, str(b.legal_name) || null, str(b.pan).toUpperCase() || null, str(b.phone) || null,
     str(b.email) || null, str(b.address) || null, str(b.city) || null, /^#[0-9a-f]{6}$/i.test(b.brand_color) ? b.brand_color : '#0e7490', logo,
     b.markup_type === 'flat' ? 'flat' : 'percent', Math.max(0, num(b.markup_value, 0)), req.agency.id,
   );

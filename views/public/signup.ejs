@@ -1,19 +1,45 @@
-<section class="section" style="max-width:640px">
+<% const india = (form.country || 'India') === 'India'; %>
+<section class="section" style="max-width:680px">
   <h1>Become a VaayuTrip partner</h1>
-  <p class="muted">Free to join. We verify every agency before it can book; this usually takes one working day.</p>
-  <form method="post" action="/signup" class="card">
+  <p class="muted">Free to join. We verify every agency's tax registration before it can book; this usually takes one working day.</p>
+  <form method="post" action="/signup" class="card" enctype="multipart/form-data">
+    <h3>Your agency</h3>
     <div class="row">
       <div class="field"><label for="agency">Agency name</label><input id="agency" name="agency" value="<%= form.agency || '' %>" required></div>
       <div class="field"><label for="city">City</label><input id="city" name="city" value="<%= form.city || '' %>"></div>
     </div>
+    <div class="field">
+      <label for="country">Country of registration</label>
+      <select id="country" name="country" data-tax-country>
+        <% countries.forEach(c => { %><option <%= (form.country || 'India') === c ? 'selected' : '' %>><%= c %></option><% }) %>
+      </select>
+    </div>
+    <div class="row">
+      <div class="field" data-tax-india<%= india ? "" : " hidden" %>>
+        <label for="gstin">GSTIN</label>
+        <input id="gstin" name="gstin" value="<%= form.gstin || '' %>" maxlength="15" placeholder="27ABCDE1234F1Z5" style="text-transform:uppercase" autocomplete="off">
+        <div class="hint">15-character GST number of the agency. Your PAN is read from it.</div>
+      </div>
+      <div class="field" data-tax-foreign<%= india ? " hidden" : "" %>>
+        <label for="tax_id">Tax ID</label>
+        <input id="tax_id" name="tax_id" value="<%= form.tax_id || '' %>" maxlength="40" placeholder="e.g. VAT / TRN / EIN / ABN" autocomplete="off">
+        <div class="hint">Your company's tax registration number in its country.</div>
+      </div>
+      <div class="field">
+        <label for="tax_doc"><span data-tax-india<%= india ? "" : " hidden" %>>GST certificate</span><span data-tax-foreign<%= india ? " hidden" : "" %>>Tax registration certificate</span></label>
+        <input id="tax_doc" type="file" name="tax_doc" accept="application/pdf,image/png,image/jpeg,image/webp" required>
+        <div class="hint">PDF, JPG or PNG, up to 5 MB. Only VaayuTrip's team can see it.</div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:8px">Your login</h3>
     <div class="row">
       <div class="field"><label for="name">Your name</label><input id="name" name="name" value="<%= form.name || '' %>" required></div>
       <div class="field"><label for="phone">Mobile</label><input id="phone" type="tel" name="phone" value="<%= form.phone || '' %>"></div>
     </div>
     <div class="field"><label for="email">Work email</label><input id="email" type="email" name="email" value="<%= form.email || '' %>" required></div>
-    <div class="field"><label for="gstin">GSTIN <span class="muted">(optional)</span></label><input id="gstin" name="gstin" value="<%= form.gstin || '' %>"></div>
     <div class="field"><label for="password">Password</label><input id="password" type="password" name="password" minlength="8" required><div class="hint">At least 8 characters.</div></div>
-    <button class="btn btn-primary btn-lg">Create account</button>
+    <button class="btn btn-primary btn-lg">Submit application</button>
     <p class="muted" style="margin:14px 0 0">Already a partner? <a href="/login">Log in</a></p>
   </form>
 </section>

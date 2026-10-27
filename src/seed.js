@@ -12,6 +12,28 @@ if (require.main === module && process.argv.includes('--reset')) {
 
 const { one, run, tx, setSetting, UPLOADS_DIR: UPLOADS } = require('./db');
 const { hashPassword, code } = require('./util');
+const { KYC_DIR } = require('./kyc');
+
+// One-page PDF showing a line of text, so the demo agency has a certificate to review.
+function samplePdf(text) {
+  const stream = `BT /F1 14 Tf 60 760 Td (${text.replace(/[()\\]/g, '\\$&')}) Tj ET`;
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = objects.map((body, i) => {
+    const at = pdf.length;
+    pdf += `${i + 1} 0 obj\n${body}\nendobj\n`;
+    return at;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`;
+  return `${pdf}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+}
 
 const { CATALOGUE, insertPackage } = require('./sync-packages');
 
@@ -62,8 +84,9 @@ function seed() {
     run("INSERT INTO wallet_txns (agency_id, type, amount, balance_after, ref, note) VALUES (?, 'topup', 60000, 60000, 'UTR5521009922', 'Opening top-up')", ravi);
 
     const pending = run(
-      "INSERT INTO agencies (name, slug, phone, email, city) VALUES ('Wanderlust Trips', 'wanderlust-trips', '+91 90000 33333', 'contact@wanderlust.in', 'Pune')",
+      "INSERT INTO agencies (name, slug, phone, email, city, gstin, pan, tax_doc) VALUES ('Wanderlust Trips', 'wanderlust-trips', '+91 90000 33333', 'contact@wanderlust.in', 'Pune', '27AABCW1234M1Z9', 'AABCW1234M', 'demo-wanderlust-gst.pdf')",
     ).lastInsertRowid;
+    fs.writeFileSync(path.join(KYC_DIR, 'demo-wanderlust-gst.pdf'), samplePdf('SAMPLE GST certificate - Wanderlust Trips, GSTIN 27AABCW1234M1Z9 (demo data)'));
     run('INSERT INTO users (role, agency_id, name, email, password_hash) VALUES (?, ?, ?, ?, ?)', 'agent', pending, 'Arjun Mehta', 'agent@wanderlust.in', hashPassword('agent123'));
     run("INSERT INTO notifications (agency_id, title, body, link) VALUES (NULL, 'New agent signup', 'Wanderlust Trips (Pune) is waiting for approval.', '/admin/agents')");
 

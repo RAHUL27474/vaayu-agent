@@ -5,6 +5,7 @@ const { getQuote, packageSellPrice } = require('../services');
 const { buildInvoice, emiPlans } = require('../pricing');
 const { h } = require('../auth');
 const { parseDetails, present } = require('../packages');
+const { COUNTRIES, withTaxDoc, checkTax, removeDoc } = require('../kyc');
 
 const router = express.Router();
 
@@ -63,25 +64,34 @@ router.post('/logout', (req, res) => {
 });
 
 router.get('/signup', (req, res) => {
-  res.page('public/signup', { title: 'Become a VaayuTrip partner', form: {} }, 'public');
+  res.page('public/signup', { title: 'Become a VaayuTrip partner', form: { country: 'India' }, countries: COUNTRIES }, 'public');
 });
 
-router.post('/signup', h((req, res) => {
-  const f = Object.fromEntries(['agency', 'name', 'email', 'phone', 'city', 'gstin', 'password'].map((k) => [k, String(req.body[k] || '').trim()]));
+router.post('/signup', withTaxDoc('tax_doc'), h((req, res) => {
+  const f = Object.fromEntries(['agency', 'name', 'email', 'phone', 'city', 'country', 'gstin', 'tax_id', 'password'].map((k) => [k, String(req.body[k] || '').trim()]));
   f.email = f.email.toLowerCase();
+  const tax = checkTax({ country: f.country, gstin: f.gstin, taxId: f.tax_id }, {
+    docUploaded: Boolean(req.file), needDoc: true, rejected: req.taxDocRejected, uploadError: req.uploadError,
+  });
   const errors = [];
   if (!f.agency) errors.push('Agency name is required.');
   if (!f.name) errors.push('Your name is required.');
   if (!/^\S+@\S+\.\S+$/.test(f.email)) errors.push('Enter a valid email.');
   if (f.password.length < 8) errors.push('Password must be at least 8 characters.');
   if (one('SELECT 1 FROM users WHERE email = ?', f.email)) errors.push('An account with this email already exists. Log in instead.');
+  errors.push(...tax.errors);
   if (errors.length) {
-    return res.page('public/signup', { title: 'Become a VaayuTrip partner', form: f, flash: errors.map((m) => ({ type: 'error', message: m })) }, 'public');
+    // Browsers can't refill a file input, so a valid upload is dropped and asked for again.
+    if (req.file) {
+      removeDoc(req.file.filename);
+      errors.push('Please choose your tax document again.');
+    }
+    return res.page('public/signup', { title: 'Become a VaayuTrip partner', form: f, countries: COUNTRIES, flash: errors.map((m) => ({ type: 'error', message: m })) }, 'public');
   }
   const userId = tx(() => {
     const agencyId = run(
-      'INSERT INTO agencies (name, slug, email, phone, city, gstin) VALUES (?, ?, ?, ?, ?, ?)',
-      f.agency, uniqueSlug('agencies', f.agency), f.email, f.phone, f.city, f.gstin || null,
+      'INSERT INTO agencies (name, slug, email, phone, city, country, gstin, pan, tax_id, tax_doc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      f.agency, uniqueSlug('agencies', f.agency), f.email, f.phone, f.city, tax.country, tax.gstin, tax.pan, tax.taxId, req.file.filename,
     ).lastInsertRowid;
     notify(null, 'New agent signup', `${f.agency}${f.city ? ` (${f.city})` : ''} is waiting for approval.`, `/admin/agents/${agencyId}`);
     return run('INSERT INTO users (role, agency_id, name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?, ?)', 'agent', agencyId, f.name, f.email, f.phone, hashPassword(f.password)).lastInsertRowid;

@@ -9,7 +9,6 @@
           <div class="field"><label for="legal_name">Legal name</label><input id="legal_name" name="legal_name" value="<%= agency.legal_name || '' %>" placeholder="As registered"></div>
         </div>
         <div class="row">
-          <div class="field"><label for="gstin">GSTIN</label><input id="gstin" name="gstin" value="<%= agency.gstin || '' %>"></div>
           <div class="field"><label for="pan">PAN</label><input id="pan" name="pan" value="<%= agency.pan || '' %>"></div>
         </div>
         <div class="row">
@@ -50,9 +49,39 @@
         <dl class="kv">
           <dt>Account</dt><dd><span class="badge <%= agency.status %>"><%= agency.status %></span></dd>
           <dt>KYC</dt><dd><span class="badge <%= agency.kyc_status %>"><%= agency.kyc_status %></span></dd>
+          <dt>Tax document</dt><dd><%= agency.tax_doc ? 'Uploaded' : 'Missing' %></dd>
         </dl>
+        <% if (!agency.tax_doc) { %><p class="muted" style="font-size:13px;margin:8px 0 0"><a href="#tax">Upload your tax registration</a> so we can verify your agency.</p><% } %>
       </div>
       <button class="btn btn-primary btn-lg" style="width:100%">Save changes</button>
     </div>
   </div>
+</form>
+
+<% const india = (agency.country || 'India') === 'India'; %>
+<form method="post" action="/agent/settings/tax" enctype="multipart/form-data" class="card" id="tax" style="margin-top:20px">
+  <h3>Tax registration</h3>
+  <p class="muted" style="font-size:13px">Changing these details sends your KYC back for review.</p>
+  <div class="row">
+    <div class="field">
+      <label for="country">Country of registration</label>
+      <select id="country" name="country" data-tax-country>
+        <% countries.forEach(c => { %><option <%= (agency.country || 'India') === c ? 'selected' : '' %>><%= c %></option><% }) %>
+      </select>
+    </div>
+    <div class="field" data-tax-india<%= india ? '' : ' hidden' %>>
+      <label for="gstin">GSTIN</label>
+      <input id="gstin" name="gstin" value="<%= agency.gstin || '' %>" maxlength="15" placeholder="27ABCDE1234F1Z5" style="text-transform:uppercase" autocomplete="off">
+    </div>
+    <div class="field" data-tax-foreign<%= india ? ' hidden' : '' %>>
+      <label for="tax_id">Tax ID</label>
+      <input id="tax_id" name="tax_id" value="<%= agency.tax_id || '' %>" maxlength="40" placeholder="e.g. VAT / TRN / EIN / ABN" autocomplete="off">
+    </div>
+  </div>
+  <div class="field">
+    <label for="tax_doc"><%= agency.tax_doc ? 'Replace certificate' : 'Registration certificate' %></label>
+    <input id="tax_doc" type="file" name="tax_doc" accept="application/pdf,image/png,image/jpeg,image/webp"<%= agency.tax_doc ? '' : ' required' %>>
+    <div class="hint">PDF, JPG or PNG, up to 5 MB. <%= agency.tax_doc ? 'A certificate is on file; leave this empty to keep it.' : 'Only VaayuTrip can see it.' %></div>
+  </div>
+  <button class="btn btn-primary">Save tax details</button>
 </form>

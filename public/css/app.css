@@ -344,3 +344,5 @@ details.more summary { cursor: pointer; color: var(--brand); font-weight: 600; }
 .photo-thumb { width: 120px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; margin-bottom: 6px; }
 .thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .thumbs .photo-thumb { margin: 0; }
+
+[hidden] { display: none !important; }

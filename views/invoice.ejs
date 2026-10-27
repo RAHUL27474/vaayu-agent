@@ -17,6 +17,7 @@
           <% if (doc.seller.address) { %><%= doc.seller.address %><br><% } %>
           <%= [doc.seller.phone, doc.seller.email].filter(Boolean).join(' · ') %>
           <% if (doc.seller.gstin) { %><br>GSTIN: <%= doc.seller.gstin %><% } %>
+          <% if (doc.seller.taxId) { %><br>Tax ID: <%= doc.seller.taxId %><% } %>
         </div>
       </div>
       <div class="title">
@@ -34,6 +35,7 @@
         <% if (doc.buyer.address) { %><%= doc.buyer.address %><br><% } %>
         <%= [doc.buyer.phone, doc.buyer.email].filter(Boolean).join(' · ') %>
         <% if (doc.buyer.gstin) { %><br>GSTIN: <%= doc.buyer.gstin %><% } %>
+        <% if (doc.buyer.taxId) { %><br>Tax ID: <%= doc.buyer.taxId %><% } %>
       </div>
       <div>
         <h4>Trip</h4>

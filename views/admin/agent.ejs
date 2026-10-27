@@ -42,7 +42,9 @@
       <h3>Profile</h3>
       <dl class="kv">
         <dt>Legal name</dt><dd><%= agent.legal_name || '—' %></dd>
-        <dt>GSTIN</dt><dd><%= agent.gstin || '—' %></dd>
+        <dt>Country</dt><dd><%= agent.country || 'India' %></dd>
+        <% if ((agent.country || 'India') === 'India') { %><dt>GSTIN</dt><dd><%= agent.gstin || '—' %></dd><% } else { %><dt>Tax ID</dt><dd><%= agent.tax_id || '—' %></dd><% } %>
+        <dt>Tax certificate</dt><dd><% if (agent.tax_doc) { %><a href="/admin/agents/<%= agent.id %>/tax-doc" target="_blank" rel="noopener">View document</a><% } else { %><span class="badge rejected">missing</span><% } %></dd>
         <dt>PAN</dt><dd><%= agent.pan || '—' %></dd>
         <dt>Phone</dt><dd><%= agent.phone || '—' %></dd>
         <dt>Email</dt><dd><%= agent.email || '—' %></dd>

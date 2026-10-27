@@ -13,6 +13,7 @@ const {
 } = require('../packages');
 const { priceQuote } = require('../pricing');
 const { CATALOGUE, slugOf } = require('../sync-packages');
+const { KYC_DIR } = require('../kyc');
 
 // Package photos: JPG/PNG/WebP up to 5 MB each, saved under <uploads>/packages.
 const PHOTO_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
@@ -108,10 +109,23 @@ router.get('/agents/:id', h((req, res, next) => {
   res.page('admin/agent', { title: agent.name, agent, users, bookings, txns, totals });
 }));
 
+// Tax certificates are private: served only here, inline, from the KYC folder.
+router.get('/agents/:id/tax-doc', h((req, res, next) => {
+  const a = one('SELECT tax_doc FROM agencies WHERE id = ?', num(req.params.id));
+  const file = a && a.tax_doc && path.join(KYC_DIR, path.basename(a.tax_doc));
+  if (!file || !fs.existsSync(file)) return next();
+  res.set({ 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, no-store' });
+  res.sendFile(file);
+}));
+
 router.post('/agents/:id/status', h((req, res) => {
   const id = num(req.params.id);
   const status = ['active', 'suspended', 'pending'].includes(req.body.status) ? req.body.status : null;
   const kyc = ['verified', 'rejected', 'pending'].includes(req.body.kyc_status) ? req.body.kyc_status : null;
+  if (kyc === 'verified') {
+    const a = one('SELECT gstin, tax_id, tax_doc FROM agencies WHERE id = ?', id);
+    if (!a || !(a.gstin || a.tax_id) || !a.tax_doc) throw new svc.AppError("Can't verify KYC: the agency hasn't provided a tax number and registration certificate yet.");
+  }
   if (status) run('UPDATE agencies SET status = ? WHERE id = ?', status, id);
   if (kyc) run('UPDATE agencies SET kyc_status = ? WHERE id = ?', kyc, id);
   if (status === 'active') {

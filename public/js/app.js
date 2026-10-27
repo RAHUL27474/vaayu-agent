@@ -52,3 +52,15 @@ document.addEventListener('click', (e) => {
   const remove = e.target.closest('[data-remove-row]');
   if (remove) remove.closest('[data-row]').remove();
 });
+
+// Signup/settings: GSTIN + GST certificate for India, a tax ID for other countries.
+document.querySelectorAll('select[data-tax-country]').forEach((sel) => {
+  const form = sel.form;
+  const sync = () => {
+    const india = sel.value === 'India';
+    form.querySelectorAll('[data-tax-india]').forEach((el) => { el.hidden = !india; });
+    form.querySelectorAll('[data-tax-foreign]').forEach((el) => { el.hidden = india; });
+  };
+  sel.addEventListener('change', sync);
+  sync();
+});
