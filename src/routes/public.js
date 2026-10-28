@@ -31,7 +31,7 @@ router.get('/', h((req, res) => {
 }));
 
 // Generated cover card for packages and hotels without an uploaded photo.
-const COVER_PALETTES = [['#0369a1', '#0c2a43'], ['#0f766e', '#042f2e'], ['#7c3aed', '#2e1065'], ['#c2410c', '#431407'], ['#be123c', '#4c0519'], ['#1d4ed8', '#0f172a'], ['#047857', '#022c22'], ['#b45309', '#3b1d06']];
+const COVER_PALETTES = [['#0369a1', '#0c2a43'], ['#1e40af', '#0f1d4a'], ['#7c3aed', '#2e1065'], ['#c2410c', '#431407'], ['#be123c', '#4c0519'], ['#1d4ed8', '#0f172a'], ['#0e7490', '#083344'], ['#b45309', '#3b1d06']];
 router.get('/cover/:name.svg', (req, res) => {
   const name = String(req.params.name || 'Holiday').slice(0, 40);
   const esc = (s) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
