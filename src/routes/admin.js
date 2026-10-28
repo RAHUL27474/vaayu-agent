@@ -7,7 +7,7 @@ const { num, round2, hashPassword } = require('../util');
 const { requireAdmin, h } = require('../auth');
 const svc = require('../services');
 const { KINDS } = require('../products');
-const { KYC_DIR, KYC_FILES, missingKyc } = require('../kyc');
+const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 
 const router = express.Router();
 router.use(requireAdmin);
@@ -83,7 +83,28 @@ router.get(['/agents/:id/kyc/:field', '/agents/:id/tax-doc'], h((req, res, next)
   const file = a && a.doc && path.join(KYC_DIR, path.basename(a.doc));
   if (!file || !fs.existsSync(file)) return next();
   res.set({ 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, no-store' });
+  if (req.query.download) return res.download(file, `${field}-${req.params.id}${path.extname(file)}`);
   res.sendFile(file);
+}));
+
+// A page around one KYC document: shows images and PDFs inline, with the agency's other documents one click away.
+router.get('/agents/:id/kyc/:field/view', h((req, res, next) => {
+  const field = req.params.field;
+  if (!KYC_FILES[field]) return next();
+  const agent = one('SELECT * FROM agencies WHERE id = ?', num(req.params.id));
+  if (!agent) return next();
+  const label = (f) => kycLabel(f, agent.country).replace(/^your /, 'applicant ').replace(/^./, (c) => c.toUpperCase());
+  const tabs = requiredFiles(agent.country).map((f) => ({ field: f, label: label(f), have: Boolean(agent[f]) }));
+  const file = agent[field] && path.join(KYC_DIR, path.basename(agent[field]));
+  const exists = Boolean(file && fs.existsSync(file));
+  const ext = exists ? path.extname(file).toLowerCase() : '';
+  const size = exists && ext !== '.pdf' ? imageSize(file) : null;
+  res.page('admin/kyc-view', {
+    title: `${label(field)} · ${agent.name}`, agent, field, label: label(field), tabs, exists,
+    kind: ext === '.pdf' ? 'pdf' : 'image', bytes: exists ? fs.statSync(file).size : 0, size,
+    tooLarge: Boolean(size && size.width * size.height > 40e6),
+    src: `/admin/agents/${agent.id}/kyc/${field}`,
+  });
 }));
 
 // Send KYC back to the agency with a reason; they fix it from Company & branding → Verification.

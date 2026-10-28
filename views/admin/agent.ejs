@@ -24,7 +24,7 @@
   </div>
   <div class="kyc-body">
     <div class="kyc-photo">
-      <% if (agent.photo) { %><a href="/admin/agents/<%= agent.id %>/kyc/photo" target="_blank" rel="noopener"><img src="/admin/agents/<%= agent.id %>/kyc/photo" alt="Photo of the applicant"></a><% } else { %><span class="kyc-nophoto"><%- icon('user') %><small>No photo</small></span><% } %>
+      <% if (agent.photo) { %><a href="/admin/agents/<%= agent.id %>/kyc/photo/view"><img src="/admin/agents/<%= agent.id %>/kyc/photo" alt="Photo of the applicant"></a><% } else { %><span class="kyc-nophoto"><%- icon('user') %><small>No photo</small></span><% } %>
       <small>Applicant: <b><%= users[0] ? users[0].name : '—' %></b></small>
     </div>
     <div class="kyc-docs">
@@ -33,9 +33,9 @@
         <% if (indiaAgent) { %><dt>GSTIN</dt><dd><%= agent.gstin || '—' %></dd><dt>PAN</dt><dd><%= agent.pan || '—' %></dd><% } else { %><dt>Tax ID</dt><dd><%= agent.tax_id || '—' %></dd><% } %>
         <% docs.forEach(([f, label]) => { %>
           <dt><%= label %></dt>
-          <dd><% if (agent[f]) { %><a class="btn btn-sm" href="/admin/agents/<%= agent.id %>/kyc/<%= f %>" target="_blank" rel="noopener"><%- icon('file') %>View</a><% } else { %><span class="badge rejected">missing</span><% } %></dd>
+          <dd><% if (agent[f]) { %><a class="btn btn-sm" href="/admin/agents/<%= agent.id %>/kyc/<%= f %>/view"><%- icon('file') %>View</a><% } else { %><span class="badge rejected">missing</span><% } %></dd>
         <% }) %>
-        <dt>Photo</dt><dd><%- agent.photo ? '<span class="badge ok">received</span>' : '<span class="badge rejected">missing</span>' %></dd>
+        <dt>Photo</dt><dd><% if (agent.photo) { %><a class="btn btn-sm" href="/admin/agents/<%= agent.id %>/kyc/photo/view"><%- icon('user') %>View</a><% } else { %><span class="badge rejected">missing</span><% } %></dd>
       </dl>
       <% if (missing.length) { %><div class="alert warn" style="margin:14px 0 0"><%- icon('xCircle') %><span>Can't approve yet. Missing: <b><%= missing.join(', ') %></b>.</span></div><% } %>
     </div>

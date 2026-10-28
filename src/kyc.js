@@ -73,12 +73,51 @@ function checkTax({ country, gstin, taxId }) {
   return out;
 }
 
+/** Pixel size { width, height } of a PNG, JPEG or WebP file on disk, or null if it can't be read. */
+function imageSize(file) {
+  let b;
+  try {
+    const fd = fs.openSync(file, 'r');
+    b = Buffer.alloc(512 * 1024);
+    b = b.subarray(0, fs.readSync(fd, b, 0, b.length, 0));
+    fs.closeSync(fd);
+  } catch { return null; }
+  if (b.length > 24 && b.readUInt32BE(0) === 0x89504e47) return { width: b.readUInt32BE(16), height: b.readUInt32BE(20) };
+  if (b.length > 30 && b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') {
+    const chunk = b.toString('latin1', 12, 16);
+    if (chunk === 'VP8X') return { width: 1 + b.readUIntLE(24, 3), height: 1 + b.readUIntLE(27, 3) };
+    if (chunk === 'VP8L') { const v = b.readUInt32LE(21); return { width: 1 + (v & 0x3fff), height: 1 + ((v >> 14) & 0x3fff) }; }
+    if (chunk === 'VP8 ') return { width: b.readUInt16LE(26) & 0x3fff, height: b.readUInt16LE(28) & 0x3fff };
+  }
+  if (b.length > 4 && b[0] === 0xff && b[1] === 0xd8) {
+    // Walk the JPEG segments to the start-of-frame marker, which holds the size.
+    for (let i = 2; i + 9 < b.length;) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const marker = b[i + 1];
+      if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) return { width: b.readUInt16BE(i + 7), height: b.readUInt16BE(i + 5) };
+      if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01 || marker === 0xff) { i += marker === 0xff ? 1 : 2; continue; }
+      i += 2 + b.readUInt16BE(i + 2);
+    }
+  }
+  return null;
+}
+
+// Browsers can't reliably show images beyond this (they open as a blank page), and no scan needs it.
+const MAX_IMAGE_PIXELS = 40 * 1000 * 1000;
+
 /** Errors for the uploaded files: wrong type, too large, or a required file neither uploaded nor on file. */
 function checkKycFiles(req, country, onFile = {}) {
   const errors = [];
   if (req.uploadError) errors.push(req.uploadError);
   for (const f of req.kycRejected || []) {
     errors.push(f === 'photo' ? 'Your photo must be a JPG, PNG or WebP image.' : `The ${kycLabel(f, country) || 'document'} must be a PDF, JPG, PNG or WebP file.`);
+  }
+  for (const [f, name] of Object.entries(req.kycFiles || {})) {
+    const size = imageSize(path.join(KYC_DIR, name));
+    if (size && size.width * size.height > MAX_IMAGE_PIXELS) {
+      const label = f === 'photo' ? 'Your photo' : `The ${kycLabel(f, country) || 'document'} image`;
+      errors.push(`${label} is ${size.width.toLocaleString('en-IN')} × ${size.height.toLocaleString('en-IN')} pixels, too large to view. Upload a normal phone photo or scan (under 40 megapixels), or a PDF.`);
+    }
   }
   for (const f of requiredFiles(country)) {
     if (!req.kycFiles[f] && !onFile[f] && !(req.kycRejected || []).includes(f)) errors.push(`Upload ${kycLabel(f, country)}.`);
@@ -99,5 +138,5 @@ const removeUploaded = (req) => Object.values(req.kycFiles || {}).forEach(remove
 
 module.exports = {
   KYC_DIR, KYC_FILES, COUNTRIES, GSTIN_RE, isIndia, panFromGstin, kycLabel, requiredFiles,
-  withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded,
+  withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded, imageSize,
 };
