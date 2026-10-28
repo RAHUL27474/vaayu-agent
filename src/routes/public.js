@@ -5,7 +5,7 @@ const { getQuote, packageSellPrice } = require('../services');
 const { buildInvoice, emiPlans } = require('../pricing');
 const { h, homeFor } = require('../auth');
 const { parseDetails, present } = require('../packages');
-const { COUNTRIES, withTaxDoc, checkTax, removeDoc } = require('../kyc');
+const { COUNTRIES, withKycDocs, checkTax, checkKycFiles, removeUploaded } = require('../kyc');
 const { DESTINATIONS, destinationOf } = require('../products');
 
 const router = express.Router();
@@ -83,37 +83,36 @@ router.get('/signup', (req, res) => {
   res.page('public/signup', { title: 'Become a VaayuTrip partner', form: { country: 'India' }, countries: COUNTRIES }, 'public');
 });
 
-router.post('/signup', withTaxDoc('tax_doc'), h((req, res) => {
+router.post('/signup', withKycDocs, h((req, res) => {
   const f = Object.fromEntries(['agency', 'name', 'email', 'phone', 'city', 'country', 'gstin', 'tax_id', 'password'].map((k) => [k, String(req.body[k] || '').trim()]));
   f.email = f.email.toLowerCase();
-  const tax = checkTax({ country: f.country, gstin: f.gstin, taxId: f.tax_id }, {
-    docUploaded: Boolean(req.file), needDoc: true, rejected: req.taxDocRejected, uploadError: req.uploadError,
-  });
+  const tax = checkTax({ country: f.country, gstin: f.gstin, taxId: f.tax_id });
+  const docs = req.kycFiles;
   const errors = [];
   if (!f.agency) errors.push('Agency name is required.');
   if (!f.name) errors.push('Your name is required.');
   if (!/^\S+@\S+\.\S+$/.test(f.email)) errors.push('Enter a valid email.');
   if (f.password.length < 8) errors.push('Password must be at least 8 characters.');
   if (one('SELECT 1 FROM users WHERE email = ?', f.email)) errors.push('An account with this email already exists. Log in instead.');
-  errors.push(...tax.errors);
+  errors.push(...tax.errors, ...checkKycFiles(req, tax.country));
   if (errors.length) {
     // Browsers can't refill a file input, so a valid upload is dropped and asked for again.
-    if (req.file) {
-      removeDoc(req.file.filename);
-      errors.push('Please choose your tax document again.');
+    if (Object.keys(docs).length) {
+      removeUploaded(req);
+      errors.push('For your security, please choose your documents and photo again.');
     }
     return res.page('public/signup', { title: 'Become a VaayuTrip partner', form: f, countries: COUNTRIES, flash: errors.map((m) => ({ type: 'error', message: m })) }, 'public');
   }
   const userId = tx(() => {
     const agencyId = run(
-      'INSERT INTO agencies (name, slug, email, phone, city, country, gstin, pan, tax_id, tax_doc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      f.agency, uniqueSlug('agencies', f.agency), f.email, f.phone, f.city, tax.country, tax.gstin, tax.pan, tax.taxId, req.file.filename,
+      'INSERT INTO agencies (name, slug, email, phone, city, country, gstin, pan, tax_id, tax_doc, pan_doc, photo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      f.agency, uniqueSlug('agencies', f.agency), f.email, f.phone, f.city, tax.country, tax.gstin, tax.pan, tax.taxId, docs.tax_doc, docs.pan_doc || null, docs.photo,
     ).lastInsertRowid;
     notify(null, 'New agent signup', `${f.agency}${f.city ? ` (${f.city})` : ''} is waiting for approval.`, `/admin/agents/${agencyId}`);
     return run('INSERT INTO users (role, agency_id, name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?, ?)', 'agent', agencyId, f.name, f.email, f.phone, hashPassword(f.password)).lastInsertRowid;
   });
   req.session.userId = userId;
-  req.flash('success', 'Welcome to VaayuTrip! Your account is under review; complete your company profile and branding meanwhile.');
+  req.flash('success', 'Application received. Our team will check your documents and approve your agency, usually within one working day. Meanwhile you can explore the portal and set up your branding.');
   res.redirect('/agent/settings');
 }));
 

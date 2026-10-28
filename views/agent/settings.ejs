@@ -49,9 +49,9 @@
         <dl class="kv">
           <dt>Account</dt><dd><span class="badge <%= agency.status %>"><%= agency.status %></span></dd>
           <dt>KYC</dt><dd><span class="badge <%= agency.kyc_status %>"><%= agency.kyc_status %></span></dd>
-          <dt>Tax document</dt><dd><%= agency.tax_doc ? 'Uploaded' : 'Missing' %></dd>
+          <dt>Documents</dt><dd><%= missing.length ? 'Missing: ' + missing.join(', ') : 'All received' %></dd>
         </dl>
-        <% if (!agency.tax_doc) { %><p class="muted" style="font-size:13px;margin:8px 0 0"><a href="#tax">Upload your tax registration</a> so we can verify your agency.</p><% } %>
+        <% if (missing.length) { %><p class="muted" style="font-size:13px;margin:8px 0 0"><a href="#tax">Upload your KYC documents</a> so we can approve your agency.</p><% } %>
       </div>
       <button class="btn btn-primary btn-lg" style="width:100%">Save changes</button>
     </div>
@@ -60,8 +60,16 @@
 
 <% const india = (agency.country || 'India') === 'India'; %>
 <form method="post" action="/agent/settings/tax" enctype="multipart/form-data" class="card" id="tax" style="margin-top:20px">
-  <h3>Tax registration</h3>
-  <p class="muted" style="font-size:13px">Changing these details sends your KYC back for review.</p>
+  <div class="card-head">
+    <h3>Verification (KYC)</h3>
+    <span class="badge <%= agency.kyc_status %>">KYC <%= agency.kyc_status %></span>
+  </div>
+  <% if (missing.length) { %>
+    <div class="alert warn"><%- icon('xCircle') %><span>Still needed before we can approve you: <b><%= missing.join(', ') %></b>.</span></div>
+  <% } else if (agency.kyc_status !== 'verified') { %>
+    <div class="alert info"><%- icon('checkCircle') %><span>All documents received. Our team is reviewing them.</span></div>
+  <% } %>
+  <p class="muted" style="font-size:13px">Changing any of these sends your KYC back for review. PDF, JPG or PNG, up to 5 MB each; only VaayuTrip's team can see them.</p>
   <div class="row">
     <div class="field">
       <label for="country">Country of registration</label>
@@ -74,14 +82,29 @@
       <input id="gstin" name="gstin" value="<%= agency.gstin || '' %>" maxlength="15" placeholder="27ABCDE1234F1Z5" style="text-transform:uppercase" autocomplete="off">
     </div>
     <div class="field" data-tax-foreign<%= india ? ' hidden' : '' %>>
-      <label for="tax_id">Tax ID</label>
+      <label for="tax_id">Company tax ID</label>
       <input id="tax_id" name="tax_id" value="<%= agency.tax_id || '' %>" maxlength="40" placeholder="e.g. VAT / TRN / EIN / ABN" autocomplete="off">
     </div>
   </div>
-  <div class="field">
-    <label for="tax_doc"><%= agency.tax_doc ? 'Replace certificate' : 'Registration certificate' %></label>
-    <input id="tax_doc" type="file" name="tax_doc" accept="application/pdf,image/png,image/jpeg,image/webp"<%= agency.tax_doc ? '' : ' required' %>>
-    <div class="hint">PDF, JPG or PNG, up to 5 MB. <%= agency.tax_doc ? 'A certificate is on file; leave this empty to keep it.' : 'Only VaayuTrip can see it.' %></div>
+  <div class="doc-grid">
+    <label class="doc-drop<%= agency.tax_doc ? ' on-file' : '' %>" for="tax_doc">
+      <span class="d-ico"><%- icon(agency.tax_doc ? 'checkCircle' : 'file') %></span>
+      <b><span data-tax-india<%= india ? '' : ' hidden' %>>GST certificate</span><span data-tax-foreign<%= india ? ' hidden' : '' %>>Tax certificate</span></b>
+      <small data-file-name><%= agency.tax_doc ? 'On file · choose to replace' : 'Choose file' %></small>
+      <input id="tax_doc" type="file" name="tax_doc" accept="application/pdf,image/png,image/jpeg,image/webp"<%= agency.tax_doc ? '' : ' required' %>>
+    </label>
+    <label class="doc-drop<%= agency.pan_doc ? ' on-file' : '' %>" for="pan_doc" data-tax-india<%= india ? '' : ' hidden' %>>
+      <span class="d-ico"><%- icon(agency.pan_doc ? 'checkCircle' : 'passport') %></span>
+      <b>PAN card</b>
+      <small data-file-name><%= agency.pan_doc ? 'On file · choose to replace' : 'Choose file' %></small>
+      <input id="pan_doc" type="file" name="pan_doc" accept="application/pdf,image/png,image/jpeg,image/webp" data-required-india<%= agency.pan_doc ? ' data-on-file="1"' : '' %><%= india && !agency.pan_doc ? ' required' : '' %>>
+    </label>
+    <label class="doc-drop photo-drop<%= agency.photo ? ' on-file' : '' %>" for="photo">
+      <span class="d-ico"><img data-photo-preview alt="" hidden><%- icon(agency.photo ? 'checkCircle' : 'user') %></span>
+      <b>Your photo</b>
+      <small data-file-name><%= agency.photo ? 'On file · choose to replace' : 'Clear, front-facing photo' %></small>
+      <input id="photo" type="file" name="photo" accept="image/png,image/jpeg,image/webp" capture="user"<%= agency.photo ? '' : ' required' %>>
+    </label>
   </div>
-  <button class="btn btn-primary">Save tax details</button>
+  <button class="btn btn-primary">Save verification details</button>
 </form>

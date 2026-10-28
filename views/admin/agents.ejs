@@ -13,7 +13,7 @@
         <td><b><%= a.name %></b><br><small><%= a.city || '' %> · joined <%= fmtDate(a.created_at) %></small></td>
         <td><%= a.contact || '' %><br><small><%= a.email || '' %></small></td>
         <td><span class="badge <%= a.status %>"><%= a.status %></span></td>
-        <td><span class="badge <%= a.kyc_status %>"><%= a.kyc_status %></span></td>
+        <td><span class="badge <%= a.kyc_status %>"><%= a.kyc_status %></span><br><small><%= a.missing.length ? `Missing ${a.missing.length} item${a.missing.length === 1 ? "" : "s"}` : "Documents complete" %></small></td>
         <td class="num"><%= inr(a.wallet_balance) %></td>
         <td class="num"><%= inr(a.credit_used) %> / <%= inr(a.credit_limit) %></td>
         <td class="num"><%= a.bookings %></td>

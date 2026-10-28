@@ -6,12 +6,48 @@
   </div>
   <div class="actions">
     <% if (agent.status !== 'active') { %>
-      <form method="post" action="/admin/agents/<%= agent.id %>/status"><input type="hidden" name="status" value="active"><input type="hidden" name="kyc_status" value="verified"><button class="btn btn-primary">Approve &amp; verify KYC</button></form>
+      <form method="post" action="/admin/agents/<%= agent.id %>/status"><input type="hidden" name="status" value="active"><input type="hidden" name="kyc_status" value="verified"><button class="btn btn-primary" <%= missing.length ? 'disabled title="KYC documents incomplete"' : '' %>>Approve as agent</button></form>
     <% } %>
     <% if (agent.status === 'active') { %>
       <form method="post" action="/admin/agents/<%= agent.id %>/status" data-confirm="Suspend this agency? Its users will be logged out and its website taken offline."><input type="hidden" name="status" value="suspended"><button class="btn btn-danger">Suspend</button></form>
     <% } %>
     <% if (agent.status === 'active' && agent.website_enabled) { %><a class="btn" href="/site/<%= agent.slug %>" target="_blank">Agent website<%- icon('external') %></a><% } %>
+  </div>
+</div>
+
+<% const indiaAgent = (agent.country || 'India') === 'India';
+   const docs = [['tax_doc', indiaAgent ? 'GST certificate' : 'Tax certificate'], ...(indiaAgent ? [['pan_doc', 'PAN card']] : [])]; %>
+<div class="card kyc-review" id="kyc">
+  <div class="card-head">
+    <h3>Verification documents</h3>
+    <span class="badge <%= agent.kyc_status %>">KYC <%= agent.kyc_status %></span>
+  </div>
+  <div class="kyc-body">
+    <div class="kyc-photo">
+      <% if (agent.photo) { %><a href="/admin/agents/<%= agent.id %>/kyc/photo" target="_blank" rel="noopener"><img src="/admin/agents/<%= agent.id %>/kyc/photo" alt="Photo of the applicant"></a><% } else { %><span class="kyc-nophoto"><%- icon('user') %><small>No photo</small></span><% } %>
+      <small>Applicant: <b><%= users[0] ? users[0].name : '—' %></b></small>
+    </div>
+    <div class="kyc-docs">
+      <dl class="kv">
+        <dt>Country</dt><dd><%= agent.country || 'India' %></dd>
+        <% if (indiaAgent) { %><dt>GSTIN</dt><dd><%= agent.gstin || '—' %></dd><dt>PAN</dt><dd><%= agent.pan || '—' %></dd><% } else { %><dt>Tax ID</dt><dd><%= agent.tax_id || '—' %></dd><% } %>
+        <% docs.forEach(([f, label]) => { %>
+          <dt><%= label %></dt>
+          <dd><% if (agent[f]) { %><a class="btn btn-sm" href="/admin/agents/<%= agent.id %>/kyc/<%= f %>" target="_blank" rel="noopener"><%- icon('file') %>View</a><% } else { %><span class="badge rejected">missing</span><% } %></dd>
+        <% }) %>
+        <dt>Photo</dt><dd><%- agent.photo ? '<span class="badge ok">received</span>' : '<span class="badge rejected">missing</span>' %></dd>
+      </dl>
+      <% if (missing.length) { %><div class="alert warn" style="margin:14px 0 0"><%- icon('xCircle') %><span>Can't approve yet. Missing: <b><%= missing.join(', ') %></b>.</span></div><% } %>
+    </div>
+  </div>
+  <div class="kyc-actions">
+    <% if (agent.status !== 'active' || agent.kyc_status !== 'verified') { %>
+      <form method="post" action="/admin/agents/<%= agent.id %>/status"><input type="hidden" name="status" value="active"><input type="hidden" name="kyc_status" value="verified"><button class="btn btn-primary" <%= missing.length ? 'disabled' : '' %>><%- icon('checkCircle') %>Approve as agent</button></form>
+    <% } %>
+    <form method="post" action="/admin/agents/<%= agent.id %>/kyc-reject" class="kyc-reject">
+      <input name="reason" required maxlength="300" placeholder="Reason, e.g. PAN card photo is blurred" aria-label="Rejection reason">
+      <button class="btn btn-danger"><%- icon('xCircle') %>Reject documents</button>
+    </form>
   </div>
 </div>
 
@@ -43,9 +79,6 @@
       <dl class="kv">
         <dt>Legal name</dt><dd><%= agent.legal_name || '—' %></dd>
         <dt>Country</dt><dd><%= agent.country || 'India' %></dd>
-        <% if ((agent.country || 'India') === 'India') { %><dt>GSTIN</dt><dd><%= agent.gstin || '—' %></dd><% } else { %><dt>Tax ID</dt><dd><%= agent.tax_id || '—' %></dd><% } %>
-        <dt>Tax certificate</dt><dd><% if (agent.tax_doc) { %><a href="/admin/agents/<%= agent.id %>/tax-doc" target="_blank" rel="noopener">View document</a><% } else { %><span class="badge rejected">missing</span><% } %></dd>
-        <dt>PAN</dt><dd><%= agent.pan || '—' %></dd>
         <dt>Phone</dt><dd><%= agent.phone || '—' %></dd>
         <dt>Email</dt><dd><%= agent.email || '—' %></dd>
         <dt>Address</dt><dd><%= [agent.address, agent.city].filter(Boolean).join(', ') || '—' %></dd>

@@ -7,7 +7,7 @@ const { num, round2, hashPassword } = require('../util');
 const { requireAdmin, h } = require('../auth');
 const svc = require('../services');
 const { KINDS } = require('../products');
-const { KYC_DIR } = require('../kyc');
+const { KYC_DIR, KYC_FILES, missingKyc } = require('../kyc');
 
 const router = express.Router();
 router.use(requireAdmin);
@@ -61,7 +61,7 @@ router.get('/agents', h((req, res) => {
        (SELECT u.name FROM users u WHERE u.agency_id = a.id ORDER BY u.id LIMIT 1) AS contact
      FROM agencies a ${status ? 'WHERE a.status = ?' : ''} ORDER BY a.id DESC`, ...(status ? [status] : []),
   );
-  res.page('admin/agents', { title: 'Agents', agents, status });
+  res.page('admin/agents', { title: 'Agents', agents: agents.map((a) => ({ ...a, missing: missingKyc(a) })), status });
 }));
 
 router.get('/agents/:id', h((req, res, next) => {
@@ -71,25 +71,44 @@ router.get('/agents/:id', h((req, res, next) => {
   const bookings = all('SELECT * FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 20', agent.id);
   const txns = all('SELECT * FROM wallet_txns WHERE agency_id = ? ORDER BY id DESC LIMIT 20', agent.id);
   const totals = one("SELECT COUNT(*) AS n, COALESCE(SUM(total_net), 0) AS revenue, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS commission FROM bookings WHERE agency_id = ? AND status != 'cancelled'", agent.id);
-  res.page('admin/agent', { title: agent.name, agent, users, bookings, txns, totals });
+  res.page('admin/agent', { title: agent.name, agent, users, bookings, txns, totals, missing: missingKyc(agent) });
 }));
 
-// Tax certificates are private: served only here, inline, from the KYC folder.
-router.get('/agents/:id/tax-doc', h((req, res, next) => {
-  const a = one('SELECT tax_doc FROM agencies WHERE id = ?', num(req.params.id));
-  const file = a && a.tax_doc && path.join(KYC_DIR, path.basename(a.tax_doc));
+// KYC files are private: served only here, inline, from the KYC folder.
+// /agents/:id/tax-doc is kept for older links.
+router.get(['/agents/:id/kyc/:field', '/agents/:id/tax-doc'], h((req, res, next) => {
+  const field = req.params.field || 'tax_doc';
+  if (!KYC_FILES[field]) return next();
+  const a = one(`SELECT ${field} AS doc FROM agencies WHERE id = ?`, num(req.params.id));
+  const file = a && a.doc && path.join(KYC_DIR, path.basename(a.doc));
   if (!file || !fs.existsSync(file)) return next();
   res.set({ 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, no-store' });
   res.sendFile(file);
+}));
+
+// Send KYC back to the agency with a reason; they fix it from Company & branding → Verification.
+router.post('/agents/:id/kyc-reject', h((req, res) => {
+  const id = num(req.params.id);
+  const a = one('SELECT id, name FROM agencies WHERE id = ?', id);
+  if (!a) throw new svc.AppError('Agency not found.');
+  const reason = String(req.body.reason || '').trim().slice(0, 300);
+  if (!reason) throw new svc.AppError('Give a reason so the agency knows what to fix.');
+  run("UPDATE agencies SET kyc_status = 'rejected' WHERE id = ?", id);
+  notify(id, 'KYC documents need attention', `Your verification was not approved: ${reason.replace(/[.!?]?$/, ".")} Please upload corrected documents.`, '/agent/settings#tax');
+  audit(req.user, 'agency.kyc_rejected', { entity: 'agency', id, agencyId: id, link: `/admin/agents/${id}`, summary: `${a.name}: KYC rejected (${reason})` });
+  req.flash('success', `KYC sent back to ${a.name}.`);
+  res.redirect(`/admin/agents/${id}#kyc`);
 }));
 
 router.post('/agents/:id/status', h((req, res) => {
   const id = num(req.params.id);
   const status = ['active', 'suspended', 'pending'].includes(req.body.status) ? req.body.status : null;
   const kyc = ['verified', 'rejected', 'pending'].includes(req.body.kyc_status) ? req.body.kyc_status : null;
-  if (kyc === 'verified') {
-    const a = one('SELECT gstin, tax_id, tax_doc FROM agencies WHERE id = ?', id);
-    if (!a || !(a.gstin || a.tax_id) || !a.tax_doc) throw new svc.AppError("Can't verify KYC: the agency hasn't provided a tax number and registration certificate yet.");
+  // Approval needs complete KYC: tax number, certificate, PAN card (India) and the applicant's photo.
+  if (kyc === 'verified' || status === 'active') {
+    const a = one('SELECT * FROM agencies WHERE id = ?', id);
+    const missing = a ? missingKyc(a) : ['agency'];
+    if (missing.length) throw new svc.AppError(`Can't approve yet: the agency still has to provide ${missing.join(', ')}.`);
   }
   if (status) run('UPDATE agencies SET status = ? WHERE id = ?', status, id);
   if (kyc) run('UPDATE agencies SET kyc_status = ? WHERE id = ?', kyc, id);

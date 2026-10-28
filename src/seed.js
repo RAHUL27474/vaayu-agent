@@ -36,6 +36,40 @@ function samplePdf(text) {
   return `${pdf}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
 }
 
+// Placeholder "photo" (a person silhouette on a tinted background) as a PNG, for demo KYC.
+function samplePhoto([r, g, b]) {
+  const zlib = require('zlib');
+  const size = 160;
+  const raw = Buffer.alloc((size * 3 + 1) * size);
+  for (let y = 0; y < size; y++) {
+    raw[y * (size * 3 + 1)] = 0;
+    for (let x = 0; x < size; x++) {
+      const head = (x - 80) ** 2 + (y - 62) ** 2 < 30 ** 2;
+      const body = y > 100 && ((x - 80) / 56) ** 2 + ((y - 168) / 66) ** 2 < 1;
+      const px = head || body ? [r, g, b] : [226, 232, 240];
+      raw.set(px, y * (size * 3 + 1) + 1 + x * 3);
+    }
+  }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(Buffer.concat([Buffer.from(type), data])));
+    return Buffer.concat([len, Buffer.from(type), data, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(size, 4); ihdr.set([8, 2, 0, 0, 0], 8);
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+
+// Demo KYC files for an agency: GST certificate, PAN card and the applicant's photo.
+function seedKyc(agencyId, slug, name, gstin, colour) {
+  const pan = gstin.slice(2, 12);
+  const files = { tax_doc: `demo-${slug}-gst.pdf`, pan_doc: `demo-${slug}-pan.pdf`, photo: `demo-${slug}-photo.png` };
+  fs.writeFileSync(path.join(KYC_DIR, files.tax_doc), samplePdf(`SAMPLE GST certificate - ${name}, GSTIN ${gstin} (demo data)`));
+  fs.writeFileSync(path.join(KYC_DIR, files.pan_doc), samplePdf(`SAMPLE PAN card - ${name}, PAN ${pan} (demo data)`));
+  fs.writeFileSync(path.join(KYC_DIR, files.photo), samplePhoto(colour));
+  run('UPDATE agencies SET gstin = ?, pan = ?, tax_doc = ?, pan_doc = ?, photo = ? WHERE id = ?', gstin, pan, files.tax_doc, files.pan_doc, files.photo, agencyId);
+}
+
 const INVENTORY = require('./seed-inventory');
 const AGENT_PACKAGES = require('./seed-agent-packages');
 
@@ -113,8 +147,7 @@ function seed() {
       'Handpicked holidays from Mumbai since 2012', 'We design stress-free holidays to Dubai, Bali, Vietnam, Cambodia, the UK and Europe, with 24x7 support on every trip.',
       `vt_live_${code('K', 24).slice(2).toLowerCase()}`,
     ).lastInsertRowid;
-    run("UPDATE agencies SET pan = 'AAKFS5678K', tax_doc = 'demo-skyline-gst.pdf' WHERE id = ?", skyline);
-    fs.writeFileSync(path.join(KYC_DIR, 'demo-skyline-gst.pdf'), samplePdf('SAMPLE GST certificate - Skyline Holidays LLP, GSTIN 27AAKFS5678K1Z2 (demo data)'));
+    seedKyc(skyline, 'skyline', 'Skyline Holidays LLP', '27AAKFS5678K1Z2', [124, 58, 237]);
     run('INSERT INTO users (role, agency_id, name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?, ?)', 'agent', skyline, 'Priya Sharma', 'agent@skyline.com', '+91 98200 11111', hashPassword('agent123'));
     run("INSERT INTO wallet_txns (agency_id, type, amount, balance_after, ref, note, created_at) VALUES (?, 'topup', 500000, 500000, 'UTR8812004411', 'Opening top-up', datetime('now', '-6 months', '-12 days'))", skyline);
 
@@ -123,13 +156,14 @@ function seed() {
        VALUES (?, ?, ?, ?, ?, 'active', 'verified', ?, 0, 'flat', 3000)`,
       'Ravi Tours & Travels', 'ravi-tours', '+91 99100 22222', 'ravi.tours@gmail.com', 'Lucknow', 60000,
     ).lastInsertRowid;
+    seedKyc(ravi, 'ravi', 'Ravi Tours & Travels', '09AAHFR4321P1Z7', [30, 64, 175]);
     run('INSERT INTO users (role, agency_id, name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?, ?)', 'agent', ravi, 'Ravi Verma', 'agent@ravitours.com', '+91 99100 22222', hashPassword('agent123'));
     run("INSERT INTO wallet_txns (agency_id, type, amount, balance_after, ref, note) VALUES (?, 'topup', 60000, 60000, 'UTR5521009922', 'Opening top-up')", ravi);
 
     const pending = run(
       "INSERT INTO agencies (name, slug, phone, email, city, gstin, pan, tax_doc) VALUES ('Wanderlust Trips', 'wanderlust-trips', '+91 90000 33333', 'contact@wanderlust.in', 'Pune', '27AABCW1234M1Z9', 'AABCW1234M', 'demo-wanderlust-gst.pdf')",
     ).lastInsertRowid;
-    fs.writeFileSync(path.join(KYC_DIR, 'demo-wanderlust-gst.pdf'), samplePdf('SAMPLE GST certificate - Wanderlust Trips, GSTIN 27AABCW1234M1Z9 (demo data)'));
+    seedKyc(pending, 'wanderlust', 'Wanderlust Trips', '27AABCW1234M1Z9', [234, 88, 12]);
     run('INSERT INTO users (role, agency_id, name, email, password_hash) VALUES (?, ?, ?, ?, ?)', 'agent', pending, 'Arjun Mehta', 'agent@wanderlust.in', hashPassword('agent123'));
     run("INSERT INTO notifications (agency_id, title, body, link) VALUES (NULL, 'New agent signup', 'Wanderlust Trips (Pune) is waiting for approval.', '/admin/agents')");
 

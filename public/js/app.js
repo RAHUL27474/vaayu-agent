@@ -60,9 +60,27 @@ document.querySelectorAll('select[data-tax-country]').forEach((sel) => {
     const india = sel.value === 'India';
     form.querySelectorAll('[data-tax-india]').forEach((el) => { el.hidden = !india; });
     form.querySelectorAll('[data-tax-foreign]').forEach((el) => { el.hidden = india; });
+    // Hidden fields must not block submit: the PAN card is required only in India.
+    form.querySelectorAll('[data-required-india]').forEach((el) => { el.required = india && !el.dataset.onFile; });
   };
   sel.addEventListener('change', sync);
   sync();
+});
+
+// Document pickers: show the chosen file name, and a preview for the applicant photo.
+document.addEventListener('change', (e) => {
+  const input = e.target.closest('.doc-drop input[type=file]');
+  if (!input) return;
+  const box = input.closest('.doc-drop');
+  const file = input.files && input.files[0];
+  const name = box.querySelector('[data-file-name]');
+  if (name) name.textContent = file ? file.name : 'Choose file';
+  box.classList.toggle('has-file', Boolean(file));
+  const preview = box.querySelector('[data-photo-preview]');
+  if (preview) {
+    preview.hidden = !(file && file.type.startsWith('image/'));
+    if (!preview.hidden) preview.src = URL.createObjectURL(file);
+  }
 });
 
 // Keep the current page's sidebar link visible when the menu is taller than the screen.

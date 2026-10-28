@@ -1,6 +1,6 @@
-// Agency tax registration: GSTIN for Indian agencies, a local tax ID for foreign ones,
-// plus the registration certificate. Certificates are private, so they live under the
-// data directory (never public/) and are only served to admins.
+// Agency KYC: GSTIN + GST certificate + PAN card for Indian agencies, a local tax ID + tax
+// certificate for foreign ones, and a photo of the person applying. All files are private,
+// so they live under the data directory (never public/) and are only served to admins.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -22,33 +22,45 @@ const isIndia = (country) => !country || country === 'India';
 const panFromGstin = (gstin) => (GSTIN_RE.test(gstin) ? gstin.slice(2, 12) : null);
 
 const DOC_TYPES = { 'application/pdf': '.pdf', 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
-const docUpload = multer({
+const PHOTO_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
+
+/** The KYC files an agency provides: form field / column → labels and allowed types. */
+const KYC_FILES = {
+  tax_doc: { types: DOC_TYPES, india: 'GST registration certificate', foreign: 'tax registration certificate' },
+  pan_doc: { types: DOC_TYPES, india: 'PAN card', foreign: null },
+  photo: { types: PHOTO_TYPES, india: 'your photo', foreign: 'your photo' },
+};
+const kycLabel = (field, country) => KYC_FILES[field][isIndia(country) ? 'india' : 'foreign'];
+/** Fields required for a country (the PAN card only for India). */
+const requiredFiles = (country) => Object.keys(KYC_FILES).filter((f) => kycLabel(f, country));
+
+const upload = multer({
   storage: multer.diskStorage({
     destination: KYC_DIR,
     // Extension comes from the checked MIME type, never from the uploaded filename.
-    filename: (req, file, cb) => cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${DOC_TYPES[file.mimetype]}`),
+    filename: (req, file, cb) => cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${KYC_FILES[file.fieldname].types[file.mimetype]}`),
   }),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024, files: 3 },
   fileFilter: (req, file, cb) => {
-    const ok = Boolean(DOC_TYPES[file.mimetype]);
-    if (!ok) req.taxDocRejected = true;
+    const ok = Boolean(KYC_FILES[file.fieldname] && KYC_FILES[file.fieldname].types[file.mimetype]);
+    if (!ok && KYC_FILES[file.fieldname]) (req.kycRejected ||= []).push(file.fieldname);
     cb(null, ok);
   },
-});
+}).fields(Object.keys(KYC_FILES).map((name) => ({ name, maxCount: 1 })));
 
 // Wraps multer so size/type problems become a form error instead of a crash.
-function withTaxDoc(field) {
-  const mw = docUpload.single(field);
-  return (req, res, next) => mw(req, res, (err) => {
-    if (err) req.uploadError = err.code === 'LIMIT_FILE_SIZE' ? 'The tax document must be under 5 MB.' : `Upload failed: ${err.message}`;
+// Afterwards req.kycFiles maps each field to the stored file name (or is missing it).
+function withKycDocs(req, res, next) {
+  upload(req, res, (err) => {
+    if (err) req.uploadError = err.code === 'LIMIT_FILE_SIZE' ? 'Each document must be under 5 MB.' : `Upload failed: ${err.message}`;
+    req.kycFiles = Object.fromEntries(Object.entries(req.files || {}).map(([k, v]) => [k, v[0].filename]));
     next();
   });
 }
 
-// Normalises and checks country + tax number; `needDoc` is true when no certificate is on file.
-function checkTax({ country, gstin, taxId }, { docUploaded, needDoc, rejected, uploadError }) {
+// Normalises and checks country + tax number.
+function checkTax({ country, gstin, taxId }) {
   const out = { country: COUNTRIES.includes(country) ? country : 'India', gstin: null, taxId: null, pan: null, errors: [] };
-  if (uploadError) out.errors.push(uploadError);
   if (isIndia(out.country)) {
     out.gstin = String(gstin || '').trim().toUpperCase().replace(/\s+/g, '');
     if (!out.gstin) out.errors.push('GSTIN is required for agencies in India.');
@@ -58,11 +70,34 @@ function checkTax({ country, gstin, taxId }, { docUploaded, needDoc, rejected, u
     out.taxId = String(taxId || '').trim().toUpperCase().slice(0, 40);
     if (out.taxId.length < 4) out.errors.push(`Enter your company's tax registration number in ${out.country}.`);
   }
-  if (rejected) out.errors.push('The tax document must be a PDF, JPG, PNG or WebP file.');
-  else if (needDoc && !docUploaded) out.errors.push(isIndia(out.country) ? 'Upload your GST registration certificate.' : 'Upload your tax registration certificate.');
+  return out;
+}
+
+/** Errors for the uploaded files: wrong type, too large, or a required file neither uploaded nor on file. */
+function checkKycFiles(req, country, onFile = {}) {
+  const errors = [];
+  if (req.uploadError) errors.push(req.uploadError);
+  for (const f of req.kycRejected || []) {
+    errors.push(f === 'photo' ? 'Your photo must be a JPG, PNG or WebP image.' : `The ${kycLabel(f, country) || 'document'} must be a PDF, JPG, PNG or WebP file.`);
+  }
+  for (const f of requiredFiles(country)) {
+    if (!req.kycFiles[f] && !onFile[f] && !(req.kycRejected || []).includes(f)) errors.push(`Upload ${kycLabel(f, country)}.`);
+  }
+  return errors;
+}
+
+/** What an agency still has to provide before it can be verified and approved (labels). */
+function missingKyc(agency) {
+  const out = [];
+  if (isIndia(agency.country) ? !agency.gstin : !agency.tax_id) out.push(isIndia(agency.country) ? 'GSTIN' : 'tax ID');
+  for (const f of requiredFiles(agency.country)) if (!agency[f]) out.push(kycLabel(f, agency.country).replace(/^your /, 'applicant '));
   return out;
 }
 
 const removeDoc = (file) => { if (file) fs.rmSync(path.join(KYC_DIR, path.basename(file)), { force: true }); };
+const removeUploaded = (req) => Object.values(req.kycFiles || {}).forEach(removeDoc);
 
-module.exports = { KYC_DIR, COUNTRIES, GSTIN_RE, isIndia, panFromGstin, withTaxDoc, checkTax, removeDoc };
+module.exports = {
+  KYC_DIR, KYC_FILES, COUNTRIES, GSTIN_RE, isIndia, panFromGstin, kycLabel, requiredFiles,
+  withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded,
+};

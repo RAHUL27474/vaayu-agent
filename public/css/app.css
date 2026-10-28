@@ -784,3 +784,44 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
   .svc-strip .inner > div:nth-child(n+3) { border-top: 1px solid var(--line-2); }
 }
 @media print { .bottom-nav { display: none !important; } }
+
+/* ---------- KYC: sign-up steps, document pickers, admin review ---------- */
+.signup-steps { list-style: none; padding: 0; margin: 18px 0 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.signup-steps li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-size: 13.5px; font-weight: 500; color: var(--ink-3); }
+.signup-steps li b { display: grid; place-items: center; width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: var(--line-2); color: var(--muted); font-size: 12px; }
+.signup-steps li.on { border-color: var(--brand-200); background: var(--brand-50); color: var(--brand-700); }
+.signup-steps li.on b { background: var(--brand); color: #fff; }
+.doc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.doc-drop { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; margin: 0; padding: 18px 12px; min-height: 150px; border: 1.5px dashed var(--line-strong); border-radius: 12px; background: var(--bg); cursor: pointer; transition: border-color .12s, background .12s; }
+.doc-drop:hover { border-color: var(--brand); background: var(--brand-50); }
+.doc-drop:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px var(--ring); }
+.doc-drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; border: 0; padding: 0; }
+.doc-drop b { font-size: 13.5px; color: var(--ink); }
+.doc-drop small { font-size: 12px; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-ico { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: #fff; border: 1px solid var(--line); color: var(--brand); margin-bottom: 6px; overflow: hidden; }
+.d-ico .i { width: 21px; height: 21px; }
+.photo-drop .d-ico { width: 64px; height: 64px; border-radius: 50%; }
+.d-ico img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.doc-drop.has-file, .doc-drop.on-file { border-style: solid; border-color: var(--ok-line); background: var(--ok-50); }
+.doc-drop.has-file small, .doc-drop.on-file small { color: var(--ok); }
+.doc-drop.on-file .d-ico { color: var(--ok); }
+.doc-drop.has-file .d-ico .i { color: var(--ok); }
+.kyc-review { border-color: var(--brand-100); }
+.kyc-body { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 22px; align-items: start; }
+.kyc-photo { display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center; font-size: 12.5px; }
+.kyc-photo img { width: 140px; height: 160px; object-fit: cover; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); display: block; }
+.kyc-nophoto { display: grid; place-items: center; align-content: center; gap: 6px; width: 140px; height: 160px; border-radius: 12px; border: 1.5px dashed var(--line-strong); color: var(--faint); }
+.kyc-nophoto .i { width: 34px; height: 34px; }
+.kyc-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line-2); }
+.kyc-reject { display: flex; gap: 8px; flex: 1 1 360px; max-width: 560px; }
+.kyc-reject input { flex: 1; }
+@media (max-width: 860px) {
+  .doc-grid { grid-template-columns: minmax(0, 1fr); }
+  .doc-drop { min-height: 0; flex-direction: row; justify-content: flex-start; text-align: left; gap: 12px; padding: 14px; }
+  .doc-drop .d-ico { margin: 0; flex-shrink: 0; }
+  .doc-drop b { flex: 1; }
+  .signup-steps { grid-template-columns: minmax(0, 1fr); }
+  .kyc-body { grid-template-columns: minmax(0, 1fr); }
+  .kyc-reject { flex-direction: column; max-width: none; }
+}
+.d-ico img:not([hidden]) + .i { visibility: hidden; }

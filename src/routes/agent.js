@@ -14,7 +14,7 @@ const {
   KINDS, KIND_BY_PATH, DESTINATIONS, ALL_DESTINATIONS, MEAL_PLANS: PRODUCT_MEAL_PLANS, productLines, productMap, cardPrice, describe, parseProductDetails, publishedProduct,
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
-const { COUNTRIES, withTaxDoc, checkTax, removeDoc } = require('../kyc');
+const { COUNTRIES, withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded } = require('../kyc');
 
 const router = express.Router();
 router.use(requireAgent);
@@ -82,7 +82,7 @@ router.get('/', h((req, res) => {
   const hasQuote = quotes.length > 0;
   const hasBooking = bookings.length > 0;
   const checklist = [
-    { done: Boolean(req.agency.tax_doc), label: 'Upload your tax registration', href: '/agent/settings#tax' },
+    { done: !missingKyc(req.agency).length, label: 'Upload your KYC documents and photo', href: '/agent/settings#tax' },
     { done: req.agency.status === 'active', label: 'Get approved by VaayuTrip', href: '/agent/support' },
     { done: branded, label: 'Add your logo for branded invoices', href: '/agent/settings' },
     { done: hasPackage, label: 'Build your first package from our inventory', href: '/agent/packages/new' },
@@ -864,31 +864,32 @@ router.get('/reports/ledger.csv', h((req, res) => {
 }));
 
 router.get('/settings', (req, res) => {
-  res.page('agent/settings', { title: 'Company & branding', branded: agencyHasBranding(req.agency), countries: COUNTRIES });
+  res.page('agent/settings', { title: 'Company & branding', branded: agencyHasBranding(req.agency), countries: COUNTRIES, missing: missingKyc(req.agency) });
 });
 
-router.post('/settings/tax', withTaxDoc('tax_doc'), h((req, res) => {
+router.post('/settings/tax', withKycDocs, h((req, res) => {
   const a = req.agency;
-  const tax = checkTax({ country: req.body.country, gstin: req.body.gstin, taxId: req.body.tax_id }, {
-    docUploaded: Boolean(req.file), needDoc: !a.tax_doc, rejected: req.taxDocRejected, uploadError: req.uploadError,
-  });
-  if (tax.errors.length) {
-    if (req.file) removeDoc(req.file.filename);
-    tax.errors.forEach((m) => req.flash('error', m));
+  const tax = checkTax({ country: req.body.country, gstin: req.body.gstin, taxId: req.body.tax_id });
+  const errors = [...tax.errors, ...checkKycFiles(req, tax.country, a)];
+  if (errors.length) {
+    removeUploaded(req);
+    errors.forEach((m) => req.flash('error', m));
     return res.redirect('/agent/settings#tax');
   }
-  const changed = req.file || tax.country !== a.country || tax.gstin !== a.gstin || tax.taxId !== a.tax_id;
+  const docs = req.kycFiles;
+  const changed = Object.keys(docs).length || tax.country !== a.country || tax.gstin !== a.gstin || tax.taxId !== a.tax_id;
   if (!changed) {
-    req.flash('success', 'Tax details unchanged.');
+    req.flash('success', 'Verification details unchanged.');
     return res.redirect('/agent/settings#tax');
   }
-  if (req.file) removeDoc(a.tax_doc);
+  for (const f of Object.keys(docs)) removeDoc(a[f]);
   run(
-    "UPDATE agencies SET country = ?, gstin = ?, tax_id = ?, pan = COALESCE(?, pan), tax_doc = ?, kyc_status = 'pending' WHERE id = ?",
-    tax.country, tax.gstin, tax.taxId, tax.pan, req.file ? req.file.filename : a.tax_doc, a.id,
+    "UPDATE agencies SET country = ?, gstin = ?, tax_id = ?, pan = COALESCE(?, pan), tax_doc = ?, pan_doc = ?, photo = ?, kyc_status = 'pending' WHERE id = ?",
+    tax.country, tax.gstin, tax.taxId, tax.pan, docs.tax_doc || a.tax_doc, docs.pan_doc || a.pan_doc, docs.photo || a.photo, a.id,
   );
-  notify(null, 'Tax details updated', `${a.name} updated its tax registration; KYC needs a fresh check.`, `/admin/agents/${a.id}`);
-  req.flash('success', 'Tax details saved. Our team will re-verify your KYC shortly.');
+  notify(null, 'KYC documents updated', `${a.name} updated its verification details; KYC needs a fresh check.`, `/admin/agents/${a.id}`);
+  audit(req.user, 'agency.kyc_updated', { entity: 'agency', id: a.id, agencyId: a.id, link: `/admin/agents/${a.id}`, summary: `${a.name} updated KYC documents` });
+  req.flash('success', 'Verification details saved. Our team will review them shortly.');
   res.redirect('/agent/settings#tax');
 }));
 
