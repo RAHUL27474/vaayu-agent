@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
   <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>VaayuTrip Agent</title>
-  <link rel="icon" href="/img/vaayutrip-mark.svg">
+  <link rel="icon" href="/img/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/app.css">
@@ -34,8 +34,8 @@
   <aside class="sidebar" id="sidebar" aria-label="Main menu">
     <div class="sidebar-head">
       <a class="logo" href="<%= home %>">
-        <img src="/img/vaayutrip-mark.svg" alt="">
-        <span class="lbl">VaayuTrip<small><%= isAdmin ? 'Admin console' : isBackend ? 'Backend portal' : 'Agent portal' %></small></span>
+        <img src="/img/vaayutrip-mark.png" alt="">
+        <span class="lbl"><span class="wordmark">Vaay<i>u</i><b>Trip</b></span><small><%= isAdmin ? 'Admin console' : isBackend ? 'Backend portal' : 'Agent portal' %></small></span>
       </a>
       <button class="icon-btn sidebar-close" type="button" data-nav-close aria-label="Close menu"><%- icon('x') %></button>
     </div>

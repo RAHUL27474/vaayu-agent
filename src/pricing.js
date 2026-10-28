@@ -119,7 +119,7 @@ function vaayuParty(settings) {
     address: settings.address || '',
     phone: settings.phone || '',
     email: settings.email || '',
-    logo: '/img/vaayutrip-logo.svg',
+    logo: '/img/vaayutrip-logo.png',
     color: '#0e7490',
   };
 }

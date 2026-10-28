@@ -8,7 +8,7 @@
     <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
   </div>
 
-  <article class="doc" style="--doc-color: <%= doc.seller.color || '#1e40af' %>">
+  <article class="doc" style="--doc-color: <%= doc.seller.color || '#0077c0' %>">
     <header class="doc-head">
       <div>
         <% if (doc.seller.logo) { %><img src="<%= doc.seller.logo %>" alt="<%= doc.seller.name %>"><% } else { %><h2 style="margin:0"><%= doc.seller.name %></h2><% } %>
