@@ -93,7 +93,7 @@ router.post('/agents/:id/kyc-reject', h((req, res) => {
   if (!a) throw new svc.AppError('Agency not found.');
   const reason = String(req.body.reason || '').trim().slice(0, 300);
   if (!reason) throw new svc.AppError('Give a reason so the agency knows what to fix.');
-  run("UPDATE agencies SET kyc_status = 'rejected' WHERE id = ?", id);
+  run("UPDATE agencies SET kyc_status = 'rejected', kyc_note = ? WHERE id = ?", reason, id);
   notify(id, 'KYC documents need attention', `Your verification was not approved: ${reason.replace(/[.!?]?$/, ".")} Please upload corrected documents.`, '/agent/settings#tax');
   audit(req.user, 'agency.kyc_rejected', { entity: 'agency', id, agencyId: id, link: `/admin/agents/${id}`, summary: `${a.name}: KYC rejected (${reason})` });
   req.flash('success', `KYC sent back to ${a.name}.`);
@@ -112,6 +112,7 @@ router.post('/agents/:id/status', h((req, res) => {
   }
   if (status) run('UPDATE agencies SET status = ? WHERE id = ?', status, id);
   if (kyc) run('UPDATE agencies SET kyc_status = ? WHERE id = ?', kyc, id);
+  if (kyc === 'verified' || status === 'active') run('UPDATE agencies SET kyc_note = NULL WHERE id = ?', id);
   if (status === 'active') {
     const agency = one('SELECT api_key FROM agencies WHERE id = ?', id);
     if (!agency.api_key) run('UPDATE agencies SET api_key = ? WHERE id = ?', `vt_live_${crypto.randomBytes(18).toString('hex')}`, id);

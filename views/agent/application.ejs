@@ -1,0 +1,73 @@
+<%
+  const step = app.steps.find((s) => s.key === app.current);
+  const needsAction = step.state === 'action';
+  const headline = needsAction ? 'Action needed on your application'
+    : app.current === 'review' ? 'Your application is under review'
+    : 'Verified: final approval in progress';
+  const stateLabel = { done: 'Done', current: 'In progress', action: 'Action needed', todo: 'Up next' };
+%>
+<div class="page-head">
+  <div>
+    <h1>Application status</h1>
+    <p>Thanks for applying to become a VaayuTrip partner. Booking, packages and quotes open as soon as your agency is approved.</p>
+  </div>
+</div>
+
+<section class="app-hero <%= needsAction ? 'warn' : '' %>" aria-live="polite">
+  <span class="app-hero-ico"><%- icon(needsAction ? 'upload' : app.current === 'review' ? 'shield' : 'checkCircle') %></span>
+  <div class="app-hero-body">
+    <small>Current stage: <%= step.title %></small>
+    <h2><%= headline %></h2>
+    <p><%= step.text %></p>
+  </div>
+  <% if (step.action) { %><a class="btn btn-accent" href="<%= step.action.href %>"><%- icon('upload') %><%= step.action.label %></a><% } %>
+</section>
+
+<div class="split app-split">
+  <div class="card">
+    <h3>Progress</h3>
+    <ol class="app-steps">
+      <% app.steps.forEach((s, i) => { %>
+        <li class="<%= s.state %>">
+          <span class="app-dot"><% if (s.state === 'done') { %><%- icon('check') %><% } else { %><%= i + 1 %><% } %></span>
+          <div>
+            <div class="app-step-head"><b><%= s.title %></b><span class="badge <%= s.state === 'done' ? 'ok' : s.state === 'action' ? 'warn' : s.state === 'current' ? 'info' : '' %>"><%= stateLabel[s.state] %></span></div>
+            <p><%= s.text %></p>
+            <% if (s.action) { %><a href="<%= s.action.href %>"><%= s.action.label %> →</a><% } %>
+          </div>
+        </li>
+      <% }) %>
+    </ol>
+  </div>
+
+  <div class="stack-cards">
+    <div class="card">
+      <h3>What we received</h3>
+      <dl class="app-facts">
+        <dt>Agency</dt><dd><%= agency.name %><% if (agency.city) { %>, <%= agency.city %><% } %></dd>
+        <dt>Country</dt><dd><%= agency.country || 'India' %></dd>
+        <% if (india) { %>
+          <dt>GSTIN</dt><dd><%= agency.gstin || 'Not provided' %></dd>
+          <% if (agency.pan) { %><dt>PAN</dt><dd><%= agency.pan %></dd><% } %>
+        <% } else { %>
+          <dt>Tax ID</dt><dd><%= agency.tax_id || 'Not provided' %></dd>
+        <% } %>
+        <dt>Applicant</dt><dd><%= applicant.name %><br><small class="muted"><%= applicant.email %><%= applicant.phone ? ` · ${applicant.phone}` : '' %></small></dd>
+      </dl>
+      <ul class="app-docs">
+        <% docs.forEach((d) => { %>
+          <li class="<%= d.have ? 'have' : 'missing' %>"><%- icon(d.have ? 'checkCircle' : 'xCircle') %><%= d.label %><span><%= d.have ? 'Received' : 'Missing' %></span></li>
+        <% }) %>
+      </ul>
+      <a class="btn" href="/agent/settings#tax" style="width:100%;justify-content:center"><%- icon('upload') %>Update documents</a>
+    </div>
+    <div class="card">
+      <h3>While you wait</h3>
+      <p class="muted" style="font-size:13px">Add your logo and brand colour so your quotes, invoices and website are ready on day one.</p>
+      <div class="app-links">
+        <a class="btn" href="/agent/settings"><%- icon('settings') %>Company &amp; branding</a>
+        <a class="btn" href="/agent/support"><%- icon('help') %>Ask our team</a>
+      </div>
+    </div>
+  </div>
+</div>

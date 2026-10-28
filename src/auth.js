@@ -14,7 +14,16 @@ function requireAgent(req, res, next) {
   next();
 }
 
-// Pending agencies can explore the portal and set up their profile, but not transact.
+// Until VaayuTrip approves an agency, its portal shows only the application: its status (/agent),
+// company details and documents, notifications and support. Everything else waits for approval.
+const PENDING_PATHS = /^\/(settings|notifications|support)(\/|$)/;
+function limitPendingAgency(req, res, next) {
+  if (req.agency.status === 'active' || req.path === '/' || PENDING_PATHS.test(req.path)) return next();
+  req.flash('warn', 'This opens once VaayuTrip approves your agency. Here is where your application stands.');
+  return res.redirect('/agent');
+}
+
+// Defence in depth for actions that move money or create bookings.
 function requireActiveAgency(req, res, next) {
   if (req.agency.status !== 'active') {
     req.flash('error', 'Your account is awaiting approval by VaayuTrip. You can complete your profile meanwhile.');
@@ -46,4 +55,4 @@ const h = (fn) => (req, res, next) => {
   }
 };
 
-module.exports = { requireAgent, requireActiveAgency, requireAdmin, requireBackend, homeFor, h };
+module.exports = { requireAgent, requireActiveAgency, limitPendingAgency, requireAdmin, requireBackend, homeFor, h };

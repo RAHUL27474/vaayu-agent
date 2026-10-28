@@ -322,7 +322,8 @@ addColumn('agencies', 'country', "TEXT NOT NULL DEFAULT 'India'");
 addColumn('agencies', 'tax_id', 'TEXT');                                           // foreign agencies' tax registration number
 addColumn('agencies', 'tax_doc', 'TEXT');                                          // file name under <data>/kyc, see src/kyc.js
 addColumn('agencies', 'pan_doc', 'TEXT');                                          // PAN card (Indian agencies), same folder
-addColumn('agencies', 'photo', 'TEXT');                                            // photo of the person who applied, same folder
+addColumn('agencies', 'photo', 'TEXT');
+addColumn('agencies', 'kyc_note', 'TEXT');                                         // why VaayuTrip sent the KYC back (shown to the agency)                                            // photo of the person who applied, same folder
 addColumn('quotes', 'package_snapshot', 'TEXT');                                 // JSON frozen at quote time
 addColumn('quotes', 'is_international', 'INTEGER NOT NULL DEFAULT 0');
 addColumn('quotes', 'infants', 'INTEGER NOT NULL DEFAULT 0');

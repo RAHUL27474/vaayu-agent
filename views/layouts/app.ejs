@@ -79,6 +79,12 @@
       <% }) %>
       <%- section('Tools') %>
       <%- navItem('/backend/import', 'upload', 'Bulk import') %>
+    <% } else if (agency && agency.status !== 'active') { %>
+      <%- navItem('/agent', 'clipboard', 'Application status') %>
+      <%- section('Account') %>
+      <%- navItem('/agent/settings', 'settings', 'Company &amp; documents') %>
+      <%- navItem('/agent/notifications', 'bell', 'Notifications', unread || '') %>
+      <%- navItem('/agent/support', 'help', 'Help &amp; support') %>
     <% } else { %>
       <%- navItem('/agent', 'dashboard', 'Dashboard') %>
       <%- section('Book from VaayuTrip') %>
@@ -128,7 +134,7 @@
         <span class="crumb-current"><%- crumb ? crumb.label : (typeof title !== 'undefined' ? title : 'Dashboard') %></span>
       </nav>
       <div class="spacer"></div>
-      <% if (agency) { %>
+      <% if (agency && agency.status === 'active') { %>
         <a class="balance" href="/agent/wallet"><span>Wallet</span><b><%= inr(agency.wallet_balance) %></b></a>
         <a class="balance" href="/agent/wallet"><span>Credit available</span><b><%= inr(agency.credit_limit - agency.credit_used) %></b></a>
       <% } %>
@@ -141,7 +147,11 @@
         </summary>
         <div class="menu" role="menu">
           <div class="menu-head"><span class="avatar"><%= initials %></span><div><b><%= user.name.replace(/\s*\(.*\)/, '') %></b><small><%= user.email %></small></div></div>
-          <% if (agency) { %>
+          <% if (agency && agency.status !== 'active') { %>
+            <a href="/agent"><%- icon('clipboard') %>Application status</a>
+            <a href="/agent/settings"><%- icon('settings') %>Company &amp; documents</a>
+            <a href="/agent/support"><%- icon('help') %>Help &amp; support</a>
+          <% } else if (agency) { %>
             <div class="menu-balances">
               <div><span>Wallet</span><b><%= inr(agency.wallet_balance) %></b></div>
               <div><span>Credit available</span><b><%= inr(agency.credit_limit - agency.credit_used) %></b></div>
@@ -164,6 +174,14 @@
       <%- body %>
     </main>
     <% if (agency) { const bookPaths = ['/agent/activities', '/agent/hotels', '/agent/flights', '/agent/transfers', '/agent/visas', '/agent/insurance']; %>
+      <% if (agency.status !== 'active') { %>
+      <nav class="bottom-nav" aria-label="Quick menu">
+        <a href="/agent" class="<%= isActive('/agent') ? 'on' : '' %>"><%- icon('clipboard') %><span>Status</span></a>
+        <a href="/agent/settings" class="<%= isActive('/agent/settings') ? 'on' : '' %>"><%- icon('upload') %><span>Documents</span></a>
+        <a href="/agent/notifications" class="<%= isActive('/agent/notifications') ? 'on' : '' %>"><%- icon('bell') %><span>Alerts</span></a>
+        <a href="/agent/support" class="<%= isActive('/agent/support') ? 'on' : '' %>"><%- icon('help') %><span>Support</span></a>
+      </nav>
+      <% } else { %>
       <nav class="bottom-nav" aria-label="Quick menu">
         <a href="/agent" class="<%= isActive('/agent') ? 'on' : '' %>"><%- icon('dashboard') %><span>Home</span></a>
         <a href="/agent/hotels" class="<%= bookPaths.some(isActive) ? 'on' : '' %>"><%- icon('search') %><span>Book</span></a>
@@ -171,6 +189,7 @@
         <a href="/agent/bookings" class="<%= isActive('/agent/bookings') ? 'on' : '' %>"><%- icon('clipboard') %><span>Bookings</span></a>
         <button type="button" data-nav-toggle aria-label="More"><%- icon('menu') %><span>More</span></button>
       </nav>
+      <% } %>
     <% } %>
   </div>
 </div>

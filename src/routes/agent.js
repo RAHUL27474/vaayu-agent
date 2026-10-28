@@ -3,8 +3,8 @@ const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
 const { one, all, run, tx, getSettings, notify, audit, UPLOADS_DIR } = require('../db');
-const { num, code, round2, uniqueSlug } = require('../util');
-const { requireAgent, requireActiveAgency, h } = require('../auth');
+const { num, code, round2, uniqueSlug, fmtDate } = require('../util');
+const { requireAgent, requireActiveAgency, limitPendingAgency, h } = require('../auth');
 const svc = require('../services');
 const { priceQuote, emiPlans, agencyHasBranding, withTax } = require('../pricing');
 const {
@@ -14,10 +14,11 @@ const {
   KINDS, KIND_BY_PATH, DESTINATIONS, ALL_DESTINATIONS, MEAL_PLANS: PRODUCT_MEAL_PLANS, productLines, productMap, cardPrice, describe, parseProductDetails, publishedProduct,
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
-const { COUNTRIES, withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded } = require('../kyc');
+const { COUNTRIES, isIndia, kycLabel, requiredFiles, withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded } = require('../kyc');
 
 const router = express.Router();
 router.use(requireAgent);
+router.use(limitPendingAgency);
 
 const LOGO_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
 
@@ -52,7 +53,37 @@ function assertEditable(quote) {
 
 // ---------- dashboard ----------
 
+/** Where a pending agency's application stands: stages for the status page. */
+function applicationStages(agency) {
+  const missing = missingKyc(agency);
+  const docsDone = !missing.length && agency.kyc_status !== 'rejected';
+  const verified = agency.kyc_status === 'verified';
+  const docs = missing.length
+    ? { state: 'action', text: `Still needed: ${missing.join(', ')}.`, action: { href: '/agent/settings#tax', label: 'Upload documents' } }
+    : agency.kyc_status === 'rejected'
+      ? { state: 'action', text: `Our team sent your documents back${agency.kyc_note ? `: ${agency.kyc_note.replace(/[.!?]?$/, '.')}` : '.'} Please upload corrected documents.`, action: { href: '/agent/settings#tax', label: 'Upload corrected documents' } }
+      : { state: 'done', text: 'All documents received.' };
+  return {
+    missing,
+    current: !docsDone ? 'documents' : verified ? 'approval' : 'review',
+    steps: [
+      { key: 'submitted', title: 'Application submitted', state: 'done', text: `Received on ${fmtDate(agency.created_at)}.` },
+      { key: 'documents', title: 'Documents', ...docs },
+      { key: 'review', title: 'Verification by VaayuTrip', state: !docsDone ? 'todo' : verified ? 'done' : 'current',
+        text: !docsDone ? 'Starts as soon as your documents are complete.' : verified ? 'Your documents are verified.' : 'Our team is checking your tax registration, documents and photo. This usually takes one working day.' },
+      { key: 'approval', title: 'Agency approved', state: verified ? 'current' : 'todo',
+        text: verified ? 'Final approval is in progress. We will notify you here and by email.' : 'You can book airfares, hotels and activities, build packages and send quotes once approved.' },
+    ],
+  };
+}
+
 router.get('/', h((req, res) => {
+  if (req.agency.status !== 'active') {
+    const agency = req.agency;
+    const user = one('SELECT name, email, phone FROM users WHERE id = ?', req.user.id);
+    const docs = requiredFiles(agency.country).map((k) => ({ label: kycLabel(k, agency.country).replace(/^your /, 'Applicant ').replace(/^./, (c) => c.toUpperCase()), have: Boolean(agency[k]) }));
+    return res.page('agent/application', { title: 'Application status', app: applicationStages(agency), applicant: user, docs, india: isIndia(agency.country) });
+  }
   const a = req.agency.id;
   const month = new Date().toISOString().slice(0, 7);
   const stats = one(
@@ -884,7 +915,7 @@ router.post('/settings/tax', withKycDocs, h((req, res) => {
   }
   for (const f of Object.keys(docs)) removeDoc(a[f]);
   run(
-    "UPDATE agencies SET country = ?, gstin = ?, tax_id = ?, pan = COALESCE(?, pan), tax_doc = ?, pan_doc = ?, photo = ?, kyc_status = 'pending' WHERE id = ?",
+    "UPDATE agencies SET country = ?, gstin = ?, tax_id = ?, pan = COALESCE(?, pan), tax_doc = ?, pan_doc = ?, photo = ?, kyc_status = 'pending', kyc_note = NULL WHERE id = ?",
     tax.country, tax.gstin, tax.taxId, tax.pan, docs.tax_doc || a.tax_doc, docs.pan_doc || a.pan_doc, docs.photo || a.photo, a.id,
   );
   notify(null, 'KYC documents updated', `${a.name} updated its verification details; KYC needs a fresh check.`, `/admin/agents/${a.id}`);
