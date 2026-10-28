@@ -1,17 +1,39 @@
 <div class="page-head">
-  <div><h1>Bulk import</h1><p>Load many items at once from a spreadsheet saved as CSV. Everything imports as a draft so you can check it before publishing.</p></div>
-  <a class="btn" href="/backend/import/template.csv"><%- icon('download') %>Download template</a>
+  <div><h1>Bulk import</h1><p>Load many items at once from Excel or CSV. New items import as drafts so you can check them before publishing.</p></div>
+  <a class="btn" href="/backend/import/template.csv"><%- icon('download') %>Download CSV template</a>
 </div>
 <div class="split">
   <form class="card" method="post" action="/backend/import" enctype="multipart/form-data">
-    <h3>Upload CSV</h3>
-    <div class="field"><label for="file">CSV file (UTF-8, up to 2 MB)</label><input id="file" type="file" name="file" accept=".csv,text/csv" required></div>
-    <button class="btn btn-primary">Import as drafts</button>
+    <h3>Upload a file</h3>
+    <div class="field">
+      <label for="file">Excel (.xlsx) or CSV file, up to 5 MB</label>
+      <input id="file" type="file" name="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required>
+      <div class="hint">The VaayuTrip rate card (Hotels, Activities, Transfers and Currency tabs) is read as it is. Any other Excel file or CSV must use the columns on the right.</div>
+    </div>
+    <div class="field">
+      <label for="country">Country for cities we don't recognise <span class="muted">(optional)</span></label>
+      <select id="country" name="country">
+        <option value="">Work it out from the file</option>
+        <% countries.forEach(c => { %><option><%= c %></option><% }) %>
+      </select>
+      <div class="hint">Used when a row only has a city we have no inventory in yet, e.g. a new city in Vietnam.</div>
+    </div>
+    <button class="btn btn-primary">Import</button>
+    <div class="alert info" style="margin:16px 0 0;font-size:13px;display:block">
+      <b>Rate card notes</b>
+      <ul style="margin:6px 0 0;padding-left:18px">
+        <li>Costs in AED, USD, IDR… are converted to ₹ with the rates on the Currency tab (it must include INR).</li>
+        <li>Hotels: one item per room, season and meal plan. Extra-bed charges are added to that hotel's description.</li>
+        <li>Uploading the card again updates the rates of matching items (same city and name; for hotels also room, meal plan and season), including live ones.</li>
+        <li>Per-km transfers are not imported yet.</li>
+      </ul>
+    </div>
   </form>
   <div class="card">
-    <h3>Columns</h3>
+    <h3>Columns (CSV or a single-sheet Excel)</h3>
     <p class="muted" style="font-size:13px">The first row must be the header. Column order doesn't matter; unknown columns are ignored.</p>
     <table class="table" style="font-size:13px">
+      <colgroup><col style="width:34%"><col></colgroup>
       <tr><td><code>kind</code></td><td><%= Object.keys(kinds).join(', ') %></td></tr>
       <tr><td><code>title</code>, <code>city</code></td><td>Required</td></tr>
       <tr><td><code>country</code></td><td>One of: <%= countries.join(', ') %></td></tr>

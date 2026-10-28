@@ -13,6 +13,8 @@ const {
   KINDS, DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, BASIS_LABELS, MEAL_PLANS, productFromForm, publishProblems, parseProductDetails, describe,
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
+const { readXlsx, XlsxError } = require('../xlsx');
+const { readRateCard, isRateCard } = require('../ratecard');
 
 const router = express.Router();
 router.use(requireBackend);
@@ -213,11 +215,68 @@ router.get('/import/template.csv', (req, res) => {
   res.send(`${header.join(',')}\r\n${header.map((k) => example[k] || '').join(',')}\r\n`);
 });
 
-const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024, files: 1 } }).single('file');
+const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } }).single('file');
+const isXlsx = (file) => file.buffer.subarray(0, 4).equals(Buffer.from('PK\x03\x04', 'latin1'));
 
-router.post('/import', (req, res, next) => csvUpload(req, res, (err) => next(err ? new svc.AppError('The file must be a CSV under 2 MB.') : undefined)), h((req, res) => {
-  if (!req.file) throw new svc.AppError('Choose a CSV file to import.');
-  const rows = parseCsv(req.file.buffer.toString('utf8').replace(/^﻿/, ''));
+// Same item on a re-uploaded rate card: same kind, city and name (and for hotels the same room, meal plan and season).
+function sameProduct(p) {
+  const d = parseProductDetails(p.details);
+  return all('SELECT id, details FROM products WHERE kind = ? AND lower(city) = lower(?) AND title = ?', p.kind, p.city, p.title).find((r) => {
+    if (p.kind !== 'hotel') return true;
+    const o = parseProductDetails(r.details);
+    return o.room === d.room && o.mealPlan === d.mealPlan && (o.season || '') === (d.season || '');
+  });
+}
+
+/** VaayuTrip rate card workbook (Hotels / Activities / Transfers / Currency tabs): adds new items as drafts, updates rates of matching ones. */
+function importRateCard(req, res, book) {
+  const knownCities = Object.fromEntries(all('SELECT DISTINCT lower(city) AS city, country FROM products').map((r) => [r.city, r.country]));
+  const { items, skipped, skippedRows, notes } = readRateCard(book, { knownCities, fallbackCountry: req.body.country });
+  let added = 0;
+  let updated = 0;
+  tx(() => {
+    for (const item of items) {
+      const p = productFromForm(item, item.kind);
+      // Keep what the form fields can't hold: the hotel season and the rate as written on the card.
+      p.details = JSON.stringify({ ...parseProductDetails(p.details), ...(item.d_season ? { season: item.d_season } : {}), rateCard: item.source });
+      if (item.group_size == null && p.price_basis === 'per_group') p.group_size = 1;
+      const old = sameProduct(p);
+      if (old) {
+        // Rates always come from the card; text the card leaves blank keeps what the team wrote.
+        const text = ['duration', 'timing', 'summary', 'description'];
+        const rates = ['category', 'price_basis', 'group_size', 'net_adult', 'net_child', 'net_infant', 'details'];
+        run(`UPDATE products SET ${[...text.map((k) => `${k} = COALESCE(?, ${k})`), ...rates.map((k) => `${k} = ?`)].join(', ')}, updated_by = ?, updated_at = datetime('now') WHERE id = ?`,
+          ...[...text, ...rates].map((k) => p[k] ?? null), req.user.id, old.id);
+        updated++;
+      } else {
+        insertProduct({ ...p, image_url: null }, req.user);
+        added++;
+      }
+    }
+  });
+  audit(req.user, 'product.imported', { entity: 'product', summary: `Rate card: ${added} new draft(s), ${updated} updated${skippedRows ? `, skipped ${skippedRows}` : ''}`, link: '/backend/products?status=draft' });
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const done = [added && `${plural(added, 'new item')} added as drafts`, updated && `${plural(updated, 'existing item')} updated with the new rates`].filter(Boolean);
+  if (done.length) req.flash('success', `Rate card imported: ${done.join(', ')}.`);
+  if (!items.length && !skipped.length) req.flash('warn', 'No rows found. Fill the Hotels, Activities or Transfers tab below its header row.');
+  const issues = [...skipped, ...notes];
+  if (issues.length) req.flash('warn', `${skippedRows ? `Skipped ${skippedRows} row${skippedRows === 1 ? '' : 's'}. ` : ''}${issues.slice(0, 6).join(' ')}${issues.length > 6 ? ` … and ${issues.length - 6} more.` : ''}`);
+  res.redirect(added || updated ? '/backend/products?status=draft' : '/backend/import');
+}
+
+router.post('/import', (req, res, next) => importUpload(req, res, (err) => next(err ? new svc.AppError('The file must be a CSV or Excel (.xlsx) file under 5 MB.') : undefined)), h((req, res) => {
+  if (!req.file) throw new svc.AppError('Choose a CSV or Excel file to import.');
+  let rows;
+  if (isXlsx(req.file)) {
+    let book;
+    try { book = readXlsx(req.file.buffer); } catch (e) {
+      throw new svc.AppError(e instanceof XlsxError ? e.message : 'Could not read this Excel file. Save it again as .xlsx and retry.');
+    }
+    if (isRateCard(book)) return importRateCard(req, res, book);
+    rows = book[0].rows;
+  } else if (/\.xls$/i.test(req.file.originalname)) {
+    throw new svc.AppError('This is an old-style .xls file. In Excel choose File → Save As → Excel Workbook (.xlsx), then upload that.');
+  } else rows = parseCsv(req.file.buffer.toString('utf8').replace(/^﻿/, ''));
   if (rows.length < 2) throw new svc.AppError('The file has no rows under the header.');
   const header = rows[0].map((h2) => h2.trim().toLowerCase());
   const skipped = [];
