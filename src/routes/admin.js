@@ -8,6 +8,7 @@ const { requireAdmin, h } = require('../auth');
 const svc = require('../services');
 const { KINDS } = require('../products');
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
+const { restoreFile } = require('../files');
 
 const router = express.Router();
 router.use(requireAdmin);
@@ -81,7 +82,7 @@ router.get(['/agents/:id/kyc/:field', '/agents/:id/tax-doc'], h((req, res, next)
   if (!KYC_FILES[field]) return next();
   const a = one(`SELECT ${field} AS doc FROM agencies WHERE id = ?`, num(req.params.id));
   const file = a && a.doc && path.join(KYC_DIR, path.basename(a.doc));
-  if (!file || !fs.existsSync(file)) return next();
+  if (!file || !restoreFile(file)) return next();
   res.set({ 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, no-store' });
   if (req.query.download) return res.download(file, `${field}-${req.params.id}${path.extname(file)}`);
   res.sendFile(file);
@@ -96,7 +97,7 @@ router.get('/agents/:id/kyc/:field/view', h((req, res, next) => {
   const label = (f) => kycLabel(f, agent.country).replace(/^your /, 'applicant ').replace(/^./, (c) => c.toUpperCase());
   const tabs = requiredFiles(agent.country).map((f) => ({ field: f, label: label(f), have: Boolean(agent[f]) }));
   const file = agent[field] && path.join(KYC_DIR, path.basename(agent[field]));
-  const exists = Boolean(file && fs.existsSync(file));
+  const exists = Boolean(file && restoreFile(file));
   const ext = exists ? path.extname(file).toLowerCase() : '';
   const size = exists && ext !== '.pdf' ? imageSize(file) : null;
   res.page('admin/kyc-view', {
@@ -190,8 +191,8 @@ router.get('/log', h((req, res) => {
   if (f.area) { where.push('l.action LIKE ?'); params.push(`${f.area}.%`); }
   if (f.user) { where.push('l.user_id = ?'); params.push(f.user); }
   if (f.agency) { where.push('l.agency_id = ?'); params.push(f.agency); }
-  if (f.from) { where.push('date(l.created_at) >= ?'); params.push(f.from); }
-  if (f.to) { where.push('date(l.created_at) <= ?'); params.push(f.to); }
+  if (f.from) { where.push('sqldate(l.created_at) >= ?'); params.push(f.from); }
+  if (f.to) { where.push('sqldate(l.created_at) <= ?'); params.push(f.to); }
   if (!f.logins && f.area !== 'user') where.push("l.action != 'user.login'");
   const page = Math.max(1, Math.round(num(req.query.page, 1)));
   const rows = all(`${LOG_SQL} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY l.id DESC LIMIT 101 OFFSET ?`, ...params, (page - 1) * 100);
@@ -337,7 +338,7 @@ router.get('/notifications', h((req, res) => {
 // ---------- offers ----------
 
 router.get('/offers', h((req, res) => {
-  const offers = all("SELECT *, (is_active = 1 AND (valid_until IS NULL OR valid_until >= date('now'))) AS live FROM offers ORDER BY id DESC");
+  const offers = all("SELECT *, (is_active = 1 AND (valid_until IS NULL OR valid_until >= sqldate('now'))) AS live FROM offers ORDER BY id DESC");
   res.page('admin/offers', { title: 'Offers & deals', offers });
 }));
 

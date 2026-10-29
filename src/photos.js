@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { UPLOADS_DIR } = require('./db');
+const { persistFile } = require('./files');
 
 const PHOTO_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
 const PHOTO_DIR = path.join(UPLOADS_DIR, 'photos');
@@ -28,6 +29,7 @@ const upload = multer({
 function withCover(AppError) {
   return (req, res, next) => upload(req, res, (err) => {
     if (err) return next(new AppError(err.code === 'LIMIT_FILE_SIZE' ? 'The photo must be under 5 MB.' : `Upload failed: ${err.message}`));
+    if (req.file) persistFile(req.file.path);
     next();
   });
 }

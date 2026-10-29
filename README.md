@@ -4,16 +4,16 @@ The VaayuTrip B2B platform for travel agents, for international travel to Dubai,
 
 ## Run it
 
-Requires Node.js 22.13 or newer (it uses Node's built-in SQLite, so there is nothing to compile).
+Requires Node.js 22.13 or newer. The database is Postgres: the live site uses Supabase, and locally the app runs an embedded Postgres (PGlite), so there is no database server to install.
 
 ```
 npm install
 npm start            # http://localhost:3000
 npm run dev          # same, restarts on file changes
-npm run seed         # wipe the database and reload demo data
+npm run seed         # wipe the local database and reload demo data (refused when DATABASE_URL is set)
 ```
 
-The first start creates `data/vaayutrip.db` with demo data: 88 inventory items (36 activities, 18 hotels, 14 airfares, 11 transfers, 6 visas, 3 insurance plans) and packages that the demo agencies built from them.
+The first start creates a local database in `data/pg` with demo data: 88 inventory items (36 activities, 18 hotels, 14 airfares, 11 transfers, 6 visas, 3 insurance plans) and packages that the demo agencies built from them.
 
 | Role | Email | Password |
 |---|---|---|
@@ -119,7 +119,8 @@ The agent pays VaayuTrip `net + GST` when booking, and pays their own hotels and
 
 ```
 server.js               app setup, sessions, layout rendering
-src/db.js               SQLite schema and helpers
+src/db.js               Postgres schema and query helpers (Supabase live, PGlite locally)
+src/files.js            uploaded files kept in the database, with a disk cache
 src/pricing.js          markup, totals, GST/TCS, EMI and invoice snapshots
 src/products.js         inventory: types, destinations, form parsing, per-person / per-group / per-room-night pricing
 src/packages.js         agent-built packages: structure, builder parsing, pricing, display and quote snapshot
@@ -137,7 +138,8 @@ public/                 CSS, JS, logos, uploaded agency logos
 - **Photos:** upload photos you own or have licensed; items and packages without one show a generated destination cover. Agents' own hotels and services are their responsibility to fulfil.
 - **Inventory:** the demo hotels are made up, and flight numbers, schedules and net rates are illustrative. The backend team should replace them with contracted inventory before agents sell. Airfares are stored as fixed fares; connect a GDS or airline API (e.g. Amadeus, TBO) if you need live availability and ticketing.
 - **Payments:** payment links use a demo checkout. Connect Razorpay or Cashfree and mark links paid from their webhook. Wallet top-ups are verified manually by UTR.
-- **Hosting:** set `SESSION_SECRET`, run behind HTTPS, and back up `data/` and `public/uploads/`. For multiple servers, move from SQLite to Postgres (for example Supabase). `DATA_DIR` and `UPLOADS_DIR` override where the database and uploads are stored.
-- **Vercel (demo only):** on Vercel the app stores the database and uploads in `/tmp`, which is wiped whenever a server instance starts, and each instance has its own copy. The demo data is re-seeded on every fresh start, so bookings, wallet changes and uploads don't last. Set `SESSION_SECRET` in the project's environment variables so logins work across instances. For real use, host on a server with a persistent disk or move the data to Postgres.
+- **Database:** set `DATABASE_URL` to use a hosted Postgres. The live site uses the Supabase project `vaayu-agent` (schema `portal`, database role `vaayu_app`, through the Supavisor pooler on port 6543; the connection is verified against Supabase's root certificate in `src/supabase-ca.js`). Without `DATABASE_URL` the app uses PGlite in `data/pg` (`PG_DIR=memory://` keeps it in memory, handy for tests). The schema is created and extended on start-up; demo data is loaded once, into an empty database.
+- **Files:** KYC documents, logos and cover photos are stored in the database (`files` table), so they survive restarts; `DATA_DIR` and `UPLOADS_DIR` only hold a disk cache. Browsers shrink large photos before upload, because Vercel accepts about 4.5 MB per request. If documents outgrow the free database (500 MB), move them to Supabase Storage.
+- **Vercel:** runs in the Paris region (`vercel.json`), next to the database. Login cookies are signed with a key stored in the database, so they work on every server instance; `SESSION_SECRET` overrides it.
 - **Email/WhatsApp:** notifications are in-app only. Add an email or WhatsApp Business API provider to send them.
 - **Invoices:** invoices print to PDF from the browser. Have your CA confirm the GST treatment (rate, SAC code, place of supply) before issuing real tax invoices.

@@ -1,24 +1,15 @@
 const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
 const express = require('express');
 const cookieSession = require('cookie-session');
 
-const { one, getSettings, DATA_DIR, UPLOADS_DIR } = require('./src/db');
+const { one, getSettings, sessionSecret, UPLOADS_DIR } = require('./src/db');
+const { restoreFile } = require('./src/files');
 const { seed } = require('./src/seed');
 const { inr, fmtDate } = require('./src/util');
 const { icon } = require('./src/icons');
 const { AppError } = require('./src/services');
 
 if (seed()) console.log('First run: demo data created.');
-
-// Session secret persisted so logins survive restarts; override with SESSION_SECRET in production.
-function sessionSecret() {
-  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
-  const file = path.join(DATA_DIR, '.session-secret');
-  if (!fs.existsSync(file)) fs.writeFileSync(file, crypto.randomBytes(32).toString('hex'));
-  return fs.readFileSync(file, 'utf8');
-}
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -28,6 +19,13 @@ app.disable('x-powered-by');
 if (process.env.VERCEL) app.set('trust proxy', true);
 
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
+// Uploaded files live in the database; after a restart the disk cache is refilled on first request.
+app.use('/uploads', (req, res, next) => {
+  let abs;
+  try { abs = path.resolve(UPLOADS_DIR, `.${decodeURIComponent(req.path)}`); } catch { return next(); }
+  if (abs.startsWith(path.resolve(UPLOADS_DIR) + path.sep)) restoreFile(abs);
+  next();
+});
 app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '1h' }));
 // Package forms can have hundreds of fields (itinerary, hotels, rates…).
 app.use(express.urlencoded({ extended: true, limit: '2mb', parameterLimit: 10000 }));

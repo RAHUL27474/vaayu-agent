@@ -83,6 +83,51 @@ document.addEventListener('change', (e) => {
   }
 });
 
+// Photos and scans are resized in the browser before upload: phone photos are often 3-5 MB each, and the
+// live server accepts about 4 MB per form. Images become JPEGs of at most 2400 px on the long side.
+const MAX_UPLOAD = 4 * 1024 * 1024;
+async function shrinkImage(file) {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 300 * 1024) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; // transparent PNGs get a white background
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+    if (!blob || (blob.size >= file.size && scale === 1)) return file;
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.jpg`, { type: 'image/jpeg' });
+  } catch {
+    return file; // the server still checks size and type
+  }
+}
+document.addEventListener('submit', async (e) => {
+  const form = e.target;
+  if (form.dataset.resized || form.enctype !== 'multipart/form-data' || !window.DataTransfer) return;
+  const inputs = [...form.querySelectorAll('input[type=file]')].filter((i) => i.files && i.files.length);
+  if (!inputs.length) return;
+  e.preventDefault();
+  const button = e.submitter;
+  if (button) button.disabled = true;
+  for (const input of inputs) {
+    const dt = new DataTransfer();
+    for (const f of input.files) dt.items.add(await shrinkImage(f));
+    input.files = dt.files;
+  }
+  if (button) button.disabled = false;
+  const total = inputs.reduce((n, i) => n + [...i.files].reduce((m, f) => m + f.size, 0), 0);
+  if (total > MAX_UPLOAD) {
+    window.alert(`These files add up to ${(total / 1024 / 1024).toFixed(1)} MB; the limit is 4 MB per upload. Use smaller PDFs, or photos instead of scans.`);
+    return;
+  }
+  form.dataset.resized = '1';
+  if (form.requestSubmit) form.requestSubmit(button || undefined); else form.submit();
+});
+
 // Keep the current page's sidebar link visible when the menu is taller than the screen.
 const activeNav = document.querySelector('.sidebar .nav a.active');
 if (activeNav) activeNav.scrollIntoView({ block: 'nearest' });

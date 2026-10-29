@@ -6,6 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 const { DATA_DIR } = require('./db');
+const { persistFile, deleteFile } = require('./files');
 
 const KYC_DIR = path.join(DATA_DIR, 'kyc');
 fs.mkdirSync(KYC_DIR, { recursive: true });
@@ -54,6 +55,7 @@ function withKycDocs(req, res, next) {
   upload(req, res, (err) => {
     if (err) req.uploadError = err.code === 'LIMIT_FILE_SIZE' ? 'Each document must be under 5 MB.' : `Upload failed: ${err.message}`;
     req.kycFiles = Object.fromEntries(Object.entries(req.files || {}).map(([k, v]) => [k, v[0].filename]));
+    Object.values(req.kycFiles).forEach((name) => persistFile(path.join(KYC_DIR, name)));
     next();
   });
 }
@@ -133,7 +135,7 @@ function missingKyc(agency) {
   return out;
 }
 
-const removeDoc = (file) => { if (file) fs.rmSync(path.join(KYC_DIR, path.basename(file)), { force: true }); };
+const removeDoc = (file) => { if (file) deleteFile(path.join(KYC_DIR, path.basename(file))); };
 const removeUploaded = (req) => Object.values(req.kycFiles || {}).forEach(removeDoc);
 
 module.exports = {

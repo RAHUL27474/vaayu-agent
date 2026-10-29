@@ -1,29 +1,118 @@
-// SQLite via Node's built-in driver (no native modules to compile).
+/**
+ * Database: Postgres. In production DATABASE_URL points at the Supabase project (schema "portal", reached
+ * through the Supavisor pooler); locally and in tests an embedded Postgres (PGlite) lives under <data>/pg.
+ *
+ * Queries run on a worker thread and the calling thread waits for the answer, so the app keeps a simple
+ * synchronous API: one / all / run / tx. SQL uses ? placeholders, and SQLite-style datetime() / sqldate()
+ * helpers exist as SQL functions, so the queries read the same as before.
+ *
+ * The Supavisor pooler can hand consecutive statements to different server connections, so anything that
+ * must happen on one connection (locks, multi-step changes) belongs inside tx().
+ */
 const path = require('path');
 const fs = require('fs');
-const { DatabaseSync } = require('node:sqlite');
+const { Worker, isMainThread, workerData, MessageChannel, receiveMessageOnPort } = require('worker_threads');
 
-// Vercel's filesystem is read-only except /tmp, which is wiped on cold start (demo use only).
-const ON_VERCEL = Boolean(process.env.VERCEL);
-const DATA_DIR = process.env.DATA_DIR || (ON_VERCEL ? '/tmp/vaayutrip/data' : path.join(__dirname, '..', 'data'));
-const UPLOADS_DIR = process.env.UPLOADS_DIR || (ON_VERCEL ? '/tmp/vaayutrip/uploads' : path.join(__dirname, '..', 'public', 'uploads'));
-fs.mkdirSync(DATA_DIR, { recursive: true });
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-const DB_FILE = process.env.DB_FILE || path.join(DATA_DIR, 'vaayutrip.db');
+if (!isMainThread && workerData && workerData.vaayuDb) {
+  runWorker(workerData);
+} else {
+  // Vercel's filesystem is read-only except /tmp, which is wiped on cold start: files there are only a
+  // cache, the database (including uploaded files, see src/files.js) is the source of truth.
+  const ON_VERCEL = Boolean(process.env.VERCEL);
+  const DATA_DIR = process.env.DATA_DIR || (ON_VERCEL ? '/tmp/vaayutrip/data' : path.join(__dirname, '..', 'data'));
+  const UPLOADS_DIR = process.env.UPLOADS_DIR || (ON_VERCEL ? '/tmp/vaayutrip/uploads' : path.join(__dirname, '..', 'public', 'uploads'));
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  const DATABASE_URL = process.env.DATABASE_URL || '';
+  // PG_DIR=memory:// keeps the local database in memory (fast, for tests).
+  const PG_DIR = process.env.PG_DIR || path.join(DATA_DIR, 'pg');
+  // The embedded database needs a while to create a new data folder on first start.
+  const TIMEOUT_MS = DATABASE_URL ? 60000 : 180000;
+  if (process.env.VERCEL_ENV && !DATABASE_URL) throw new Error('DATABASE_URL is not set: the live site needs the Supabase database.');
 
-const db = new DatabaseSync(DB_FILE);
-db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
-const hasTable = (name) => Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name));
-if (hasTable('activities') && !hasTable('products')) db.exec('ALTER TABLE activities RENAME TO products');
+  const signal = new Int32Array(new SharedArrayBuffer(4));
+  const { port1, port2 } = new MessageChannel();
+  const worker = new Worker(__filename, { workerData: { vaayuDb: true, url: DATABASE_URL, pgDir: PG_DIR, signal, port: port2 }, transferList: [port2] });
+  worker.unref();
+  worker.on('error', (e) => console.error('Database worker failed:', e));
 
-db.exec(`
+  function call(msg) {
+    Atomics.store(signal, 0, 0);
+    port1.postMessage(msg);
+    if (Atomics.wait(signal, 0, 0, TIMEOUT_MS) === 'timed-out') throw new Error(`The database did not answer within ${TIMEOUT_MS / 1000} seconds.`);
+    const reply = receiveMessageOnPort(port1);
+    if (!reply) throw new Error('The database reply went missing.');
+    if (reply.message.error) throw Object.assign(new Error(reply.message.error.message), reply.message.error);
+    return reply.message.result;
+  }
+
+  // Tables without an id column: their INSERTs don't ask for one back.
+  const NO_ID = new Set(['settings', 'files']);
+  const query = (sql, params) => call({ op: 'query', sql, params });
+
+  const one = (sql, ...params) => query(sql, params).rows[0];
+  const all = (sql, ...params) => query(sql, params).rows;
+  /** Runs a statement; for an INSERT, lastInsertRowid is the new row's id. */
+  function run(sql, ...params) {
+    const table = (sql.match(/^\s*INSERT\s+INTO\s+(\w+)/i) || [])[1];
+    const wantsId = table && !NO_ID.has(table.toLowerCase()) && !/\bRETURNING\b/i.test(sql);
+    const r = query(wantsId ? `${sql} RETURNING id` : sql, params);
+    return { changes: r.rowCount, lastInsertRowid: wantsId && r.rows[0] ? r.rows[0].id : undefined };
+  }
+  const exec = (sql) => call({ op: 'exec', sql });
+
+  // Nested tx() calls join the outer transaction.
+  let depth = 0;
+  function tx(fn) {
+    if (depth > 0) return fn();
+    query('BEGIN', []);
+    depth++;
+    try {
+      const result = fn();
+      depth--;
+      query('COMMIT', []);
+      return result;
+    } catch (e) {
+      depth--;
+      try { query('ROLLBACK', []); } catch { /* connection already gone */ }
+      throw e;
+    }
+  }
+
+  exec(`BEGIN;
+SELECT pg_advisory_xact_lock(731001);
+-- SQLite-style date helpers used throughout the queries: datetime('now', '-1 day'), sqldate(created_at) …
+-- (sqldate, not date: Postgres has its own date() and could pick that one.)
+-- Text in, text out (YYYY-MM-DD HH24:MI:SS / YYYY-MM-DD, UTC), like SQLite; invalid input gives NULL.
+CREATE OR REPLACE FUNCTION sqlite_time(t text, mods text[]) RETURNS timestamp LANGUAGE plpgsql STABLE AS $f$
+DECLARE ts timestamp; m text;
+BEGIN
+  IF t IS NULL THEN RETURN NULL; END IF;
+  IF lower(btrim(t)) = 'now' THEN ts := now() AT TIME ZONE 'utc';
+  ELSE BEGIN ts := t::timestamp; EXCEPTION WHEN others THEN RETURN NULL; END;
+  END IF;
+  FOREACH m IN ARRAY mods LOOP
+    m := lower(btrim(m));
+    IF m = 'start of month' THEN ts := date_trunc('month', ts);
+    ELSIF m = 'start of day' THEN ts := date_trunc('day', ts);
+    ELSIF m = 'start of year' THEN ts := date_trunc('year', ts);
+    ELSE ts := ts + m::interval;
+    END IF;
+  END LOOP;
+  RETURN ts;
+END $f$;
+CREATE OR REPLACE FUNCTION datetime(t text) RETURNS text LANGUAGE sql STABLE AS $f$ SELECT to_char(sqlite_time(t, '{}'::text[]), 'YYYY-MM-DD HH24:MI:SS') $f$;
+CREATE OR REPLACE FUNCTION datetime(t text, VARIADIC mods text[]) RETURNS text LANGUAGE sql STABLE AS $f$ SELECT to_char(sqlite_time(t, mods), 'YYYY-MM-DD HH24:MI:SS') $f$;
+CREATE OR REPLACE FUNCTION sqldate(t text) RETURNS text LANGUAGE sql STABLE AS $f$ SELECT to_char(sqlite_time(t, '{}'::text[]), 'YYYY-MM-DD') $f$;
+CREATE OR REPLACE FUNCTION sqldate(t text, VARIADIC mods text[]) RETURNS text LANGUAGE sql STABLE AS $f$ SELECT to_char(sqlite_time(t, mods), 'YYYY-MM-DD') $f$;
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
 );
 
 CREATE TABLE IF NOT EXISTS agencies (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
   legal_name TEXT,
@@ -37,11 +126,11 @@ CREATE TABLE IF NOT EXISTS agencies (
   brand_color TEXT DEFAULT '#0e7490',
   status TEXT NOT NULL DEFAULT 'pending',          -- pending | active | suspended
   kyc_status TEXT NOT NULL DEFAULT 'pending',      -- pending | verified | rejected
-  wallet_balance REAL NOT NULL DEFAULT 0,
-  credit_limit REAL NOT NULL DEFAULT 0,
-  credit_used REAL NOT NULL DEFAULT 0,
+  wallet_balance DOUBLE PRECISION NOT NULL DEFAULT 0,
+  credit_limit DOUBLE PRECISION NOT NULL DEFAULT 0,
+  credit_used DOUBLE PRECISION NOT NULL DEFAULT 0,
   markup_type TEXT NOT NULL DEFAULT 'percent',     -- percent | flat
-  markup_value REAL NOT NULL DEFAULT 10,
+  markup_value DOUBLE PRECISION NOT NULL DEFAULT 10,
   website_enabled INTEGER NOT NULL DEFAULT 1,
   website_tagline TEXT,
   website_about TEXT,
@@ -50,7 +139,7 @@ CREATE TABLE IF NOT EXISTS agencies (
 );
 
 CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   role TEXT NOT NULL,                              -- admin | backend | agent
   agency_id INTEGER REFERENCES agencies(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -61,7 +150,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS packages (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   title TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
   destination TEXT NOT NULL,
@@ -78,17 +167,17 @@ CREATE TABLE IF NOT EXISTS packages (
 );
 
 CREATE TABLE IF NOT EXISTS package_items (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   package_id INTEGER NOT NULL REFERENCES packages(id) ON DELETE CASCADE,
   type TEXT NOT NULL,                              -- hotel | flight | transfer | activity | insurance | visa | meal | other
   title TEXT NOT NULL,
   description TEXT,
-  net_price REAL NOT NULL,                         -- what the agent pays VaayuTrip, per booking
+  net_price DOUBLE PRECISION NOT NULL,                         -- what the agent pays VaayuTrip, per booking
   sort INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS customers (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   email TEXT,
@@ -99,7 +188,7 @@ CREATE TABLE IF NOT EXISTS customers (
 );
 
 CREATE TABLE IF NOT EXISTS leads (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
   customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
   package_id INTEGER REFERENCES packages(id) ON DELETE SET NULL,
@@ -109,7 +198,7 @@ CREATE TABLE IF NOT EXISTS leads (
   destination TEXT,
   travel_date TEXT,
   pax INTEGER,
-  budget REAL,
+  budget DOUBLE PRECISION,
   source TEXT NOT NULL DEFAULT 'manual',           -- manual | website | api
   status TEXT NOT NULL DEFAULT 'new',              -- new | contacted | quoted | won | lost
   notes TEXT,
@@ -117,7 +206,7 @@ CREATE TABLE IF NOT EXISTS leads (
 );
 
 CREATE TABLE IF NOT EXISTS quotes (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
   customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
   lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL,
@@ -129,7 +218,7 @@ CREATE TABLE IF NOT EXISTS quotes (
   children INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'draft',            -- draft | sent | accepted | booked | cancelled
   markup_type TEXT NOT NULL DEFAULT 'percent',
-  markup_value REAL NOT NULL DEFAULT 10,
+  markup_value DOUBLE PRECISION NOT NULL DEFAULT 10,
   invoice_mode TEXT NOT NULL DEFAULT 'vaayu',      -- agent (agent-branded) | vaayu (VaayuTrip-branded)
   show_service_fee INTEGER NOT NULL DEFAULT 0,     -- vaayu mode: show agent commission as its own line
   notes TEXT,
@@ -139,20 +228,20 @@ CREATE TABLE IF NOT EXISTS quotes (
 );
 
 CREATE TABLE IF NOT EXISTS quote_items (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   quote_id INTEGER NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
   type TEXT NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
   supplier TEXT NOT NULL DEFAULT 'vaayu',          -- vaayu (bought from VaayuTrip) | agent (agent's own service)
-  net_price REAL NOT NULL DEFAULT 0,               -- unit cost from VaayuTrip (0 for agent's own items)
-  sell_price REAL,                                 -- unit price override; NULL = net + quote markup
+  net_price DOUBLE PRECISION NOT NULL DEFAULT 0,               -- unit cost from VaayuTrip (0 for agent's own items)
+  sell_price DOUBLE PRECISION,                                 -- unit price override; NULL = net + quote markup
   qty INTEGER NOT NULL DEFAULT 1,
   sort INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS bookings (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
   quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL,
   customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
@@ -160,54 +249,54 @@ CREATE TABLE IF NOT EXISTS bookings (
   title TEXT NOT NULL,
   travel_date TEXT,
   status TEXT NOT NULL DEFAULT 'confirmed',        -- confirmed | cancel_requested | cancelled
-  total_net REAL NOT NULL,                         -- VaayuTrip net, before tax
-  total_sell REAL NOT NULL,                        -- agent's selling price, before tax
-  paid_wallet REAL NOT NULL DEFAULT 0,
-  paid_credit REAL NOT NULL DEFAULT 0,
+  total_net DOUBLE PRECISION NOT NULL,                         -- VaayuTrip net, before tax
+  total_sell DOUBLE PRECISION NOT NULL,                        -- agent's selling price, before tax
+  paid_wallet DOUBLE PRECISION NOT NULL DEFAULT 0,
+  paid_credit DOUBLE PRECISION NOT NULL DEFAULT 0,
   cancel_reason TEXT,
-  refund_amount REAL,
+  refund_amount DOUBLE PRECISION,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS invoices (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
   quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL,
   booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
   number TEXT UNIQUE NOT NULL,
   kind TEXT NOT NULL,                              -- customer_agent | customer_vaayu | b2b (VaayuTrip -> agent)
   data TEXT NOT NULL,                              -- JSON snapshot: seller, buyer, lines, totals
-  total REAL NOT NULL,
+  total DOUBLE PRECISION NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS wallet_txns (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
   type TEXT NOT NULL,                              -- topup | booking | refund | adjustment | credit_repay
-  amount REAL NOT NULL,                            -- + credit to wallet, - debit
-  balance_after REAL NOT NULL,
+  amount DOUBLE PRECISION NOT NULL,                            -- + credit to wallet, - debit
+  balance_after DOUBLE PRECISION NOT NULL,
   ref TEXT,
   note TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS topup_requests (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
-  amount REAL NOT NULL,
+  amount DOUBLE PRECISION NOT NULL,
   utr TEXT,
   status TEXT NOT NULL DEFAULT 'pending',          -- pending | approved | rejected
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS payment_links (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
   quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL,
   code TEXT UNIQUE NOT NULL,
   purpose TEXT NOT NULL,
-  amount REAL NOT NULL,
+  amount DOUBLE PRECISION NOT NULL,
   customer_name TEXT,
   status TEXT NOT NULL DEFAULT 'pending',          -- pending | paid | expired
   paid_at TEXT,
@@ -215,7 +304,7 @@ CREATE TABLE IF NOT EXISTS payment_links (
 );
 
 CREATE TABLE IF NOT EXISTS notifications (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   agency_id INTEGER REFERENCES agencies(id) ON DELETE CASCADE,  -- NULL = for VaayuTrip admins
   title TEXT NOT NULL,
   body TEXT,
@@ -226,7 +315,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 -- Deals VaayuTrip promotes to all agents (shown on the dashboard and the Offers page).
 CREATE TABLE IF NOT EXISTS offers (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   title TEXT NOT NULL,
   body TEXT,
   code TEXT,                                       -- optional promo code agents quote to customers
@@ -237,7 +326,7 @@ CREATE TABLE IF NOT EXISTS offers (
 );
 
 CREATE TABLE IF NOT EXISTS tickets (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   agency_id INTEGER NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
   code TEXT UNIQUE NOT NULL,
   subject TEXT NOT NULL,
@@ -249,7 +338,7 @@ CREATE TABLE IF NOT EXISTS tickets (
 );
 
 CREATE TABLE IF NOT EXISTS ticket_messages (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   ticket_id INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   from_admin INTEGER NOT NULL DEFAULT 0,
@@ -260,7 +349,7 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
 -- Inventory VaayuTrip supplies (activities, hotels, airfares, transfers, visas, insurance), entered by the
 -- backend team. VaayuTrip sells no packages: agents build their own from these. See src/products.js.
 CREATE TABLE IF NOT EXISTS products (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   kind TEXT NOT NULL DEFAULT 'activity',           -- activity | hotel | flight | transfer | visa | insurance
   title TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
@@ -279,9 +368,9 @@ CREATE TABLE IF NOT EXISTS products (
   image_url TEXT,
   price_basis TEXT NOT NULL DEFAULT 'per_person',  -- per_person | per_group | per_room_night
   group_size INTEGER,                              -- per_group: guests per group/vehicle
-  net_adult REAL NOT NULL DEFAULT 0,               -- net per adult, per group, or per room per night
-  net_child REAL,                                  -- per_person: net per child (2-11); NULL = adult price
-  net_infant REAL,                                 -- per_person: net per infant (under 2); NULL = free
+  net_adult DOUBLE PRECISION NOT NULL DEFAULT 0,               -- net per adult, per group, or per room per night
+  net_child DOUBLE PRECISION,                                  -- per_person: net per child (2-11); NULL = adult price
+  net_infant DOUBLE PRECISION,                                 -- per_person: net per infant (under 2); NULL = free
   details TEXT,                                    -- JSON, kind-specific (hotel room, flight schedule…)
   status TEXT NOT NULL DEFAULT 'draft',            -- draft | published
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -292,7 +381,7 @@ CREATE TABLE IF NOT EXISTS products (
 
 -- Who did what: backend team, agents and admins. Shown to admins under Activity log.
 CREATE TABLE IF NOT EXISTS audit_log (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   role TEXT,
   agency_id INTEGER REFERENCES agencies(id) ON DELETE SET NULL,
@@ -304,69 +393,176 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS audit_log_created ON audit_log (created_at);
-`);
 
-const one = (sql, ...params) => db.prepare(sql).get(...params);
-const all = (sql, ...params) => db.prepare(sql).all(...params);
-const run = (sql, ...params) => db.prepare(sql).run(...params);
+-- Uploaded files (KYC documents, logos, cover photos), so they survive server restarts. Path is
+-- "data/kyc/<name>" or "uploads/<name>"; the server keeps a disk copy as a cache. See src/files.js.
+CREATE TABLE IF NOT EXISTS files (
+  path TEXT PRIMARY KEY,
+  data BYTEA NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 
-// Additive migrations: new columns are added to existing databases on start-up.
-function addColumn(table, column, definition) {
-  if (!all(`PRAGMA table_info(${table})`).some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-}
-addColumn('packages', 'package_type', "TEXT NOT NULL DEFAULT 'customizable'");  // customizable | fixed
-addColumn('packages', 'is_international', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('packages', 'departure_city', 'TEXT');
-addColumn('packages', 'details', 'TEXT');                                         // JSON, see src/packages.js
-addColumn('agencies', 'country', "TEXT NOT NULL DEFAULT 'India'");
-addColumn('agencies', 'tax_id', 'TEXT');                                           // foreign agencies' tax registration number
-addColumn('agencies', 'tax_doc', 'TEXT');                                          // file name under <data>/kyc, see src/kyc.js
-addColumn('agencies', 'pan_doc', 'TEXT');                                          // PAN card (Indian agencies), same folder
-addColumn('agencies', 'photo', 'TEXT');
-addColumn('agencies', 'kyc_note', 'TEXT');                                         // why VaayuTrip sent the KYC back (shown to the agency)                                            // photo of the person who applied, same folder
-addColumn('quotes', 'package_snapshot', 'TEXT');                                 // JSON frozen at quote time
-addColumn('quotes', 'is_international', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('quotes', 'infants', 'INTEGER NOT NULL DEFAULT 0');
-addColumn('packages', 'agency_id', 'INTEGER REFERENCES agencies(id) ON DELETE CASCADE');  // the agency that built it
-if (all('PRAGMA table_info(quote_items)').some((c) => c.name === 'activity_id')) db.exec('ALTER TABLE quote_items RENAME COLUMN activity_id TO product_id');
-addColumn('quote_items', 'product_id', 'INTEGER REFERENCES products(id) ON DELETE SET NULL');
-for (const [col, def] of [['kind', "TEXT NOT NULL DEFAULT 'activity'"], ['net_infant', 'REAL'], ['details', 'TEXT'],
-  ['created_by', 'INTEGER REFERENCES users(id) ON DELETE SET NULL'], ['updated_by', 'INTEGER REFERENCES users(id) ON DELETE SET NULL']]) addColumn('products', col, def);
-addColumn('users', 'is_active', 'INTEGER NOT NULL DEFAULT 1');                     // staff accounts can be switched off
-addColumn('quote_items', 'cost', 'REAL NOT NULL DEFAULT 0');                      // agent's own services: what they cost the agent, per unit
-addColumn('bookings', 'total_cost', 'REAL NOT NULL DEFAULT 0');                    // agent's own costs for their services on the booking
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS package_type TEXT NOT NULL DEFAULT 'customizable';
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS is_international INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS departure_city TEXT;
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS details TEXT;
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS country TEXT NOT NULL DEFAULT 'India';
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS tax_id TEXT;
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS tax_doc TEXT;
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS pan_doc TEXT;
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS photo TEXT;
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS kyc_note TEXT;
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS package_snapshot TEXT;
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS is_international INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS infants INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS agency_id INTEGER REFERENCES agencies(id) ON DELETE CASCADE;
+ALTER TABLE quote_items ADD COLUMN IF NOT EXISTS product_id INTEGER REFERENCES products(id) ON DELETE SET NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE quote_items ADD COLUMN IF NOT EXISTS cost DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_cost DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'activity';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS net_infant DOUBLE PRECISION;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS details TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
 
-function tx(fn) {
-  db.exec('BEGIN');
-  try {
-    const result = fn();
-    db.exec('COMMIT');
-    return result;
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
+-- Postgres doesn't index foreign keys by itself; these cover the per-agency and per-parent lookups.
+CREATE INDEX IF NOT EXISTS users_agency_id ON users (agency_id);
+CREATE INDEX IF NOT EXISTS packages_agency_id ON packages (agency_id);
+CREATE INDEX IF NOT EXISTS package_items_package_id ON package_items (package_id);
+CREATE INDEX IF NOT EXISTS customers_agency_id ON customers (agency_id);
+CREATE INDEX IF NOT EXISTS leads_agency_id ON leads (agency_id);
+CREATE INDEX IF NOT EXISTS quotes_agency_id ON quotes (agency_id);
+CREATE INDEX IF NOT EXISTS quote_items_quote_id ON quote_items (quote_id);
+CREATE INDEX IF NOT EXISTS quote_items_product_id ON quote_items (product_id);
+CREATE INDEX IF NOT EXISTS bookings_agency_id ON bookings (agency_id);
+CREATE INDEX IF NOT EXISTS bookings_quote_id ON bookings (quote_id);
+CREATE INDEX IF NOT EXISTS invoices_agency_id ON invoices (agency_id);
+CREATE INDEX IF NOT EXISTS wallet_txns_agency_id ON wallet_txns (agency_id);
+CREATE INDEX IF NOT EXISTS topup_requests_agency_id ON topup_requests (agency_id);
+CREATE INDEX IF NOT EXISTS payment_links_agency_id ON payment_links (agency_id);
+CREATE INDEX IF NOT EXISTS notifications_agency_id ON notifications (agency_id);
+CREATE INDEX IF NOT EXISTS tickets_agency_id ON tickets (agency_id);
+CREATE INDEX IF NOT EXISTS ticket_messages_ticket_id ON ticket_messages (ticket_id);
+CREATE INDEX IF NOT EXISTS audit_log_user_id ON audit_log (user_id);
+CREATE INDEX IF NOT EXISTS products_kind_status ON products (kind, status);
+COMMIT;`);
+
+  function getSettings() {
+    return Object.fromEntries(all("SELECT key, value FROM settings WHERE key <> 'session_secret'").map((r) => [r.key, r.value]));
   }
+
+  function setSetting(key, value) {
+    run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, value);
+  }
+
+  /** Signing key for login cookies, shared by every server instance (SESSION_SECRET overrides it). */
+  function sessionSecret() {
+    if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+    run("INSERT INTO settings (key, value) VALUES ('session_secret', ?) ON CONFLICT (key) DO NOTHING", require('crypto').randomBytes(32).toString('hex'));
+    return one("SELECT value FROM settings WHERE key = 'session_secret'").value;
+  }
+
+  /** Records an action for the admin's activity log. user: the acting user (or null for the system). */
+  function audit(user, action, { entity = null, id = null, summary = null, link = null, agencyId } = {}) {
+    run(
+      'INSERT INTO audit_log (user_id, role, agency_id, action, entity, entity_id, summary, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      user ? user.id : null, user ? user.role : 'system', agencyId !== undefined ? agencyId : user ? user.agency_id || null : null,
+      action, entity, id, summary, link,
+    );
+  }
+
+  function notify(agencyId, title, body, link) {
+    run('INSERT INTO notifications (agency_id, title, body, link) VALUES (?, ?, ?, ?)', agencyId ?? null, title, body || null, link || null);
+  }
+
+  // A prepare()-style view for scripts and tests that inspect the database directly.
+  const db = {
+    prepare: (sql) => ({ get: (...p) => one(sql, ...p), all: (...p) => all(sql, ...p), run: (...p) => run(sql, ...p) }),
+    exec,
+  };
+
+  module.exports = {
+    db, one, all, run, exec, tx, getSettings, setSetting, sessionSecret, notify, audit,
+    DATA_DIR, UPLOADS_DIR, PG_DIR, USING_SUPABASE: Boolean(DATABASE_URL),
+  };
 }
 
-function getSettings() {
-  return Object.fromEntries(all('SELECT key, value FROM settings').map((r) => [r.key, r.value]));
-}
+// ---------- worker thread: owns the connection ----------
 
-function setSetting(key, value) {
-  run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, value);
-}
+function runWorker({ url, pgDir, signal, port }) {
+  // ? → $1, $2 … outside string literals.
+  const toPg = (sql) => {
+    let out = '';
+    let n = 0;
+    let quoted = false;
+    for (const ch of sql) {
+      if (ch === "'") quoted = !quoted;
+      out += !quoted && ch === '?' ? `$${++n}` : ch;
+    }
+    return out;
+  };
+  // Buffers arrive as plain Uint8Arrays after crossing threads; the pg driver needs Buffers for bytea.
+  const toParam = (v) => (v instanceof Uint8Array && !Buffer.isBuffer(v) ? Buffer.from(v.buffer, v.byteOffset, v.byteLength) : v);
 
-/** Records an action for the admin's activity log. user: the acting user (or null for the system). */
-function audit(user, action, { entity = null, id = null, summary = null, link = null, agencyId } = {}) {
-  run(
-    'INSERT INTO audit_log (user_id, role, agency_id, action, entity, entity_id, summary, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    user ? user.id : null, user ? user.role : 'system', agencyId !== undefined ? agencyId : user ? user.agency_id || null : null,
-    action, entity, id, summary, link,
-  );
-}
+  let inTx = false;
+  let driver;
+  async function connect() {
+    if (url) {
+      const pg = require('pg');
+      pg.types.setTypeParser(20, Number);   // COUNT(*), SUM(int): bigint → number
+      pg.types.setTypeParser(1700, Number); // numeric → number
+      const client = new pg.Client({ connectionString: url, ssl: { ca: require('./supabase-ca') }, connectionTimeoutMillis: 15000 });
+      client.on('error', () => { driver = null; });
+      await client.connect();
+      return {
+        query: async (sql, params) => { const r = await client.query(sql, params); return { rows: r.rows, rowCount: r.rowCount }; },
+        exec: async (sql) => { await client.query(sql); },
+        close: () => client.end().catch(() => {}),
+      };
+    }
+    if (!pgDir.startsWith('memory://')) fs.mkdirSync(pgDir, { recursive: true });
+    const { PGlite } = await import('@electric-sql/pglite');
+    const lite = new PGlite(pgDir, { parsers: { 20: Number, 1700: Number } });
+    await lite.waitReady;
+    return {
+      query: async (sql, params) => { const r = await lite.query(sql, params); return { rows: r.rows, rowCount: r.affectedRows ?? r.rows.length }; },
+      exec: async (sql) => { await lite.exec(sql); },
+      close: () => lite.close().catch(() => {}),
+    };
+  }
 
-function notify(agencyId, title, body, link) {
-  run('INSERT INTO notifications (agency_id, title, body, link) VALUES (?, ?, ?, ?)', agencyId ?? null, title, body || null, link || null);
-}
+  const lost = (e) => /terminated|ECONNRESET|EPIPE|ETIMEDOUT|not queryable|Connection ended/i.test(String(e && e.message));
+  async function handle(msg) {
+    if (!driver) driver = await connect();
+    const attempt = () => (msg.op === 'exec' ? driver.exec(msg.sql) : driver.query(toPg(msg.sql), (msg.params || []).map(toParam)));
+    let result;
+    try {
+      result = await attempt();
+    } catch (e) {
+      // A dropped connection outside a transaction is retried once on a fresh one.
+      if (!lost(e) || inTx) throw e;
+      driver = await connect();
+      result = await attempt();
+    }
+    if (msg.op === 'query') {
+      const verb = msg.sql.trim().toUpperCase();
+      if (verb === 'BEGIN') inTx = true;
+      else if (verb === 'COMMIT' || verb === 'ROLLBACK') inTx = false;
+    }
+    return result;
+  }
 
-module.exports = { db, one, all, run, tx, getSettings, setSetting, notify, audit, DB_FILE, DATA_DIR, UPLOADS_DIR };
+  port.on('message', async (msg) => {
+    let reply;
+    try {
+      reply = { result: (await handle(msg)) ?? null };
+    } catch (e) {
+      reply = { error: { message: e.message, code: e.code, detail: e.detail } };
+      if (msg.op === 'query' && /^\s*(COMMIT|ROLLBACK)\s*$/i.test(msg.sql)) inTx = false;
+    }
+    port.postMessage(reply);
+    Atomics.store(signal, 0, 1);
+    Atomics.notify(signal, 0);
+  });
+}

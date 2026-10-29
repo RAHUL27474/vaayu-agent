@@ -158,7 +158,7 @@ function approveCancellation(bookingId, refund) {
     refund = Math.min(round2(refund), round2(b.paid_wallet + b.paid_credit));
     const toCredit = Math.min(refund, b.paid_credit);
     const toWallet = round2(refund - toCredit);
-    if (toCredit) run('UPDATE agencies SET credit_used = MAX(credit_used - ?, 0) WHERE id = ?', toCredit, b.agency_id);
+    if (toCredit) run('UPDATE agencies SET credit_used = GREATEST(credit_used - ?, 0) WHERE id = ?', toCredit, b.agency_id);
     if (toWallet) moveWallet(b.agency_id, 'refund', toWallet, b.code, `Refund for ${b.title}`);
     run("UPDATE bookings SET status = 'cancelled', refund_amount = ? WHERE id = ?", refund, bookingId);
     if (b.quote_id) {

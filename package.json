@@ -13,9 +13,11 @@
     "node": "24.x"
   },
   "dependencies": {
+    "@electric-sql/pglite": "0.2.17",
     "cookie-session": "^2.1.1",
     "ejs": "^7.0.2",
     "express": "^4.22.3",
-    "multer": "^2.5.0"
+    "multer": "^2.5.0",
+    "pg": "8.13.1"
   }
 }

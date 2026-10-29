@@ -14,6 +14,7 @@ const {
   KINDS, KIND_BY_PATH, DESTINATIONS, ALL_DESTINATIONS, MEAL_PLANS: PRODUCT_MEAL_PLANS, productLines, productMap, cardPrice, describe, parseProductDetails, publishedProduct,
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
+const { persistFile } = require('../files');
 const { COUNTRIES, isIndia, kycLabel, requiredFiles, withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded } = require('../kyc');
 
 const router = express.Router();
@@ -94,14 +95,14 @@ router.get('/', h((req, res) => {
   const quotes = all('SELECT * FROM quotes WHERE agency_id = ? ORDER BY updated_at DESC LIMIT 5', a);
   const bookings = all('SELECT * FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 5', a);
   const leads = all("SELECT * FROM leads WHERE agency_id = ? AND status = 'new' ORDER BY id DESC LIMIT 5", a);
-  const upcoming = all("SELECT * FROM bookings WHERE agency_id = ? AND status = 'confirmed' AND travel_date >= date('now') ORDER BY travel_date LIMIT 5", a);
+  const upcoming = all("SELECT * FROM bookings WHERE agency_id = ? AND status = 'confirmed' AND travel_date >= sqldate('now') ORDER BY travel_date LIMIT 5", a);
   const featured = all("SELECT * FROM products WHERE status = 'published' ORDER BY created_at DESC, id DESC LIMIT 5").map((x) => ({ ...x, price: cardPrice(req.agency, x), path: KINDS[x.kind].path }));
   const hasPackage = Boolean(one('SELECT 1 FROM packages WHERE agency_id = ?', a));
   const branded = agencyHasBranding(req.agency);
   // Last 6 calendar months, oldest first, including months without bookings.
   const earned = Object.fromEntries(all(
     `SELECT substr(created_at, 1, 7) AS month, SUM(total_sell - total_net - total_cost) AS earnings, COUNT(*) AS n FROM bookings
-     WHERE agency_id = ? AND status != 'cancelled' AND created_at >= date('now', 'start of month', '-5 months') GROUP BY month`, a,
+     WHERE agency_id = ? AND status != 'cancelled' AND created_at >= sqldate('now', 'start of month', '-5 months') GROUP BY month`, a,
   ).map((m) => [m.month, m]));
   const chart = [...Array(6)].map((_, i) => {
     const d = new Date();
@@ -161,7 +162,7 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
       category: cfg.categories.includes(req.query.category) ? req.query.category : '',
     };
     const where = [["status = 'published'"], ['kind = ?', kind]];
-    if (f.q) where.push(['(title LIKE ? OR city LIKE ? OR summary LIKE ?)', ...Array(3).fill(`%${f.q}%`)]);
+    if (f.q) where.push(['(title ILIKE ? OR city ILIKE ? OR summary ILIKE ?)', ...Array(3).fill(`%${f.q}%`)]);
     if (f.dest) where.push([`country IN (${DESTINATIONS[f.dest].map(() => '?').join(', ')}, ?)`, ...DESTINATIONS[f.dest], ALL_DESTINATIONS]);
     if (f.city) where.push(['city = ?', f.city]);
     if (f.category) where.push(['category = ?', f.category]);
@@ -578,7 +579,7 @@ router.get('/customers', h((req, res) => {
   const customers = all(
     `SELECT c.*, (SELECT COUNT(*) FROM bookings b WHERE b.customer_id = c.id) AS trips,
        (SELECT COALESCE(SUM(total_sell), 0) FROM bookings b WHERE b.customer_id = c.id AND b.status != 'cancelled') AS spend
-     FROM customers c WHERE c.agency_id = ? ${q ? 'AND (c.name LIKE ? OR c.phone LIKE ? OR c.email LIKE ?)' : ''} ORDER BY c.name`,
+     FROM customers c WHERE c.agency_id = ? ${q ? 'AND (c.name ILIKE ? OR c.phone ILIKE ? OR c.email ILIKE ?)' : ''} ORDER BY c.name`,
     req.agency.id, ...(q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []),
   );
   res.page('agent/customers', { title: 'Customers', customers, q });
@@ -758,7 +759,7 @@ router.get('/notifications', h((req, res) => {
 // ---------- offers ----------
 
 const liveOffers = (limit = 50) => all(
-  "SELECT * FROM offers WHERE is_active = 1 AND (valid_until IS NULL OR valid_until >= date('now')) ORDER BY COALESCE(valid_until, '9999') , id DESC LIMIT ?", limit,
+  "SELECT * FROM offers WHERE is_active = 1 AND (valid_until IS NULL OR valid_until >= sqldate('now')) ORDER BY COALESCE(valid_until, '9999') , id DESC LIMIT ?", limit,
 );
 
 router.get('/offers', h((req, res) => {
@@ -846,7 +847,7 @@ router.get('/reports', h((req, res) => {
   const a = req.agency.id;
   const { from, to } = reportPeriod(req.query);
   const range = [a, from, to];
-  const inRange = "agency_id = ? AND date(created_at) BETWEEN ? AND ?";
+  const inRange = "agency_id = ? AND sqldate(created_at) BETWEEN ? AND ?";
   const totals = one(
     `SELECT COUNT(*) FILTER (WHERE status != 'cancelled') AS bookings,
        COALESCE(SUM(total_sell) FILTER (WHERE status != 'cancelled'), 0) AS sales,
@@ -863,13 +864,13 @@ router.get('/reports', h((req, res) => {
   const destinations = all(
     `SELECT COALESCE(p.destination, 'Custom trips') AS destination, COUNT(*) AS bookings, SUM(b.total_sell) AS sales, SUM(b.total_sell - b.total_net - b.total_cost) AS earnings
      FROM bookings b LEFT JOIN quotes q ON q.id = b.quote_id LEFT JOIN packages p ON p.id = q.package_id
-     WHERE b.agency_id = ? AND date(b.created_at) BETWEEN ? AND ? AND b.status != 'cancelled'
+     WHERE b.agency_id = ? AND sqldate(b.created_at) BETWEEN ? AND ? AND b.status != 'cancelled'
      GROUP BY 1 ORDER BY sales DESC LIMIT 8`, ...range,
   );
   const customers = all(
     `SELECT c.id, c.name, COUNT(*) AS bookings, SUM(b.total_sell) AS sales
      FROM bookings b JOIN customers c ON c.id = b.customer_id
-     WHERE b.agency_id = ? AND date(b.created_at) BETWEEN ? AND ? AND b.status != 'cancelled'
+     WHERE b.agency_id = ? AND sqldate(b.created_at) BETWEEN ? AND ? AND b.status != 'cancelled'
      GROUP BY c.id ORDER BY sales DESC LIMIT 5`, ...range,
   );
   res.page('agent/reports', { title: 'Reports', from, to, totals, months, destinations, customers });
@@ -880,7 +881,7 @@ router.get('/reports/bookings.csv', h((req, res) => {
   const rows = all(
     `SELECT b.code, b.created_at, b.title, c.name AS customer, b.travel_date, b.status, b.total_net, b.total_sell, b.total_cost, b.paid_wallet, b.paid_credit, b.refund_amount
      FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id
-     WHERE b.agency_id = ? AND date(b.created_at) BETWEEN ? AND ? ORDER BY b.id`, req.agency.id, from, to,
+     WHERE b.agency_id = ? AND sqldate(b.created_at) BETWEEN ? AND ? ORDER BY b.id`, req.agency.id, from, to,
   );
   sendCsv(res, `bookings_${from}_to_${to}.csv`,
     ['Booking ID', 'Booked on', 'Trip', 'Customer', 'Travel date', 'Status', 'Net (VaayuTrip)', 'Selling price', 'Your own costs', 'Your earnings', 'Paid from wallet', 'Paid from credit', 'Refund'],
@@ -889,7 +890,7 @@ router.get('/reports/bookings.csv', h((req, res) => {
 
 router.get('/reports/ledger.csv', h((req, res) => {
   const { from, to } = reportPeriod(req.query);
-  const rows = all('SELECT * FROM wallet_txns WHERE agency_id = ? AND date(created_at) BETWEEN ? AND ? ORDER BY id', req.agency.id, from, to);
+  const rows = all('SELECT * FROM wallet_txns WHERE agency_id = ? AND sqldate(created_at) BETWEEN ? AND ? ORDER BY id', req.agency.id, from, to);
   sendCsv(res, `wallet-ledger_${from}_to_${to}.csv`, ['Date', 'Type', 'Amount', 'Balance after', 'Reference', 'Note'],
     rows.map((t) => [t.created_at.slice(0, 10), t.type, t.amount, t.balance_after, t.ref, t.note]));
 }));
@@ -926,6 +927,7 @@ router.post('/settings/tax', withKycDocs, h((req, res) => {
 
 router.post('/settings', upload.single('logo'), h((req, res) => {
   const b = req.body;
+  if (req.file) persistFile(req.file.path);
   const logo = req.file ? `/uploads/${req.file.filename}` : b.remove_logo ? null : req.agency.logo_path;
   if (req.logoRejected) req.flash('error', 'Logo must be a PNG, JPG or WebP image; it was not changed.');
   run(

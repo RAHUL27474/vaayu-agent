@@ -39,7 +39,7 @@ function insertProduct(p, user) {
 // ---------- dashboard ----------
 
 router.get('/', h((req, res) => {
-  const counts = all("SELECT kind, SUM(status = 'published') AS live, SUM(status = 'draft') AS drafts FROM products GROUP BY kind");
+  const counts = all("SELECT kind, COUNT(*) FILTER (WHERE status = 'published') AS live, COUNT(*) FILTER (WHERE status = 'draft') AS drafts FROM products GROUP BY kind");
   const byKind = Object.fromEntries(counts.map((c) => [c.kind, c]));
   // Live products per destination and kind, so the team can see gaps in coverage.
   const coverage = Object.fromEntries(Object.keys(DESTINATIONS).map((d) => [d, {}]));
@@ -71,7 +71,7 @@ router.get('/products', h((req, res) => {
   if (f.kind) { where.push('p.kind = ?'); params.push(f.kind); }
   if (f.status) { where.push('p.status = ?'); params.push(f.status); }
   if (f.dest) { where.push(`p.country IN (${DESTINATIONS[f.dest].map(() => '?').join(', ')})`); params.push(...DESTINATIONS[f.dest]); }
-  if (f.q) { where.push('(p.title LIKE ? OR p.city LIKE ?)'); params.push(`%${f.q}%`, `%${f.q}%`); }
+  if (f.q) { where.push('(p.title ILIKE ? OR p.city ILIKE ?)'); params.push(`%${f.q}%`, `%${f.q}%`); }
   const products = all(
     `SELECT p.*, u.name AS updated_by_name,
        (SELECT COUNT(DISTINCT b.id) FROM quote_items qi JOIN bookings b ON b.quote_id = qi.quote_id AND b.status != 'cancelled' WHERE qi.product_id = p.id) AS bookings
@@ -107,7 +107,8 @@ router.get('/products/:id', h((req, res, next) => {
   const p = one(
     `SELECT p.*, c.name AS created_by_name, u.name AS updated_by_name,
        (SELECT COUNT(*) FROM packages k WHERE k.agency_id IS NOT NULL
-          AND EXISTS (SELECT 1 FROM json_each(k.details, '$.items') j WHERE json_extract(j.value, '$.id') = p.id)) AS packages,
+          AND EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(CASE WHEN k.details LIKE '{%' THEN (CASE WHEN jsonb_typeof(k.details::jsonb -> 'items') = 'array' THEN k.details::jsonb -> 'items' END) END, '[]'::jsonb)) j
+            WHERE j ->> 'id' = p.id::text)) AS packages,
        (SELECT COUNT(DISTINCT b.id) FROM quote_items qi JOIN bookings b ON b.quote_id = qi.quote_id AND b.status != 'cancelled' WHERE qi.product_id = p.id) AS bookings
      FROM products p LEFT JOIN users c ON c.id = p.created_by LEFT JOIN users u ON u.id = p.updated_by WHERE p.id = ?`, num(req.params.id),
   );

@@ -1,16 +1,21 @@
 /**
  * Demo data. Runs automatically on first start (empty database), or manually:
- *   npm run seed      (wipes and re-creates the database)
+ *   npm run seed      (wipes and re-creates the local database; refused for the live Supabase database)
  */
 const fs = require('fs');
 const path = require('path');
 
 if (require.main === module && process.argv.includes('--reset')) {
-  const file = process.env.DB_FILE || path.join(__dirname, '..', 'data', 'vaayutrip.db');
-  for (const f of [file, `${file}-wal`, `${file}-shm`]) fs.rmSync(f, { force: true });
+  if (process.env.DATABASE_URL) {
+    console.error('Refusing to reset: DATABASE_URL points at the live database.');
+    process.exit(1);
+  }
+  const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+  fs.rmSync(process.env.PG_DIR || path.join(dataDir, 'pg'), { recursive: true, force: true });
 }
 
 const { one, all, run, tx, setSetting, getSettings, UPLOADS_DIR: UPLOADS } = require('./db');
+const { writePersisted } = require('./files');
 const { hashPassword, code, round2, uniqueSlug } = require('./util');
 const { taxRate } = require('./pricing');
 const { KYC_DIR } = require('./kyc');
@@ -64,9 +69,9 @@ function samplePhoto([r, g, b]) {
 function seedKyc(agencyId, slug, name, gstin, colour) {
   const pan = gstin.slice(2, 12);
   const files = { tax_doc: `demo-${slug}-gst.pdf`, pan_doc: `demo-${slug}-pan.pdf`, photo: `demo-${slug}-photo.png` };
-  fs.writeFileSync(path.join(KYC_DIR, files.tax_doc), samplePdf(`SAMPLE GST certificate - ${name}, GSTIN ${gstin} (demo data)`));
-  fs.writeFileSync(path.join(KYC_DIR, files.pan_doc), samplePdf(`SAMPLE PAN card - ${name}, PAN ${pan} (demo data)`));
-  fs.writeFileSync(path.join(KYC_DIR, files.photo), samplePhoto(colour));
+  writePersisted(path.join(KYC_DIR, files.tax_doc), samplePdf(`SAMPLE GST certificate - ${name}, GSTIN ${gstin} (demo data)`));
+  writePersisted(path.join(KYC_DIR, files.pan_doc), samplePdf(`SAMPLE PAN card - ${name}, PAN ${pan} (demo data)`));
+  writePersisted(path.join(KYC_DIR, files.photo), samplePhoto(colour));
   run('UPDATE agencies SET gstin = ?, pan = ?, tax_doc = ?, pan_doc = ?, photo = ? WHERE id = ?', gstin, pan, files.tax_doc, files.pan_doc, files.photo, agencyId);
 }
 
@@ -119,10 +124,18 @@ const SKYLINE_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height
 <text x="62" y="52" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#6b7280" letter-spacing="2">HOLIDAYS</text>
 </svg>`;
 
+// Everything happens in one transaction holding a lock, so two servers starting together seed only once.
 function seed() {
-  if (one('SELECT 1 FROM users LIMIT 1')) return false;
-  fs.mkdirSync(UPLOADS, { recursive: true });
-  fs.writeFileSync(path.join(UPLOADS, 'skyline-holidays-logo.svg'), SKYLINE_LOGO);
+  return tx(() => {
+    run('SELECT pg_advisory_xact_lock(731002)');
+    if (one('SELECT 1 FROM users LIMIT 1')) return false;
+    seedAll();
+    return true;
+  });
+}
+
+function seedAll() {
+  writePersisted(path.join(UPLOADS, 'skyline-holidays-logo.svg'), SKYLINE_LOGO);
 
   tx(() => {
     setSetting('company_name', 'VaayuTrip');
@@ -197,9 +210,9 @@ function seed() {
 
 function seedOffersAndSupport(agency) {
   const offers = [
-    ['Dubai hotels: 4th night free', 'Stay 4 nights at Al Barsha Grand Hotel, pay for 3. Applied to the net rate at booking, for travel until 15 December.', 'DXB4FOR3', '/agent/hotels?dest=Dubai', "date('now', '+45 days')"],
-    ['Extra 2% commission on Europe bookings', 'Book any Europe airfare, hotel or activity this month and earn 2% over your usual markup, credited to your wallet after travel.', null, '/agent/hotels?dest=Europe', "date('now', 'start of month', '+1 month', '-1 day')"],
-    ['Vietnam e-visa at ₹1,800', 'Special net rate on the 30-day Vietnam e-visa for bookings this month.', 'VNVISA', '/agent/visas?dest=Vietnam', "date('now', '+30 days')"],
+    ['Dubai hotels: 4th night free', 'Stay 4 nights at Al Barsha Grand Hotel, pay for 3. Applied to the net rate at booking, for travel until 15 December.', 'DXB4FOR3', '/agent/hotels?dest=Dubai', "sqldate('now', '+45 days')"],
+    ['Extra 2% commission on Europe bookings', 'Book any Europe airfare, hotel or activity this month and earn 2% over your usual markup, credited to your wallet after travel.', null, '/agent/hotels?dest=Europe', "sqldate('now', 'start of month', '+1 month', '-1 day')"],
+    ['Vietnam e-visa at ₹1,800', 'Special net rate on the 30-day Vietnam e-visa for bookings this month.', 'VNVISA', '/agent/visas?dest=Vietnam', "sqldate('now', '+30 days')"],
   ];
   for (const [title, body, promo, link, until] of offers) run(`INSERT INTO offers (title, body, code, link, valid_until) VALUES (?, ?, ?, ?, ${until})`, title, body, promo, link);
 
