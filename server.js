@@ -1,5 +1,6 @@
 const path = require('path');
 const express = require('express');
+require('./src/async-routes');
 const cookieSession = require('cookie-session');
 
 const { one, getSettings, sessionSecret, UPLOADS_DIR } = require('./src/db');
@@ -9,7 +10,8 @@ const { inr, fmtDate } = require('./src/util');
 const { icon } = require('./src/icons');
 const { AppError } = require('./src/services');
 
-if (seed()) console.log('First run: demo data created.');
+// Database start-up (schema check, demo data on an empty database) runs once; requests wait for it.
+const started = seed().then((created) => { if (created) console.log('First run: demo data created.'); });
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -19,27 +21,33 @@ app.disable('x-powered-by');
 if (process.env.VERCEL) app.set('trust proxy', true);
 
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
+app.use((req, res, next) => started.then(() => next(), next));
 // Uploaded files live in the database; after a restart the disk cache is refilled on first request.
-app.use('/uploads', (req, res, next) => {
+app.use('/uploads', async (req, res, next) => {
   let abs;
   try { abs = path.resolve(UPLOADS_DIR, `.${decodeURIComponent(req.path)}`); } catch { return next(); }
-  if (abs.startsWith(path.resolve(UPLOADS_DIR) + path.sep)) restoreFile(abs);
+  if (abs.startsWith(path.resolve(UPLOADS_DIR) + path.sep)) await restoreFile(abs);
   next();
 });
 app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '1h' }));
 // Package forms can have hundreds of fields (itinerary, hotels, rates…).
 app.use(express.urlencoded({ extended: true, limit: '2mb', parameterLimit: 10000 }));
 app.use(express.json({ limit: '1mb' }));
-app.use(cookieSession({ name: 'vt_sess', secret: sessionSecret(), sameSite: 'lax', httpOnly: true, maxAge: 7 * 24 * 3600 * 1000 }));
+// The signing key comes from the database, so the session middleware is created on the first request.
+let sessions;
+app.use(async (req, res, next) => {
+  sessions ||= cookieSession({ name: 'vt_sess', secret: await sessionSecret(), sameSite: 'lax', httpOnly: true, maxAge: 7 * 24 * 3600 * 1000 });
+  sessions(req, res, next);
+});
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   res.locals.inr = inr;
   res.locals.fmtDate = fmtDate;
   res.locals.icon = icon;
   // Package image, or a generated cover card with the destination name when none is uploaded.
   res.locals.cover = (p) => p.image_url || `/cover/${encodeURIComponent(p.destination || p.title || 'Holiday')}.svg`;
   res.locals.path = req.path;
-  res.locals.settings = getSettings();
+  res.locals.settings = await getSettings();
   res.locals.flash = req.session.flash || [];
   req.session.flash = [];
   req.flash = (type, message) => req.session.flash.push({ type, message });
@@ -47,20 +55,24 @@ app.use((req, res, next) => {
   res.locals.user = null;
   res.locals.agency = null;
   if (req.session.userId) {
-    const user = one('SELECT id, role, agency_id, name, email FROM users WHERE id = ? AND is_active = 1', req.session.userId);
+    const user = await one('SELECT id, role, agency_id, name, email FROM users WHERE id = ? AND is_active = 1', req.session.userId);
     if (user) {
       req.user = user;
       res.locals.user = user;
-      if (user.agency_id) {
-        req.agency = one('SELECT * FROM agencies WHERE id = ?', user.agency_id);
-        res.locals.agency = req.agency;
+      const [agency, unread] = await Promise.all([
+        user.agency_id ? one('SELECT * FROM agencies WHERE id = ?', user.agency_id) : null,
+        one(
+          user.role === 'admin'
+            ? 'SELECT COUNT(*) AS n FROM notifications WHERE agency_id IS NULL AND is_read = 0'
+            : 'SELECT COUNT(*) AS n FROM notifications WHERE agency_id = ? AND is_read = 0',
+          ...(user.role === 'admin' ? [] : [user.agency_id]),
+        ),
+      ]);
+      if (agency) {
+        req.agency = agency;
+        res.locals.agency = agency;
       }
-      res.locals.unread = one(
-        user.role === 'admin'
-          ? 'SELECT COUNT(*) AS n FROM notifications WHERE agency_id IS NULL AND is_read = 0'
-          : 'SELECT COUNT(*) AS n FROM notifications WHERE agency_id = ? AND is_read = 0',
-        ...(user.role === 'admin' ? [] : [user.agency_id]),
-      ).n;
+      res.locals.unread = unread.n;
     } else {
       req.session.userId = null;
     }

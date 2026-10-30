@@ -27,9 +27,9 @@ const upload = multer({
 
 /** Middleware: parses a multipart form with an optional cover_file, turning upload errors into a message. */
 function withCover(AppError) {
-  return (req, res, next) => upload(req, res, (err) => {
+  return (req, res, next) => upload(req, res, async (err) => {
     if (err) return next(new AppError(err.code === 'LIMIT_FILE_SIZE' ? 'The photo must be under 5 MB.' : `Upload failed: ${err.message}`));
-    if (req.file) persistFile(req.file.path);
+    if (req.file) await persistFile(req.file.path);
     next();
   });
 }

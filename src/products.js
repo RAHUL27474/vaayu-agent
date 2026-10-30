@@ -187,15 +187,15 @@ function presentProduct(p, entry = {}) {
   };
 }
 
-const publishedProduct = (id, kind) => one(
+const publishedProduct = async (id, kind) => await one(
   `SELECT * FROM products WHERE id = ? AND status = 'published'${kind ? ' AND kind = ?' : ''}`, ...(kind ? [id, kind] : [id]),
 );
 
 /** Published products by id, for the given ids. */
-function productMap(ids) {
+async function productMap(ids) {
   const unique = [...new Set(ids.map(Number).filter(Number.isInteger))];
   if (!unique.length) return new Map();
-  return new Map(all(`SELECT * FROM products WHERE status = 'published' AND id IN (${unique.map(() => '?').join(', ')})`, ...unique).map((p) => [p.id, p]));
+  return new Map((await all(`SELECT * FROM products WHERE status = 'published' AND id IN (${unique.map(() => '?').join(', ')})`, ...unique)).map((p) => [p.id, p]));
 }
 
 module.exports = {

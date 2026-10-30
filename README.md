@@ -119,7 +119,8 @@ The agent pays VaayuTrip `net + GST` when booking, and pays their own hotels and
 
 ```
 server.js               app setup, sessions, layout rendering
-src/db.js               Postgres schema and query helpers (Supabase live, PGlite locally)
+src/db.js               Postgres schema and async query helpers: one/all/run/tx (Supabase live, PGlite locally)
+src/async-routes.js     lets Express 4 handle async route errors
 src/files.js            uploaded files kept in the database, with a disk cache
 src/pricing.js          markup, totals, GST/TCS, EMI and invoice snapshots
 src/products.js         inventory: types, destinations, form parsing, per-person / per-group / per-room-night pricing
@@ -138,7 +139,7 @@ public/                 CSS, JS, logos, uploaded agency logos
 - **Photos:** upload photos you own or have licensed; items and packages without one show a generated destination cover. Agents' own hotels and services are their responsibility to fulfil.
 - **Inventory:** the demo hotels are made up, and flight numbers, schedules and net rates are illustrative. The backend team should replace them with contracted inventory before agents sell. Airfares are stored as fixed fares; connect a GDS or airline API (e.g. Amadeus, TBO) if you need live availability and ticketing.
 - **Payments:** payment links use a demo checkout. Connect Razorpay or Cashfree and mark links paid from their webhook. Wallet top-ups are verified manually by UTR.
-- **Database:** set `DATABASE_URL` to use a hosted Postgres. The live site uses the Supabase project `vaayu-agent` (schema `portal`, database role `vaayu_app`, through the Supavisor pooler on port 6543; the connection is verified against Supabase's root certificate in `src/supabase-ca.js`). Without `DATABASE_URL` the app uses PGlite in `data/pg` (`PG_DIR=memory://` keeps it in memory, handy for tests). The schema is created and extended on start-up; demo data is loaded once, into an empty database.
+- **Database:** set `DATABASE_URL` to use a hosted Postgres. The live site uses the Supabase project `vaayu-agent` (schema `portal`, database role `vaayu_app`, through the Supavisor pooler on port 6543; the connection is verified against Supabase's root certificate in `src/supabase-ca.js`). Without `DATABASE_URL` the app uses PGlite in `data/pg` (`PG_DIR=memory://` keeps it in memory, handy for tests). The schema is created and extended on start-up (skipped when its version hasn't changed); demo data is loaded once, into an empty database. Each server instance keeps a small connection pool (`DB_POOL_MAX`, default 5), so it serves many requests at once. Money changes are race-safe: wallet updates are atomic, bookings lock the agency and quote rows, and invoice numbers are serialised per series. Vercel preview deployments use a separate test database (role `vaayu_load`, schema `loadtest`), never the live data.
 - **Files:** KYC documents, logos and cover photos are stored in the database (`files` table), so they survive restarts; `DATA_DIR` and `UPLOADS_DIR` only hold a disk cache. Browsers shrink large photos before upload, because Vercel accepts about 4.5 MB per request. If documents outgrow the free database (500 MB), move them to Supabase Storage.
 - **Vercel:** runs in the Paris region (`vercel.json`), next to the database. Login cookies are signed with a key stored in the database, so they work on every server instance; `SESSION_SECRET` overrides it.
 - **Email/WhatsApp:** notifications are in-app only. Add an email or WhatsApp Business API provider to send them.

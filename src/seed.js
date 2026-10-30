@@ -66,13 +66,13 @@ function samplePhoto([r, g, b]) {
 }
 
 // Demo KYC files for an agency: GST certificate, PAN card and the applicant's photo.
-function seedKyc(agencyId, slug, name, gstin, colour) {
+async function seedKyc(agencyId, slug, name, gstin, colour) {
   const pan = gstin.slice(2, 12);
   const files = { tax_doc: `demo-${slug}-gst.pdf`, pan_doc: `demo-${slug}-pan.pdf`, photo: `demo-${slug}-photo.png` };
-  writePersisted(path.join(KYC_DIR, files.tax_doc), samplePdf(`SAMPLE GST certificate - ${name}, GSTIN ${gstin} (demo data)`));
-  writePersisted(path.join(KYC_DIR, files.pan_doc), samplePdf(`SAMPLE PAN card - ${name}, PAN ${pan} (demo data)`));
-  writePersisted(path.join(KYC_DIR, files.photo), samplePhoto(colour));
-  run('UPDATE agencies SET gstin = ?, pan = ?, tax_doc = ?, pan_doc = ?, photo = ? WHERE id = ?', gstin, pan, files.tax_doc, files.pan_doc, files.photo, agencyId);
+  await writePersisted(path.join(KYC_DIR, files.tax_doc), samplePdf(`SAMPLE GST certificate - ${name}, GSTIN ${gstin} (demo data)`));
+  await writePersisted(path.join(KYC_DIR, files.pan_doc), samplePdf(`SAMPLE PAN card - ${name}, PAN ${pan} (demo data)`));
+  await writePersisted(path.join(KYC_DIR, files.photo), samplePhoto(colour));
+  await run('UPDATE agencies SET gstin = ?, pan = ?, tax_doc = ?, pan_doc = ?, photo = ? WHERE id = ?', gstin, pan, files.tax_doc, files.pan_doc, files.photo, agencyId);
 }
 
 const INVENTORY = require('./seed-inventory');
@@ -82,17 +82,17 @@ const PRODUCT_FIELDS = ['kind', 'title', 'city', 'country', 'category', 'duratio
   'timing', 'cancellation', 'price_basis', 'group_size', 'net_adult', 'net_child', 'net_infant', 'details'];
 
 // Inventory as if entered and published by the backend team.
-function insertProduct(p, userId) {
-  return run(
+async function insertProduct(p, userId) {
+  return (await run(
     `INSERT INTO products (${PRODUCT_FIELDS.join(', ')}, slug, status, created_by, updated_by) VALUES (${PRODUCT_FIELDS.map(() => '?').join(', ')}, ?, 'published', ?, ?)`,
-    ...PRODUCT_FIELDS.map((k) => p[k] ?? null), uniqueSlug('products', `${p.title} ${p.city}`), userId, userId,
-  ).lastInsertRowid;
+    ...PRODUCT_FIELDS.map((k) => p[k] ?? null), await uniqueSlug('products', `${p.title} ${p.city}`), userId, userId,
+  )).lastInsertRowid;
 }
 
-function insertAgentPackage(p) {
-  const agency = one('SELECT id FROM agencies WHERE slug = ?', p.agency);
-  const product = (title) => {
-    const found = one('SELECT id, kind FROM products WHERE title = ?', title);
+async function insertAgentPackage(p) {
+  const agency = await one('SELECT id FROM agencies WHERE slug = ?', p.agency);
+  const product = async (title) => {
+    const found = await one('SELECT id, kind FROM products WHERE title = ?', title);
     if (!found) throw new Error(`Demo package ${p.title} uses unknown inventory "${title}"`);
     return found;
   };
@@ -100,20 +100,20 @@ function insertAgentPackage(p) {
     route: p.route.map(([city, nights]) => ({ city, nights })),
     highlights: p.highlights,
     days: p.days.map(([title, description, meals, overnight]) => ({ title, description, meals: { b: meals.includes('B'), l: meals.includes('L'), d: meals.includes('D') }, overnight })),
-    items: p.items.map(([day, title, nights]) => {
-      const x = product(title);
+    items: await Promise.all(p.items.map(async ([day, title, nights]) => {
+      const x = await product(title);
       return { day, id: x.id, kind: x.kind, title, ...(x.kind === 'hotel' ? { nights: nights || 1 } : {}) };
-    }),
+    })),
     stays: p.stays.map(([city, hotel, type, stars, room, mealPlan, nights, price, cost]) => ({ city, hotel, type, stars, room, mealPlan, nights, cost, price })),
     extras: p.extras.map(([type, title, description, basis, price, cost]) => ({ type, title, description, basis, cost, price })),
     policies: p.policies,
   };
-  return run(
+  return (await run(
     `INSERT INTO packages (agency_id, title, slug, destination, nights, theme, summary, inclusions, exclusions, is_international, departure_city, details, status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    agency.id, p.title, uniqueSlug('packages', p.title), p.destination, p.nights, p.theme, p.summary, p.inclusions, p.exclusions,
+    agency.id, p.title, await uniqueSlug('packages', p.title), p.destination, p.nights, p.theme, p.summary, p.inclusions, p.exclusions,
     1, p.departure_city, JSON.stringify(details), p.status,
-  ).lastInsertRowid;
+  )).lastInsertRowid;
 }
 
 const SKYLINE_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="64" viewBox="0 0 240 64">
@@ -125,33 +125,34 @@ const SKYLINE_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height
 </svg>`;
 
 // Everything happens in one transaction holding a lock, so two servers starting together seed only once.
-function seed() {
-  return tx(() => {
-    run('SELECT pg_advisory_xact_lock(731002)');
-    if (one('SELECT 1 FROM users LIMIT 1')) return false;
-    seedAll();
+async function seed() {
+  if (await one('SELECT 1 FROM users LIMIT 1')) return false; // usual case: nothing to do, no lock
+  return tx(async () => {
+    await run('SELECT pg_advisory_xact_lock(731002)');
+    if (await one('SELECT 1 FROM users LIMIT 1')) return false;
+    await seedAll();
     return true;
   });
 }
 
-function seedAll() {
-  writePersisted(path.join(UPLOADS, 'skyline-holidays-logo.svg'), SKYLINE_LOGO);
+async function seedAll() {
+  await writePersisted(path.join(UPLOADS, 'skyline-holidays-logo.svg'), SKYLINE_LOGO);
 
-  tx(() => {
-    setSetting('company_name', 'VaayuTrip');
-    setSetting('legal_name', 'VaayuTrip Travel Pvt. Ltd.');
-    setSetting('gstin', '07AABCV1234F1Z5');
-    setSetting('address', '2nd Floor, Aerocity Business Park, New Delhi 110037');
-    setSetting('phone', '+91 98100 00000');
-    setSetting('email', 'support@vaayutrip.com');
-    setSetting('tax_rate', '5');
-    setSetting('emi_rate', '14');
-    setSetting('tcs_rate', '2');
+  await tx(async () => {
+    await setSetting('company_name', 'VaayuTrip');
+    await setSetting('legal_name', 'VaayuTrip Travel Pvt. Ltd.');
+    await setSetting('gstin', '07AABCV1234F1Z5');
+    await setSetting('address', '2nd Floor, Aerocity Business Park, New Delhi 110037');
+    await setSetting('phone', '+91 98100 00000');
+    await setSetting('email', 'support@vaayutrip.com');
+    await setSetting('tax_rate', '5');
+    await setSetting('emi_rate', '14');
+    await setSetting('tcs_rate', '2');
 
-    run('INSERT INTO users (role, name, email, password_hash) VALUES (?, ?, ?, ?)', 'admin', 'VaayuTrip Admin', 'admin@vaayutrip.com', hashPassword('admin123'));
-    const backendUser = run('INSERT INTO users (role, name, email, password_hash) VALUES (?, ?, ?, ?)', 'backend', 'Meera Iyer (Backend team)', 'backend@vaayutrip.com', hashPassword('backend123')).lastInsertRowid;
+    await run('INSERT INTO users (role, name, email, password_hash) VALUES (?, ?, ?, ?)', 'admin', 'VaayuTrip Admin', 'admin@vaayutrip.com', hashPassword('admin123'));
+    const backendUser = (await run('INSERT INTO users (role, name, email, password_hash) VALUES (?, ?, ?, ?)', 'backend', 'Meera Iyer (Backend team)', 'backend@vaayutrip.com', hashPassword('backend123'))).lastInsertRowid;
 
-    const skyline = run(
+    const skyline = (await run(
       `INSERT INTO agencies (name, slug, legal_name, gstin, phone, email, address, city, logo_path, brand_color, status, kyc_status,
          wallet_balance, credit_limit, markup_type, markup_value, website_tagline, website_about, api_key)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'verified', ?, ?, 'percent', 12, ?, ?, ?)`,
@@ -159,83 +160,83 @@ function seedAll() {
       '14 Linking Road, Bandra West', 'Mumbai', '/uploads/skyline-holidays-logo.svg', '#7c3aed', 500000, 300000,
       'Handpicked holidays from Mumbai since 2012', 'We design stress-free holidays to Dubai, Bali, Vietnam, Cambodia, the UK and Europe, with 24x7 support on every trip.',
       `vt_live_${code('K', 24).slice(2).toLowerCase()}`,
-    ).lastInsertRowid;
-    seedKyc(skyline, 'skyline', 'Skyline Holidays LLP', '27AAKFS5678K1Z2', [124, 58, 237]);
-    run('INSERT INTO users (role, agency_id, name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?, ?)', 'agent', skyline, 'Priya Sharma', 'agent@skyline.com', '+91 98200 11111', hashPassword('agent123'));
-    run("INSERT INTO wallet_txns (agency_id, type, amount, balance_after, ref, note, created_at) VALUES (?, 'topup', 500000, 500000, 'UTR8812004411', 'Opening top-up', datetime('now', '-6 months', '-12 days'))", skyline);
+    )).lastInsertRowid;
+    await seedKyc(skyline, 'skyline', 'Skyline Holidays LLP', '27AAKFS5678K1Z2', [124, 58, 237]);
+    await run('INSERT INTO users (role, agency_id, name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?, ?)', 'agent', skyline, 'Priya Sharma', 'agent@skyline.com', '+91 98200 11111', hashPassword('agent123'));
+    await run("INSERT INTO wallet_txns (agency_id, type, amount, balance_after, ref, note, created_at) VALUES (?, 'topup', 500000, 500000, 'UTR8812004411', 'Opening top-up', datetime('now', '-6 months', '-12 days'))", skyline);
 
-    const ravi = run(
+    const ravi = (await run(
       `INSERT INTO agencies (name, slug, phone, email, city, status, kyc_status, wallet_balance, credit_limit, markup_type, markup_value)
        VALUES (?, ?, ?, ?, ?, 'active', 'verified', ?, 0, 'flat', 3000)`,
       'Ravi Tours & Travels', 'ravi-tours', '+91 99100 22222', 'ravi.tours@gmail.com', 'Lucknow', 60000,
-    ).lastInsertRowid;
-    seedKyc(ravi, 'ravi', 'Ravi Tours & Travels', '09AAHFR4321P1Z7', [30, 64, 175]);
-    run('INSERT INTO users (role, agency_id, name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?, ?)', 'agent', ravi, 'Ravi Verma', 'agent@ravitours.com', '+91 99100 22222', hashPassword('agent123'));
-    run("INSERT INTO wallet_txns (agency_id, type, amount, balance_after, ref, note) VALUES (?, 'topup', 60000, 60000, 'UTR5521009922', 'Opening top-up')", ravi);
+    )).lastInsertRowid;
+    await seedKyc(ravi, 'ravi', 'Ravi Tours & Travels', '09AAHFR4321P1Z7', [30, 64, 175]);
+    await run('INSERT INTO users (role, agency_id, name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?, ?)', 'agent', ravi, 'Ravi Verma', 'agent@ravitours.com', '+91 99100 22222', hashPassword('agent123'));
+    await run("INSERT INTO wallet_txns (agency_id, type, amount, balance_after, ref, note) VALUES (?, 'topup', 60000, 60000, 'UTR5521009922', 'Opening top-up')", ravi);
 
-    const pending = run(
+    const pending = (await run(
       "INSERT INTO agencies (name, slug, phone, email, city, gstin, pan, tax_doc) VALUES ('Wanderlust Trips', 'wanderlust-trips', '+91 90000 33333', 'contact@wanderlust.in', 'Pune', '27AABCW1234M1Z9', 'AABCW1234M', 'demo-wanderlust-gst.pdf')",
-    ).lastInsertRowid;
-    seedKyc(pending, 'wanderlust', 'Wanderlust Trips', '27AABCW1234M1Z9', [234, 88, 12]);
-    run('INSERT INTO users (role, agency_id, name, email, password_hash) VALUES (?, ?, ?, ?, ?)', 'agent', pending, 'Arjun Mehta', 'agent@wanderlust.in', hashPassword('agent123'));
-    run("INSERT INTO notifications (agency_id, title, body, link) VALUES (NULL, 'New agent signup', 'Wanderlust Trips (Pune) is waiting for approval.', '/admin/agents')");
+    )).lastInsertRowid;
+    await seedKyc(pending, 'wanderlust', 'Wanderlust Trips', '27AABCW1234M1Z9', [234, 88, 12]);
+    await run('INSERT INTO users (role, agency_id, name, email, password_hash) VALUES (?, ?, ?, ?, ?)', 'agent', pending, 'Arjun Mehta', 'agent@wanderlust.in', hashPassword('agent123'));
+    await run("INSERT INTO notifications (agency_id, title, body, link) VALUES (NULL, 'New agent signup', 'Wanderlust Trips (Pune) is waiting for approval.', '/admin/agents')");
 
-    for (const p of INVENTORY) insertProduct(p, backendUser);
-    run("INSERT INTO audit_log (user_id, role, action, entity, summary, link, created_at) VALUES (?, 'backend', 'product.imported', 'product', ?, '/backend/products', datetime('now', '-7 months'))",
+    for (const p of INVENTORY) await insertProduct(p, backendUser);
+    await run("INSERT INTO audit_log (user_id, role, action, entity, summary, link, created_at) VALUES (?, 'backend', 'product.imported', 'product', ?, '/backend/products', datetime('now', '-7 months'))",
       backendUser, `Imported ${INVENTORY.length} products and published them`);
-    for (const p of AGENT_PACKAGES) insertAgentPackage(p);
+    for (const p of AGENT_PACKAGES) await insertAgentPackage(p);
 
-    const c1 = run("INSERT INTO customers (agency_id, name, email, phone, city) VALUES (?, 'Ananya & Rohit Kapoor', 'ananya.k@example.com', '+91 98765 43210', 'Mumbai')", skyline).lastInsertRowid;
-    run("INSERT INTO customers (agency_id, name, email, phone, city) VALUES (?, 'Mehta Family', 'vikram.mehta@example.com', '+91 98111 22334', 'Thane')", skyline);
-    run("INSERT INTO customers (agency_id, name, phone, city) VALUES (?, 'Sunil Yadav', '+91 94150 55667', 'Lucknow')", ravi);
+    const c1 = (await run("INSERT INTO customers (agency_id, name, email, phone, city) VALUES (?, 'Ananya & Rohit Kapoor', 'ananya.k@example.com', '+91 98765 43210', 'Mumbai')", skyline)).lastInsertRowid;
+    await run("INSERT INTO customers (agency_id, name, email, phone, city) VALUES (?, 'Mehta Family', 'vikram.mehta@example.com', '+91 98111 22334', 'Thane')", skyline);
+    await run("INSERT INTO customers (agency_id, name, phone, city) VALUES (?, 'Sunil Yadav', '+91 94150 55667', 'Lucknow')", ravi);
 
-    run("INSERT INTO leads (agency_id, name, phone, destination, travel_date, pax, budget, source, status, notes) VALUES (?, 'Neha Joshi', '+91 99887 76655', 'Vietnam', '2026-12-18', 4, 400000, 'website', 'new', 'Family of 4, wants Ha Long Bay and Hoi An')", skyline);
-    run("INSERT INTO leads (agency_id, customer_id, name, phone, destination, travel_date, pax, budget, status) VALUES (?, ?, 'Ananya & Rohit Kapoor', '+91 98765 43210', 'Bali', '2026-11-20', 2, 250000, 'quoted')", skyline, c1);
+    await run("INSERT INTO leads (agency_id, name, phone, destination, travel_date, pax, budget, source, status, notes) VALUES (?, 'Neha Joshi', '+91 99887 76655', 'Vietnam', '2026-12-18', 4, 400000, 'website', 'new', 'Family of 4, wants Ha Long Bay and Hoi An')", skyline);
+    await run("INSERT INTO leads (agency_id, customer_id, name, phone, destination, travel_date, pax, budget, status) VALUES (?, ?, 'Ananya & Rohit Kapoor', '+91 98765 43210', 'Bali', '2026-11-20', 2, 250000, 'quoted')", skyline, c1);
 
   });
 
   // A ready-made quote so the quote editor and invoices can be tried immediately.
   const svc = require('./services');
-  const skylineAgency = one("SELECT * FROM agencies WHERE slug = 'skyline-holidays'");
-  const customer = one("SELECT id FROM customers WHERE name = 'Ananya & Rohit Kapoor'");
-  const bali = one("SELECT id FROM packages WHERE slug = 'bali-honeymoon-escape'");
-  const quoteId = svc.createQuoteFromPackage(skylineAgency, bali.id, {
+  const skylineAgency = await one("SELECT * FROM agencies WHERE slug = 'skyline-holidays'");
+  const customer = await one("SELECT id FROM customers WHERE name = 'Ananya & Rohit Kapoor'");
+  const bali = await one("SELECT id FROM packages WHERE slug = 'bali-honeymoon-escape'");
+  const quoteId = await svc.createQuoteFromPackage(skylineAgency, bali.id, {
     title: 'Bali Honeymoon Escape — Kapoor honeymoon', customerId: customer.id, date: '2026-11-20', rooms: 1, adults: 2,
   });
-  run("UPDATE quotes SET status = 'sent', invoice_mode = 'agent' WHERE id = ?", quoteId);
-  seedBookingHistory(svc, skylineAgency);
-  seedOffersAndSupport(skylineAgency);
+  await run("UPDATE quotes SET status = 'sent', invoice_mode = 'agent' WHERE id = ?", quoteId);
+  await seedBookingHistory(svc, skylineAgency);
+  await seedOffersAndSupport(skylineAgency);
   return true;
 }
 
-function seedOffersAndSupport(agency) {
+async function seedOffersAndSupport(agency) {
   const offers = [
     ['Dubai hotels: 4th night free', 'Stay 4 nights at Al Barsha Grand Hotel, pay for 3. Applied to the net rate at booking, for travel until 15 December.', 'DXB4FOR3', '/agent/hotels?dest=Dubai', "sqldate('now', '+45 days')"],
     ['Extra 2% commission on Europe bookings', 'Book any Europe airfare, hotel or activity this month and earn 2% over your usual markup, credited to your wallet after travel.', null, '/agent/hotels?dest=Europe', "sqldate('now', 'start of month', '+1 month', '-1 day')"],
     ['Vietnam e-visa at ₹1,800', 'Special net rate on the 30-day Vietnam e-visa for bookings this month.', 'VNVISA', '/agent/visas?dest=Vietnam', "sqldate('now', '+30 days')"],
   ];
-  for (const [title, body, promo, link, until] of offers) run(`INSERT INTO offers (title, body, code, link, valid_until) VALUES (?, ?, ?, ?, ${until})`, title, body, promo, link);
+  for (const [title, body, promo, link, until] of offers) await run(`INSERT INTO offers (title, body, code, link, valid_until) VALUES (?, ?, ?, ?, ${until})`, title, body, promo, link);
 
-  const user = one('SELECT id FROM users WHERE agency_id = ?', agency.id);
-  const booking = one('SELECT id, code FROM bookings WHERE agency_id = ? ORDER BY id LIMIT 1', agency.id);
-  const ticket = run(
+  const user = await one('SELECT id FROM users WHERE agency_id = ?', agency.id);
+  const booking = await one('SELECT id, code FROM bookings WHERE agency_id = ? ORDER BY id LIMIT 1', agency.id);
+  const ticket = (await run(
     "INSERT INTO tickets (agency_id, code, subject, category, booking_id, status, created_at, updated_at) VALUES (?, ?, 'Senior guests on the Abu Dhabi day trip', 'booking', ?, 'answered', datetime('now', '-2 days'), datetime('now', '-1 day'))",
     agency.id, code('T'), booking ? booking.id : null,
-  ).lastInsertRowid;
-  run("INSERT INTO ticket_messages (ticket_id, user_id, body, created_at) VALUES (?, ?, ?, datetime('now', '-2 days'))", ticket, user.id,
+  )).lastInsertRowid;
+  await run("INSERT INTO ticket_messages (ticket_id, user_id, body, created_at) VALUES (?, ?, ?, datetime('now', '-2 days'))", ticket, user.id,
     'Two of the guests on this booking are above 70. Can the Abu Dhabi tour keep the walking short and arrange a wheelchair at the Grand Mosque?');
-  run("INSERT INTO ticket_messages (ticket_id, from_admin, body, created_at) VALUES (?, 1, ?, datetime('now', '-1 day'))", ticket,
+  await run("INSERT INTO ticket_messages (ticket_id, from_admin, body, created_at) VALUES (?, 1, ?, datetime('now', '-1 day'))", ticket,
     "Done. The guide will use the drop-off point closest to the mosque entrance and a wheelchair will be waiting. We've added a note to the voucher.");
 }
 
 // Past bookings for Skyline, made through the normal booking flow and then backdated,
 // so the dashboard chart and reports have something to show.
-function seedBookingHistory(svc, agency) {
-  const mehta = one("SELECT id FROM customers WHERE name = 'Mehta Family'");
-  const kapoor = one("SELECT id FROM customers WHERE name = 'Ananya & Rohit Kapoor'");
-  const agentUser = one('SELECT id FROM users WHERE agency_id = ?', agency.id);
-  for (const p of all('SELECT id, title FROM packages WHERE agency_id = ?', agency.id)) {
-    run("INSERT INTO audit_log (user_id, role, agency_id, action, entity, entity_id, summary, created_at) VALUES (?, 'agent', ?, 'package.created', 'package', ?, ?, datetime('now', '-6 months'))", agentUser.id, agency.id, p.id, p.title);
+async function seedBookingHistory(svc, agency) {
+  const mehta = await one("SELECT id FROM customers WHERE name = 'Mehta Family'");
+  const kapoor = await one("SELECT id FROM customers WHERE name = 'Ananya & Rohit Kapoor'");
+  const agentUser = await one('SELECT id FROM users WHERE agency_id = ?', agency.id);
+  for (const p of await all('SELECT id, title FROM packages WHERE agency_id = ?', agency.id)) {
+    await run("INSERT INTO audit_log (user_id, role, agency_id, action, entity, entity_id, summary, created_at) VALUES (?, 'agent', ?, 'package.created', 'package', ?, ?, datetime('now', '-6 months'))", agentUser.id, agency.id, p.id, p.title);
   }
   const history = [
     { monthsAgo: 5, slug: 'dubai-family-fun', date: '2026-11-08', title: 'Dubai Family Fun — Mehta family', customerId: mehta.id, adults: 2, children: 2 },
@@ -246,28 +247,31 @@ function seedBookingHistory(svc, agency) {
     { monthsAgo: 0, slug: 'london-and-edinburgh', date: '2027-05-09', title: 'London and Edinburgh — Rao family', adults: 2, children: 1 },
   ];
   for (const h of history) {
-    const pkg = one('SELECT id FROM packages WHERE slug = ?', h.slug);
+    const pkg = await one('SELECT id FROM packages WHERE slug = ?', h.slug);
     if (!pkg) continue;
-    const quoteId = svc.createQuoteFromPackage(agency, pkg.id, { title: h.title, customerId: h.customerId || null, date: h.date, adults: h.adults, children: h.children || 0 });
+    const quoteId = await svc.createQuoteFromPackage(agency, pkg.id, { title: h.title, customerId: h.customerId || null, date: h.date, adults: h.adults, children: h.children || 0 });
     // Top up exactly what the booking will cost so the demo wallet keeps its opening balance.
-    const net = svc.getQuote(quoteId, agency.id).priced.net;
+    const net = (await svc.getQuote(quoteId, agency.id)).priced.net;
     const utr = `UTR${String(7700000000 + quoteId * 7919).slice(0, 10)}`;
-    svc.moveWallet(agency.id, 'topup', round2(net * (1 + taxRate(getSettings()) / 100)), utr, 'Bank transfer');
-    const bookingId = svc.bookQuote(agency.id, quoteId);
+    await svc.moveWallet(agency.id, 'topup', round2(net * (1 + taxRate(await getSettings()) / 100)), utr, 'Bank transfer');
+    const bookingId = await svc.bookQuote(agency.id, quoteId);
     const when = `datetime('now', '-${h.monthsAgo} months', '-${3 + h.monthsAgo * 2} days')`;
-    const b = one('SELECT code FROM bookings WHERE id = ?', bookingId);
-    run(`UPDATE bookings SET created_at = ${when} WHERE id = ?`, bookingId);
-    run(`UPDATE quotes SET created_at = ${when}, updated_at = ${when} WHERE id = ?`, quoteId);
-    run(`UPDATE invoices SET created_at = ${when} WHERE booking_id = ?`, bookingId);
-    run(`UPDATE wallet_txns SET created_at = ${when} WHERE ref IN (?, ?)`, b.code, utr);
-    run(`INSERT INTO audit_log (user_id, role, agency_id, action, entity, entity_id, summary, link, created_at) VALUES (?, 'agent', ?, 'booking.created', 'booking', ?, ?, ?, ${when})`,
+    const b = await one('SELECT code FROM bookings WHERE id = ?', bookingId);
+    await run(`UPDATE bookings SET created_at = ${when} WHERE id = ?`, bookingId);
+    await run(`UPDATE quotes SET created_at = ${when}, updated_at = ${when} WHERE id = ?`, quoteId);
+    await run(`UPDATE invoices SET created_at = ${when} WHERE booking_id = ?`, bookingId);
+    await run(`UPDATE wallet_txns SET created_at = ${when} WHERE ref IN (?, ?)`, b.code, utr);
+    await run(`INSERT INTO audit_log (user_id, role, agency_id, action, entity, entity_id, summary, link, created_at) VALUES (?, 'agent', ?, 'booking.created', 'booking', ?, ?, ?, ${when})`,
       agentUser.id, agency.id, bookingId, `${h.title} (${b.code})`, `/admin/bookings/${bookingId}`);
   }
-  run("DELETE FROM notifications WHERE title IN ('New booking', 'Booking confirmed')");
+  await run("DELETE FROM notifications WHERE title IN ('New booking', 'Booking confirmed')");
 }
 
 module.exports = { seed };
 
 if (require.main === module) {
-  console.log(seed() ? 'Seeded demo data.' : 'Database already has data; run "npm run seed" to reset.');
+  seed().then((created) => {
+    console.log(created ? 'Seeded demo data.' : 'Database already has data; run "npm run seed" to reset.');
+    process.exit(0);
+  }, (e) => { console.error(e); process.exit(1); });
 }

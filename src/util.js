@@ -24,9 +24,9 @@ function slugify(s) {
   return String(s).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'item';
 }
 
-function uniqueSlug(table, base) {
+async function uniqueSlug(table, base) {
   let slug = slugify(base);
-  for (let i = 2; one(`SELECT 1 FROM ${table} WHERE slug = ?`, slug); i++) slug = `${slugify(base)}-${i}`;
+  for (let i = 2; await one(`SELECT 1 FROM ${table} WHERE slug = ?`, slug); i++) slug = `${slugify(base)}-${i}`;
   return slug;
 }
 

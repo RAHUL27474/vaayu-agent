@@ -1,86 +1,30 @@
 /**
  * Database: Postgres. In production DATABASE_URL points at the Supabase project (schema "portal", reached
- * through the Supavisor pooler); locally and in tests an embedded Postgres (PGlite) lives under <data>/pg.
+ * through the Supavisor pooler); locally and in tests an embedded Postgres (PGlite) lives under <data>/pg
+ * (PG_DIR=memory:// keeps it in memory).
  *
- * Queries run on a worker thread and the calling thread waits for the answer, so the app keeps a simple
- * synchronous API: one / all / run / tx. SQL uses ? placeholders, and SQLite-style datetime() / sqldate()
- * helpers exist as SQL functions, so the queries read the same as before.
- *
- * The Supavisor pooler can hand consecutive statements to different server connections, so anything that
- * must happen on one connection (locks, multi-step changes) belongs inside tx().
+ * Every helper returns a promise: await one(sql, ...params), all(), run(), tx(async () => …).
+ * SQL uses ? placeholders, and SQLite-style datetime() / sqldate() helpers exist as SQL functions.
+ * Inside tx() every query runs on the transaction's connection automatically (AsyncLocalStorage), so code
+ * called from a transaction doesn't need a connection passed in.
  */
 const path = require('path');
 const fs = require('fs');
-const { Worker, isMainThread, workerData, MessageChannel, receiveMessageOnPort } = require('worker_threads');
+const crypto = require('crypto');
+const { AsyncLocalStorage } = require('async_hooks');
 
-if (!isMainThread && workerData && workerData.vaayuDb) {
-  runWorker(workerData);
-} else {
-  // Vercel's filesystem is read-only except /tmp, which is wiped on cold start: files there are only a
-  // cache, the database (including uploaded files, see src/files.js) is the source of truth.
-  const ON_VERCEL = Boolean(process.env.VERCEL);
-  const DATA_DIR = process.env.DATA_DIR || (ON_VERCEL ? '/tmp/vaayutrip/data' : path.join(__dirname, '..', 'data'));
-  const UPLOADS_DIR = process.env.UPLOADS_DIR || (ON_VERCEL ? '/tmp/vaayutrip/uploads' : path.join(__dirname, '..', 'public', 'uploads'));
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-  const DATABASE_URL = process.env.DATABASE_URL || '';
-  // PG_DIR=memory:// keeps the local database in memory (fast, for tests).
-  const PG_DIR = process.env.PG_DIR || path.join(DATA_DIR, 'pg');
-  // The embedded database needs a while to create a new data folder on first start.
-  const TIMEOUT_MS = DATABASE_URL ? 60000 : 180000;
-  if (process.env.VERCEL_ENV && !DATABASE_URL) throw new Error('DATABASE_URL is not set: the live site needs the Supabase database.');
+// Vercel's filesystem is read-only except /tmp, which is wiped on cold start: files there are only a
+// cache, the database (including uploaded files, see src/files.js) is the source of truth.
+const ON_VERCEL = Boolean(process.env.VERCEL);
+const DATA_DIR = process.env.DATA_DIR || (ON_VERCEL ? '/tmp/vaayutrip/data' : path.join(__dirname, '..', 'data'));
+const UPLOADS_DIR = process.env.UPLOADS_DIR || (ON_VERCEL ? '/tmp/vaayutrip/uploads' : path.join(__dirname, '..', 'public', 'uploads'));
+fs.mkdirSync(DATA_DIR, { recursive: true });
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const DATABASE_URL = process.env.DATABASE_URL || '';
+const PG_DIR = process.env.PG_DIR || path.join(DATA_DIR, 'pg');
+if (process.env.VERCEL_ENV && !DATABASE_URL) throw new Error('DATABASE_URL is not set: the live site needs the Supabase database.');
 
-  const signal = new Int32Array(new SharedArrayBuffer(4));
-  const { port1, port2 } = new MessageChannel();
-  const worker = new Worker(__filename, { workerData: { vaayuDb: true, url: DATABASE_URL, pgDir: PG_DIR, signal, port: port2 }, transferList: [port2] });
-  worker.unref();
-  worker.on('error', (e) => console.error('Database worker failed:', e));
-
-  function call(msg) {
-    Atomics.store(signal, 0, 0);
-    port1.postMessage(msg);
-    if (Atomics.wait(signal, 0, 0, TIMEOUT_MS) === 'timed-out') throw new Error(`The database did not answer within ${TIMEOUT_MS / 1000} seconds.`);
-    const reply = receiveMessageOnPort(port1);
-    if (!reply) throw new Error('The database reply went missing.');
-    if (reply.message.error) throw Object.assign(new Error(reply.message.error.message), reply.message.error);
-    return reply.message.result;
-  }
-
-  // Tables without an id column: their INSERTs don't ask for one back.
-  const NO_ID = new Set(['settings', 'files']);
-  const query = (sql, params) => call({ op: 'query', sql, params });
-
-  const one = (sql, ...params) => query(sql, params).rows[0];
-  const all = (sql, ...params) => query(sql, params).rows;
-  /** Runs a statement; for an INSERT, lastInsertRowid is the new row's id. */
-  function run(sql, ...params) {
-    const table = (sql.match(/^\s*INSERT\s+INTO\s+(\w+)/i) || [])[1];
-    const wantsId = table && !NO_ID.has(table.toLowerCase()) && !/\bRETURNING\b/i.test(sql);
-    const r = query(wantsId ? `${sql} RETURNING id` : sql, params);
-    return { changes: r.rowCount, lastInsertRowid: wantsId && r.rows[0] ? r.rows[0].id : undefined };
-  }
-  const exec = (sql) => call({ op: 'exec', sql });
-
-  // Nested tx() calls join the outer transaction.
-  let depth = 0;
-  function tx(fn) {
-    if (depth > 0) return fn();
-    query('BEGIN', []);
-    depth++;
-    try {
-      const result = fn();
-      depth--;
-      query('COMMIT', []);
-      return result;
-    } catch (e) {
-      depth--;
-      try { query('ROLLBACK', []); } catch { /* connection already gone */ }
-      throw e;
-    }
-  }
-
-  exec(`BEGIN;
-SELECT pg_advisory_xact_lock(731001);
+const SCHEMA_SQL = `
 -- SQLite-style date helpers used throughout the queries: datetime('now', '-1 day'), sqldate(created_at) …
 -- (sqldate, not date: Postgres has its own date() and could pick that one.)
 -- Text in, text out (YYYY-MM-DD HH24:MI:SS / YYYY-MM-DD, UTC), like SQLite; invalid input gives NULL.
@@ -446,123 +390,170 @@ CREATE INDEX IF NOT EXISTS tickets_agency_id ON tickets (agency_id);
 CREATE INDEX IF NOT EXISTS ticket_messages_ticket_id ON ticket_messages (ticket_id);
 CREATE INDEX IF NOT EXISTS audit_log_user_id ON audit_log (user_id);
 CREATE INDEX IF NOT EXISTS products_kind_status ON products (kind, status);
-COMMIT;`);
+`;
+// Bumped automatically whenever the schema text changes; start-up skips the DDL when it matches.
+const SCHEMA_VERSION = crypto.createHash('sha256').update(SCHEMA_SQL).digest('hex').slice(0, 16);
 
-  function getSettings() {
-    return Object.fromEntries(all("SELECT key, value FROM settings WHERE key <> 'session_secret'").map((r) => [r.key, r.value]));
+// ? → $1, $2 … outside string literals.
+function toPg(sql) {
+  let out = '';
+  let n = 0;
+  let quoted = false;
+  for (const ch of sql) {
+    if (ch === "'") quoted = !quoted;
+    out += !quoted && ch === '?' ? `$${++n}` : ch;
   }
-
-  function setSetting(key, value) {
-    run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, value);
-  }
-
-  /** Signing key for login cookies, shared by every server instance (SESSION_SECRET overrides it). */
-  function sessionSecret() {
-    if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
-    run("INSERT INTO settings (key, value) VALUES ('session_secret', ?) ON CONFLICT (key) DO NOTHING", require('crypto').randomBytes(32).toString('hex'));
-    return one("SELECT value FROM settings WHERE key = 'session_secret'").value;
-  }
-
-  /** Records an action for the admin's activity log. user: the acting user (or null for the system). */
-  function audit(user, action, { entity = null, id = null, summary = null, link = null, agencyId } = {}) {
-    run(
-      'INSERT INTO audit_log (user_id, role, agency_id, action, entity, entity_id, summary, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      user ? user.id : null, user ? user.role : 'system', agencyId !== undefined ? agencyId : user ? user.agency_id || null : null,
-      action, entity, id, summary, link,
-    );
-  }
-
-  function notify(agencyId, title, body, link) {
-    run('INSERT INTO notifications (agency_id, title, body, link) VALUES (?, ?, ?, ?)', agencyId ?? null, title, body || null, link || null);
-  }
-
-  // A prepare()-style view for scripts and tests that inspect the database directly.
-  const db = {
-    prepare: (sql) => ({ get: (...p) => one(sql, ...p), all: (...p) => all(sql, ...p), run: (...p) => run(sql, ...p) }),
-    exec,
-  };
-
-  module.exports = {
-    db, one, all, run, exec, tx, getSettings, setSetting, sessionSecret, notify, audit,
-    DATA_DIR, UPLOADS_DIR, PG_DIR, USING_SUPABASE: Boolean(DATABASE_URL),
-  };
+  return out;
 }
 
-// ---------- worker thread: owns the connection ----------
+// ---------- drivers ----------
 
-function runWorker({ url, pgDir, signal, port }) {
-  // ? → $1, $2 … outside string literals.
-  const toPg = (sql) => {
-    let out = '';
-    let n = 0;
-    let quoted = false;
-    for (const ch of sql) {
-      if (ch === "'") quoted = !quoted;
-      out += !quoted && ch === '?' ? `$${++n}` : ch;
-    }
-    return out;
-  };
-  // Buffers arrive as plain Uint8Arrays after crossing threads; the pg driver needs Buffers for bytea.
-  const toParam = (v) => (v instanceof Uint8Array && !Buffer.isBuffer(v) ? Buffer.from(v.buffer, v.byteOffset, v.byteLength) : v);
-
-  let inTx = false;
-  let driver;
-  async function connect() {
-    if (url) {
-      const pg = require('pg');
-      pg.types.setTypeParser(20, Number);   // COUNT(*), SUM(int): bigint → number
-      pg.types.setTypeParser(1700, Number); // numeric → number
-      const client = new pg.Client({ connectionString: url, ssl: { ca: require('./supabase-ca') }, connectionTimeoutMillis: 15000 });
-      client.on('error', () => { driver = null; });
-      await client.connect();
-      return {
-        query: async (sql, params) => { const r = await client.query(sql, params); return { rows: r.rows, rowCount: r.rowCount }; },
-        exec: async (sql) => { await client.query(sql); },
-        close: () => client.end().catch(() => {}),
-      };
-    }
-    if (!pgDir.startsWith('memory://')) fs.mkdirSync(pgDir, { recursive: true });
-    const { PGlite } = await import('@electric-sql/pglite');
-    const lite = new PGlite(pgDir, { parsers: { 20: Number, 1700: Number } });
-    await lite.waitReady;
-    return {
-      query: async (sql, params) => { const r = await lite.query(sql, params); return { rows: r.rows, rowCount: r.affectedRows ?? r.rows.length }; },
-      exec: async (sql) => { await lite.exec(sql); },
-      close: () => lite.close().catch(() => {}),
-    };
-  }
-
-  const lost = (e) => /terminated|ECONNRESET|EPIPE|ETIMEDOUT|not queryable|Connection ended/i.test(String(e && e.message));
-  async function handle(msg) {
-    if (!driver) driver = await connect();
-    const attempt = () => (msg.op === 'exec' ? driver.exec(msg.sql) : driver.query(toPg(msg.sql), (msg.params || []).map(toParam)));
-    let result;
-    try {
-      result = await attempt();
-    } catch (e) {
-      // A dropped connection outside a transaction is retried once on a fresh one.
-      if (!lost(e) || inTx) throw e;
-      driver = await connect();
-      result = await attempt();
-    }
-    if (msg.op === 'query') {
-      const verb = msg.sql.trim().toUpperCase();
-      if (verb === 'BEGIN') inTx = true;
-      else if (verb === 'COMMIT' || verb === 'ROLLBACK') inTx = false;
-    }
-    return result;
-  }
-
-  port.on('message', async (msg) => {
-    let reply;
-    try {
-      reply = { result: (await handle(msg)) ?? null };
-    } catch (e) {
-      reply = { error: { message: e.message, code: e.code, detail: e.detail } };
-      if (msg.op === 'query' && /^\s*(COMMIT|ROLLBACK)\s*$/i.test(msg.sql)) inTx = false;
-    }
-    port.postMessage(reply);
-    Atomics.store(signal, 0, 1);
-    Atomics.notify(signal, 0);
+/** Supabase: a small connection pool per server instance (Supavisor multiplexes them). */
+function pgDriver() {
+  const pg = require('pg');
+  pg.types.setTypeParser(20, Number);   // COUNT(*), SUM(int): bigint → number
+  pg.types.setTypeParser(1700, Number); // numeric → number
+  const pool = new pg.Pool({
+    connectionString: DATABASE_URL,
+    ssl: { ca: require('./supabase-ca') },
+    max: Number(process.env.DB_POOL_MAX) || 5,
+    idleTimeoutMillis: 20000,
+    connectionTimeoutMillis: 15000,
   });
+  pool.on('error', (e) => console.error('Idle database connection failed:', e.message));
+  const lost = (e) => /terminated|ECONNRESET|EPIPE|ETIMEDOUT|Connection ended/i.test(String(e && e.message));
+  return {
+    async query(sql, params) {
+      try {
+        return await pool.query(sql, params);
+      } catch (e) {
+        if (!lost(e)) throw e;
+        return pool.query(sql, params); // a dropped idle connection: retry once on a fresh one
+      }
+    },
+    exec: (sql) => pool.query(sql),
+    async transaction(fn) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await fn({ query: (sql, params) => client.query(sql, params) });
+        await client.query('COMMIT');
+        return result;
+      } catch (e) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw e;
+      } finally {
+        client.release();
+      }
+    },
+  };
 }
+
+/** Local and tests: embedded Postgres. One connection; PGlite queues other queries while a transaction runs. */
+async function liteDriver() {
+  if (!PG_DIR.startsWith('memory://')) fs.mkdirSync(PG_DIR, { recursive: true });
+  const { PGlite } = await import('@electric-sql/pglite');
+  const lite = new PGlite(PG_DIR, { parsers: { 20: Number, 1700: Number } });
+  await lite.waitReady;
+  const shape = (r) => ({ rows: r.rows, rowCount: r.affectedRows ?? r.rows.length });
+  return {
+    query: async (sql, params) => shape(await lite.query(sql, params)),
+    exec: (sql) => lite.exec(sql),
+    transaction: (fn) => lite.transaction((t) => fn({ query: async (sql, params) => shape(await t.query(sql, params)) })),
+  };
+}
+
+// ---------- start-up ----------
+
+const txContext = new AsyncLocalStorage();
+let driver;
+const ready = (async () => {
+  driver = DATABASE_URL ? pgDriver() : await liteDriver();
+  let current = null;
+  try {
+    current = (await driver.query("SELECT value FROM settings WHERE key = 'schema_version'")).rows[0]?.value;
+  } catch { /* new database: no settings table yet */ }
+  if (current === SCHEMA_VERSION) return;
+  await driver.exec(`BEGIN;
+SELECT pg_advisory_xact_lock(731001);
+${SCHEMA_SQL}
+INSERT INTO settings (key, value) VALUES ('schema_version', '${SCHEMA_VERSION}') ON CONFLICT (key) DO UPDATE SET value = excluded.value;
+COMMIT;`);
+})();
+// Don't crash on an unhandled rejection before the first query awaits it; the first query reports it.
+ready.catch(() => {});
+
+// ---------- query helpers ----------
+
+async function query(sql, params = []) {
+  await ready;
+  const target = txContext.getStore() || driver;
+  return target.query(toPg(sql), params);
+}
+
+// Tables without an id column: their INSERTs don't ask for one back.
+const NO_ID = new Set(['settings', 'files']);
+
+const one = async (sql, ...params) => (await query(sql, params)).rows[0];
+const all = async (sql, ...params) => (await query(sql, params)).rows;
+/** Runs a statement; for an INSERT, lastInsertRowid is the new row's id. */
+async function run(sql, ...params) {
+  const table = (sql.match(/^\s*INSERT\s+INTO\s+(\w+)/i) || [])[1];
+  const wantsId = table && !NO_ID.has(table.toLowerCase()) && !/\bRETURNING\b/i.test(sql);
+  const r = await query(wantsId ? `${sql} RETURNING id` : sql, params);
+  return { changes: r.rowCount, lastInsertRowid: wantsId && r.rows[0] ? r.rows[0].id : undefined };
+}
+const exec = async (sql) => { await ready; return driver.exec(sql); };
+
+/** Runs fn in a transaction; nested tx() calls join the outer one. */
+async function tx(fn) {
+  await ready;
+  if (txContext.getStore()) return fn();
+  return driver.transaction((client) => txContext.run(client, fn));
+}
+
+// Settings change rarely; each server instance keeps them for a short while.
+let settingsCache = null;
+const SETTINGS_TTL_MS = 30000;
+async function getSettings() {
+  if (settingsCache && settingsCache.until > Date.now()) return settingsCache.value;
+  const value = Object.fromEntries((await all("SELECT key, value FROM settings WHERE key NOT IN ('session_secret', 'schema_version')")).map((r) => [r.key, r.value]));
+  settingsCache = { value, until: Date.now() + SETTINGS_TTL_MS };
+  return value;
+}
+
+async function setSetting(key, value) {
+  await run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, value);
+  settingsCache = null;
+}
+
+/** Signing key for login cookies, shared by every server instance (SESSION_SECRET overrides it). */
+async function sessionSecret() {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  await run("INSERT INTO settings (key, value) VALUES ('session_secret', ?) ON CONFLICT (key) DO NOTHING", crypto.randomBytes(32).toString('hex'));
+  return (await one("SELECT value FROM settings WHERE key = 'session_secret'")).value;
+}
+
+/** Records an action for the admin's activity log. user: the acting user (or null for the system). */
+async function audit(user, action, { entity = null, id = null, summary = null, link = null, agencyId } = {}) {
+  await run(
+    'INSERT INTO audit_log (user_id, role, agency_id, action, entity, entity_id, summary, link) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    user ? user.id : null, user ? user.role : 'system', agencyId !== undefined ? agencyId : user ? user.agency_id || null : null,
+    action, entity, id, summary, link,
+  );
+}
+
+async function notify(agencyId, title, body, link) {
+  await run('INSERT INTO notifications (agency_id, title, body, link) VALUES (?, ?, ?, ?)', agencyId ?? null, title, body || null, link || null);
+}
+
+// A prepare()-style view for scripts and tests that inspect the database directly.
+const db = {
+  prepare: (sql) => ({ get: (...p) => one(sql, ...p), all: (...p) => all(sql, ...p), run: (...p) => run(sql, ...p) }),
+  exec,
+};
+
+module.exports = {
+  db, ready, one, all, run, exec, tx, getSettings, setSetting, sessionSecret, notify, audit,
+  DATA_DIR, UPLOADS_DIR, PG_DIR, USING_SUPABASE: Boolean(DATABASE_URL),
+};

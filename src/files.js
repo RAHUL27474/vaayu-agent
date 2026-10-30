@@ -18,24 +18,24 @@ function keyOf(abs) {
 }
 
 /** Saves a file that is on disk into the database. */
-function persistFile(abs) {
+async function persistFile(abs) {
   const key = keyOf(abs);
   if (!key || !fs.existsSync(abs)) return;
-  run('INSERT INTO files (path, data) VALUES (?, ?) ON CONFLICT (path) DO UPDATE SET data = excluded.data', key, fs.readFileSync(abs));
+  await run('INSERT INTO files (path, data) VALUES (?, ?) ON CONFLICT (path) DO UPDATE SET data = excluded.data', key, fs.readFileSync(abs));
 }
 
 /** Writes a file to disk and saves it in the database. */
-function writePersisted(abs, data) {
+async function writePersisted(abs, data) {
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, data);
-  persistFile(abs);
+  await persistFile(abs);
 }
 
 /** Makes sure a stored file is on disk (after a restart the cache is empty). True if it exists now. */
-function restoreFile(abs) {
+async function restoreFile(abs) {
   if (fs.existsSync(abs)) return true;
   const key = keyOf(abs);
-  const row = key && one('SELECT data FROM files WHERE path = ?', key);
+  const row = key && await one('SELECT data FROM files WHERE path = ?', key);
   if (!row) return false;
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, Buffer.from(row.data));
@@ -43,10 +43,10 @@ function restoreFile(abs) {
 }
 
 /** Removes a file from disk and from the database. */
-function deleteFile(abs) {
+async function deleteFile(abs) {
   fs.rmSync(abs, { force: true });
   const key = keyOf(abs);
-  if (key) run('DELETE FROM files WHERE path = ?', key);
+  if (key) await run('DELETE FROM files WHERE path = ?', key);
 }
 
 module.exports = { persistFile, writePersisted, restoreFile, deleteFile };

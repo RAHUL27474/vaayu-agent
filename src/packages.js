@@ -138,7 +138,8 @@ function normalizeParty(o = {}) {
  * Lines: { type, title, description, supplier: vaayu | agent, net, sell, cost, qty, productId }.
  * Products withdrawn from the catalogue are skipped and reported in warnings.
  */
-function calcPackage(pkg, d, rawParty, products = productMap(itemIds(d))) {
+async function calcPackage(pkg, d, rawParty, products) {
+  products = products || await productMap(itemIds(d));
   const o = normalizeParty(rawParty);
   const errors = [];
   const warnings = [];
@@ -178,8 +179,8 @@ function priceLines(markup, lines) {
 }
 
 /** Per person for two adults in one room, with the agency's default markup: { net, sell, earning }. */
-function fromPrice(agency, pkg, d, products) {
-  const calc = calcPackage(pkg, d, { adults: 2, rooms: 1 }, products);
+async function fromPrice(agency, pkg, d, products) {
+  const calc = await calcPackage(pkg, d, { adults: 2, rooms: 1 }, products);
   const priced = priceLines(agency, calc.lines);
   return { net: round2(priced.net / 2), sell: round2(priced.sell / 2), earning: round2(priced.commission / 2) };
 }
@@ -194,7 +195,8 @@ function publishProblems(pkg, d) {
 }
 
 /** The display view of a package, used by package pages, quotes and agent websites (partials/package-full). */
-function present(pkg, d, products = productMap(itemIds(d))) {
+async function present(pkg, d, products) {
+  products = products || await productMap(itemIds(d));
   const live = d.items.filter((x) => products.has(x.id)).map((x) => ({ entry: x, p: products.get(x.id) }));
   const dayCount = Math.max(d.days.length, ...d.items.map((x) => x.day), 0);
   const days = [...Array(dayCount)].map((_, i) => ({
@@ -234,8 +236,8 @@ function present(pkg, d, products = productMap(itemIds(d))) {
 }
 
 /** Everything a quote needs to show the package to the customer, frozen at quote time. */
-function snapshot(pkg, d, calc, products) {
-  return { ...present(pkg, d, products), party: calc.options };
+async function snapshot(pkg, d, calc, products) {
+  return { ...await present(pkg, d, products), party: calc.options };
 }
 
 module.exports = {

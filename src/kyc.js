@@ -55,8 +55,7 @@ function withKycDocs(req, res, next) {
   upload(req, res, (err) => {
     if (err) req.uploadError = err.code === 'LIMIT_FILE_SIZE' ? 'Each document must be under 5 MB.' : `Upload failed: ${err.message}`;
     req.kycFiles = Object.fromEntries(Object.entries(req.files || {}).map(([k, v]) => [k, v[0].filename]));
-    Object.values(req.kycFiles).forEach((name) => persistFile(path.join(KYC_DIR, name)));
-    next();
+    Promise.all(Object.values(req.kycFiles).map(async (name) => persistFile(path.join(KYC_DIR, name)))).then(() => next(), next);
   });
 }
 
@@ -135,8 +134,8 @@ function missingKyc(agency) {
   return out;
 }
 
-const removeDoc = (file) => { if (file) deleteFile(path.join(KYC_DIR, path.basename(file))); };
-const removeUploaded = (req) => Object.values(req.kycFiles || {}).forEach(removeDoc);
+const removeDoc = async (file) => { if (file) await deleteFile(path.join(KYC_DIR, path.basename(file))); };
+const removeUploaded = (req) => Promise.all(Object.values(req.kycFiles || {}).map(removeDoc));
 
 module.exports = {
   KYC_DIR, KYC_FILES, COUNTRIES, GSTIN_RE, isIndia, panFromGstin, kycLabel, requiredFiles,
