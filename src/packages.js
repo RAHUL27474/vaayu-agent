@@ -8,9 +8,11 @@
  *   days         [{ title, description, meals: { b, l, d }, overnight }]
  *   items        [{ day, id, kind, title, nights }]   VaayuTrip products by day number; nights for hotels.
  *                The title is kept so a withdrawn product can still be named.
- *   stays        [{ city, hotel, type, stars, room, mealPlan, nights, cost, price }]
- *                hotels the agent arranges, per room per night: cost = what the agent pays (private),
- *                price = what the customer pays (0 = not charged separately)
+ *   stays        [{ source, city, hotel, type, stars, room, mealPlan, nights, cost, price }]
+ *                hotels not booked through VaayuTrip. source 'agent': the agent books it, per room per night
+ *                cost = what the agent pays (private), price = what the customer pays (0 = not charged
+ *                separately). source 'client': the traveller arranges it; listed in the itinerary, never priced.
+ *                (Hotels from VaayuTrip are items of kind 'hotel'; presented with source 'vaayu'.)
  *   extras       [{ type, title, description, basis: per_person | per_booking, cost, price }]
  *                the agent's own services, with the agent's cost and customer price
  *   policies     { advancePercent, balanceDays, payment, cancellation: [{ days, percent }], child, notes, terms }
@@ -30,6 +32,8 @@ const MEAL_PLANS = {
   AI: 'All inclusive (AI)',
 };
 const STAY_TYPES = ['Hotel', 'Resort', 'Villa', 'Boutique hotel', 'Apartment', 'Houseboat', 'Cruise'];
+/** Who provides a hotel in a package. */
+const STAY_SOURCES = { vaayu: 'From VaayuTrip', agent: 'Your own', client: "Customer's own" };
 const EXTRA_TYPES = { transfer: 'Transfer / cab', meal: 'Meals', guide: 'Guide', visa: 'Visa', insurance: 'Insurance', flight: 'Flight', other: 'Other' };
 
 function emptyDetails() {
@@ -84,6 +88,7 @@ function detailsFromForm(b, catalogue) {
     .sort((x, y) => x.day - y.day);
   d.stays = rows(b.stays)
     .map((r) => ({
+      source: r.source === 'client' ? 'client' : 'agent',
       city: str(r.city),
       hotel: str(r.hotel),
       type: STAY_TYPES.includes(r.type) ? r.type : 'Hotel',
@@ -91,8 +96,8 @@ function detailsFromForm(b, catalogue) {
       room: str(r.room),
       mealPlan: MEAL_PLANS[r.mealPlan] ? r.mealPlan : 'CP',
       nights: int(r.nights, 1),
-      cost: money(r.cost),
-      price: money(r.price),
+      cost: r.source === 'client' ? 0 : money(r.cost),
+      price: r.source === 'client' ? 0 : money(r.price),
     }))
     .filter((r) => r.city && r.hotel);
   d.extras = rows(b.extras)
@@ -101,8 +106,8 @@ function detailsFromForm(b, catalogue) {
       title: str(r.title),
       description: str(r.description),
       basis: r.basis === 'per_booking' ? 'per_booking' : 'per_person',
-      cost: money(r.cost),
-      price: money(r.price),
+      cost: r.source === 'client' ? 0 : money(r.cost),
+      price: r.source === 'client' ? 0 : money(r.price),
     }))
     .filter((r) => r.title);
   d.policies = {
@@ -156,7 +161,7 @@ async function calcPackage(pkg, d, rawParty, products) {
     for (const l of productLines(p, { ...o, nights: entry.nights }, `Day ${entry.day}: `)) lines.push({ ...l, supplier: 'vaayu', sell: null });
   }
   for (const s of d.stays) {
-    if (!(s.price > 0)) continue;
+    if (s.source === 'client' || !(s.price > 0)) continue;
     lines.push({
       type: 'hotel', supplier: 'agent', net: 0, sell: s.price, cost: s.cost || 0, qty: s.nights * o.rooms,
       title: `${s.hotel}, ${s.city}: ${s.room || 'room'}, ${MEAL_PLANS[s.mealPlan] || s.mealPlan}`,
@@ -205,7 +210,7 @@ async function present(pkg, d, products) {
   }));
   const vaayuStays = live.filter(({ p }) => p.kind === 'hotel').map(({ entry, p }) => {
     const x = parseProductDetails(p.details);
-    return { city: p.city, hotel: p.title, type: p.category || 'Hotel', stars: Number(x.stars) || 0, room: x.room || '', mealPlan: x.mealPlan || 'CP', nights: entry.nights || 1 };
+    return { source: 'vaayu', city: p.city, hotel: p.title, type: p.category || 'Hotel', stars: Number(x.stars) || 0, room: x.room || '', mealPlan: x.mealPlan || 'CP', nights: entry.nights || 1 };
   });
   const flights = live.filter(({ p }) => p.kind === 'flight').flatMap(({ entry, p }) => {
     const x = parseProductDetails(p.details);
@@ -227,7 +232,7 @@ async function present(pkg, d, products) {
     route: d.route,
     highlights: d.highlights,
     days,
-    stays: [...vaayuStays, ...d.stays.map(({ price, cost, ...s }) => s)],
+    stays: [...vaayuStays, ...d.stays.map(({ price, cost, ...s }) => ({ ...s, source: s.source || 'agent' }))],
     flights,
     inclusions: lines(pkg.inclusions),
     exclusions: lines(pkg.exclusions),
@@ -241,6 +246,6 @@ async function snapshot(pkg, d, calc, products) {
 }
 
 module.exports = {
-  MEAL_PLANS, STAY_TYPES, EXTRA_TYPES, KINDS,
+  MEAL_PLANS, STAY_TYPES, STAY_SOURCES, EXTRA_TYPES, KINDS,
   emptyDetails, parseDetails, itemIds, detailsFromForm, normalizeParty, calcPackage, priceLines, fromPrice, publishProblems, present, snapshot,
 };

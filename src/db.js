@@ -369,6 +369,10 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS net_infant DOUBLE PRECISION;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS details TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL;
+-- What VaayuTrip pays (entered by the backend team); net_* is what agents pay = cost + VaayuTrip's margin. See src/products.js.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_adult DOUBLE PRECISION;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_child DOUBLE PRECISION;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_infant DOUBLE PRECISION;
 
 -- Postgres doesn't index foreign keys by itself; these cover the per-agency and per-parent lookups.
 CREATE INDEX IF NOT EXISTS users_agency_id ON users (agency_id);

@@ -17,13 +17,14 @@
 <div class="card flush">
   <% if (!products.length) { %><div class="empty"><span class="big"><%- icon('layers') %></span>Nothing here yet. <a href="/backend/products/new<%= f.kind ? `?kind=${f.kind}` : '' %>">Add the first one</a> or <a href="/backend/import">import a CSV</a>.</div><% } else { %>
   <div class="table-wrap"><table class="table">
-    <thead><tr><th>Item</th><% if (!f.kind) { %><th>Type</th><% } %><th>Price basis</th><th class="num">Net</th><th>Status</th><th>Last updated</th><th class="num">Bookings</th></tr></thead>
+    <thead><tr><th>Item</th><% if (!f.kind) { %><th>Type</th><% } %><th>Price basis</th><th class="num">Cost</th><th class="num">Agents pay</th><th>Status</th><th>Last updated</th><th class="num">Bookings</th></tr></thead>
     <% products.forEach(p => { %>
       <tr class="click" data-href="/backend/products/<%= p.id %>">
         <td><b><%= p.title %></b><br><small><%= p.line %></small></td>
         <% if (!f.kind) { %><td><span class="kind-tag"><%- icon(kinds[p.kind].icon) %><%= kinds[p.kind].label %></span></td><% } %>
         <td><%= p.price_basis === 'per_group' ? `Per group of ${p.group_size}` : basisLabels[p.price_basis] %></td>
-        <td class="num"><%= inr(p.net_adult) %><% if (p.price_basis === 'per_person' && p.net_child != null) { %><br><small class="muted">child <%= inr(p.net_child) %></small><% } %></td>
+        <td class="num"><%= inr(p.cost_adult ?? p.net_adult) %><% if (p.price_basis === 'per_person' && p.cost_child != null) { %><br><small class="muted">child <%= inr(p.cost_child) %></small><% } %></td>
+        <td class="num"><b><%= inr(p.net_adult) %></b><% if (p.price_basis === 'per_person' && p.net_child != null) { %><br><small class="muted">child <%= inr(p.net_child) %></small><% } %></td>
         <td><span class="badge <%= p.status %>"><%= p.status %></span></td>
         <td><small><%= p.updated_by_name || 'System' %><br><span class="muted"><%= fmtDate(p.updated_at) %></span></small></td>
         <td class="num"><%= p.bookings %></td>

@@ -2,7 +2,10 @@
   const isNew = !p.id;
   const linked = p.image_url && /^https:/i.test(p.image_url);
   const val = (v) => (v === null || v === undefined ? '' : v);
-  const netLabel = { per_person: 'Net per adult (₹)', per_group: 'Net per group / vehicle (₹)', per_room_night: 'Net per room per night (₹)' };
+  const netLabel = { per_person: 'VaayuTrip cost per adult (₹)', per_group: 'VaayuTrip cost per group / vehicle (₹)', per_room_night: 'VaayuTrip cost per room per night (₹)' };
+  // The form edits what VaayuTrip pays; agents see it plus the margin for this kind of service.
+  const margin = marginPct(p.kind, settings);
+  const cost = (k) => val(p[`cost_${k}`] ?? p[`net_${k}`]);
 %>
 <a href="/backend/products?kind=<%= p.kind %>"><%- icon('arrowLeft') %><%= cfg.plural %></a>
 <div class="page-head" style="margin-top:10px">
@@ -75,7 +78,7 @@
     <% } %>
 
     <div class="card">
-      <h2>Net price</h2>
+      <h2>Price</h2>
       <div class="row">
         <div class="field"><label for="price_basis">Priced</label>
           <select id="price_basis" name="price_basis"><% cfg.basis.forEach(b => { %><option value="<%= b %>" <%= b === p.price_basis ? 'selected' : '' %>><%= basisLabels[b] %></option><% }) %></select>
@@ -83,13 +86,13 @@
         <% if (cfg.basis.includes('per_group')) { %><div class="field"><label for="group_size">Guests per group / vehicle</label><input id="group_size" type="number" min="1" name="group_size" value="<%= val(p.group_size) %>" placeholder="Per group only"></div><% } %>
       </div>
       <div class="row">
-        <div class="field"><label for="net_adult"><%= cfg.basis.length === 1 ? netLabel[cfg.basis[0]] : 'Net per adult, or per group (₹)' %></label><input id="net_adult" type="number" min="0" step="any" name="net_adult" value="<%= p.net_adult || '' %>" required></div>
+        <div class="field"><label for="net_adult"><%= cfg.basis.length === 1 ? netLabel[cfg.basis[0]] : 'VaayuTrip cost per adult, or per group (₹)' %></label><input id="net_adult" type="number" min="0" step="any" name="net_adult" value="<%= cost('adult') %>" required data-margin="<%= margin %>"><div class="hint">Agents see <b data-agent-price="net_adult"></b></div></div>
         <% if (cfg.basis.includes('per_person')) { %>
-          <div class="field"><label for="net_child">Net per child 2–11 (₹)</label><input id="net_child" type="number" min="0" step="any" name="net_child" value="<%= val(p.net_child) %>" placeholder="Empty = adult price"></div>
-          <div class="field"><label for="net_infant">Net per infant under 2 (₹)</label><input id="net_infant" type="number" min="0" step="any" name="net_infant" value="<%= val(p.net_infant) %>" placeholder="Empty = free"></div>
+          <div class="field"><label for="net_child">Cost per child 2–11 (₹)</label><input id="net_child" type="number" min="0" step="any" name="net_child" value="<%= cost('child') %>" placeholder="Empty = adult price" data-margin="<%= margin %>"><div class="hint">Agents see <b data-agent-price="net_child"></b></div></div>
+          <div class="field"><label for="net_infant">Cost per infant under 2 (₹)</label><input id="net_infant" type="number" min="0" step="any" name="net_infant" value="<%= cost('infant') %>" placeholder="Empty = free" data-margin="<%= margin %>"><div class="hint">Agents see <b data-agent-price="net_infant"></b></div></div>
         <% } %>
       </div>
-      <p class="muted" style="font-size:13px;margin:0">Agents see this net price and add their own markup. Changes apply to new quotes only, and price changes are flagged in the admin's activity log.</p>
+      <p class="muted" style="font-size:13px;margin:0">Enter what VaayuTrip pays. Agents see it plus VaayuTrip's <b><%= margin %>% margin</b> for <%= cfg.plural.toLowerCase() %> (set by the admin), rounded to the rupee, and add their own markup on top. Changes apply to new quotes only, and price changes are flagged in the admin's activity log.</p>
     </div>
 
     <div class="card">

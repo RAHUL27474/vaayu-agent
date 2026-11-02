@@ -22,7 +22,7 @@
     <div class="alert info" style="margin:16px 0 0;font-size:13px;display:block">
       <b>Rate card notes</b>
       <ul style="margin:6px 0 0;padding-left:18px">
-        <li>Costs in AED, USD, IDR… are converted to ₹ with the rates on the Currency tab (it must include INR).</li>
+        <li>Costs in AED, USD, IDR… are converted to ₹ with the rates on the Currency tab (it must include INR). They are VaayuTrip's costs: agents see them plus VaayuTrip's margin (Admin → Settings).</li>
         <li>Hotels: one item per room, season and meal plan. Extra-bed charges are added to that hotel's description.</li>
         <li>Uploading the card again updates the rates of matching items (same city and name; for hotels also room, meal plan and season), including live ones.</li>
         <li>Per-km transfers are not imported yet.</li>
@@ -39,7 +39,7 @@
       <tr><td><code>country</code></td><td>One of: <%= countries.join(', ') %></td></tr>
       <tr><td><code>category</code></td><td><% Object.entries(kinds).forEach(([k, c]) => { %><b><%= k %>:</b> <%= c.categories.join(', ') %><br><% }) %></td></tr>
       <tr><td><code>price_basis</code></td><td><%= Object.keys(basisLabels).join(', ') %> (hotels are always per_room_night)</td></tr>
-      <tr><td><code>net_adult</code></td><td>Net in ₹: per adult, per group, or per room per night</td></tr>
+      <tr><td><code>net_adult</code></td><td>What VaayuTrip pays, in ₹: per adult, per group, or per room per night. Agents see it plus VaayuTrip's margin.</td></tr>
       <tr><td><code>net_child</code>, <code>net_infant</code></td><td>Optional, per-person items only</td></tr>
       <tr><td><code>highlights</code>, <code>inclusions</code>, <code>exclusions</code></td><td>Separate lines with <code>|</code></td></tr>
       <tr><td>Kind details</td><td><%= detailColumns.map(c => c).join(', ') %></td></tr>

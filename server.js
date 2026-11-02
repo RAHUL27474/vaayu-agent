@@ -6,12 +6,18 @@ const cookieSession = require('cookie-session');
 const { one, getSettings, sessionSecret, UPLOADS_DIR } = require('./src/db');
 const { restoreFile } = require('./src/files');
 const { seed } = require('./src/seed');
+const { ensureProductCosts } = require('./src/products');
 const { inr, fmtDate } = require('./src/util');
 const { icon } = require('./src/icons');
 const { AppError } = require('./src/services');
 
 // Database start-up (schema check, demo data on an empty database) runs once; requests wait for it.
-const started = seed().then((created) => { if (created) console.log('First run: demo data created.'); });
+const started = (async () => {
+  if (await seed()) console.log('First run: demo data created.');
+  // Inventory from before VaayuTrip's margin existed: its prices become costs (runs once).
+  const moved = await ensureProductCosts();
+  if (moved) console.log(`Margins applied to ${moved} existing inventory items.`);
+})();
 
 const app = express();
 app.set('view engine', 'ejs');

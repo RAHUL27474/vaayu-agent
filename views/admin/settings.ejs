@@ -11,14 +11,24 @@
     emi_rate: ['EMI interest rate (% p.a.)', 'Used for the EMI options shown to customers'],
   };
 %>
-<div class="page-head"><div><h1>Settings</h1><p>Company details used on VaayuTrip invoices, plus tax and EMI rates.</p></div></div>
+<div class="page-head"><div><h1>Settings</h1><p>Company details used on VaayuTrip invoices, tax and EMI rates, and VaayuTrip's margin on inventory.</p></div></div>
 <form class="card" method="post" action="/admin/settings" style="max-width:720px">
-  <% keys.forEach(k => { %>
+  <% keys.filter(k => labels[k]).forEach(k => { %>
     <div class="field">
       <label for="<%= k %>"><%= labels[k][0] %></label>
       <input id="<%= k %>" name="<%= k %>" value="<%= values[k] || '' %>" <%= ['tax_rate', 'tcs_rate', 'emi_rate'].includes(k) ? 'type=number step=0.1 min=0' : '' %>>
       <% if (labels[k][1]) { %><div class="hint"><%= labels[k][1] %></div><% } %>
     </div>
   <% }) %>
+  <h3 style="margin-top:24px">VaayuTrip margin</h3>
+  <p class="muted" style="font-size:13px;margin-top:-4px">Added to what VaayuTrip pays (entered by the backend team) to give the price agents see and pay. Example: a cost of ₹100 with 5% shows agents ₹105. Changing a margin updates agents' prices right away; quotes already made keep theirs.</p>
+  <div class="margin-grid">
+    <% Object.entries(kinds).forEach(([k, c]) => { %>
+      <div class="field">
+        <label for="margin_<%= k %>"><%= c.plural %> (%)</label>
+        <input id="margin_<%= k %>" name="margin_<%= k %>" type="number" step="0.1" min="0" max="100" value="<%= margins[k] %>">
+      </div>
+    <% }) %>
+  </div>
   <button class="btn btn-primary">Save settings</button>
 </form>

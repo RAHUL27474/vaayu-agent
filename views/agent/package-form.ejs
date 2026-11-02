@@ -36,7 +36,9 @@
     <select name="items[${i}][id]" aria-label="VaayuTrip service">${itemOptions(r.id ? r : null)}</select>
     <input type="number" min="1" max="60" name="items[${i}][nights]" value="${e(r.nights || '')}" placeholder="Nights" aria-label="Nights (hotels only)" title="Nights (hotels only)">${del}</div>`;
 
+  const client = (r) => r.source === 'client';
   const rowStay = (i, r) => `<div class="rep-row grid-stay2" data-row>
+    <select name="stays[${i}][source]" aria-label="Provided by" data-stay-source>${opt([['agent', 'Your own'], ['client', "Customer's own"]], r.source || 'agent')}</select>
     <input name="stays[${i}][city]" value="${e(r.city)}" placeholder="City" aria-label="City">
     <input name="stays[${i}][hotel]" value="${e(r.hotel)}" placeholder="Hotel name" aria-label="Hotel">
     <select name="stays[${i}][type]" aria-label="Type">${opt(stayTypes, r.type)}</select>
@@ -44,8 +46,8 @@
     <input name="stays[${i}][room]" value="${e(r.room)}" placeholder="Room type" aria-label="Room type">
     <select name="stays[${i}][mealPlan]" aria-label="Meal plan">${opt(Object.keys(mealPlans), r.mealPlan || 'CP')}</select>
     <input type="number" min="1" name="stays[${i}][nights]" value="${e(r.nights)}" placeholder="N" aria-label="Nights">
-    <input type="number" min="0" name="stays[${i}][cost]" value="${e(r.cost || '')}" placeholder="Your cost" aria-label="Your cost per room per night">
-    <input type="number" min="0" name="stays[${i}][price]" value="${e(r.price || '')}" placeholder="Your price" aria-label="Your price per room per night">${del}</div>`;
+    <input type="number" min="0" name="stays[${i}][cost]" value="${e(r.cost || '')}" placeholder="${client(r) ? 'Not charged' : 'Your cost'}" aria-label="Your cost per room per night" data-stay-priced${client(r) ? ' disabled' : ''}>
+    <input type="number" min="0" name="stays[${i}][price]" value="${e(r.price || '')}" placeholder="${client(r) ? 'Not charged' : 'Your price'}" aria-label="Your price per room per night" data-stay-priced${client(r) ? ' disabled' : ''}>${del}</div>`;
 
   const rowExtra = (i, r) => `<div class="rep-row grid-extra" data-row>
     <select name="extras[${i}][type]" aria-label="Type">${opt(Object.entries(extraTypes), r.type)}</select>
@@ -121,9 +123,15 @@
     </div>
 
     <div class="card" id="hotels">
-      <h2>5. Your own hotels <span class="muted" style="font-size:13px;font-weight:500">(optional)</span></h2>
-      <p class="muted">Only for hotels you book yourself rather than through VaayuTrip, per room per night: what the hotel charges you (private, used to work out your earning) and what your customer pays. Both are multiplied by nights and rooms in each quote. Leave the price empty if the stay is covered by another line.</p>
-      <div class="rep-head grid-stay2"><span>City</span><span>Hotel</span><span>Type</span><span>Stars</span><span>Room</span><span>Meals</span><span>N</span><span>Your cost ₹</span><span>Your price ₹</span><span></span></div>
+      <h2>5. Hotels</h2>
+      <% const vaayuHotels = d.items.filter((x) => x.kind === 'hotel'); %>
+      <p class="muted">Each hotel in the package comes from one of three places:</p>
+      <ul class="stay-sources">
+        <li><span class="badge info">From VaayuTrip</span> Contracted hotels at net. Add them in <a href="#items">4. From VaayuTrip</a> on their check-in day<%= vaayuHotels.length ? ` (${vaayuHotels.length} added: ${vaayuHotels.map((x) => x.title).join(', ')})` : '' %>.</li>
+        <li><span class="badge">Your own</span> Hotels you book yourself, per room per night: what the hotel charges you (private, for your earning) and what your customer pays. Leave the price empty if another line covers it.</li>
+        <li><span class="badge warn">Customer's own</span> The traveller books and pays for it. It shows on the itinerary and quote as arranged by the traveller, with no price.</li>
+      </ul>
+      <div class="rep-head grid-stay2"><span>Provided by</span><span>City</span><span>Hotel</span><span>Type</span><span>Stars</span><span>Room</span><span>Meals</span><span>N</span><span>Your cost ₹</span><span>Your price ₹</span><span></span></div>
       <%- section('stays', rowStay, d.stays, 'Add hotel') %>
       <p class="muted" style="font-size:12.5px;margin-top:8px">Meal plans: <%= Object.values(mealPlans).join(' · ') %>.</p>
     </div>

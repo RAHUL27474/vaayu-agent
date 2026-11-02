@@ -9,8 +9,12 @@
  *   per_group       one net price per group/vehicle of up to group_size guests (private tours, cars, boats)
  *   per_room_night  hotels: net per room per night
  * Kind-specific facts (hotel room and meal plan, flight schedule, visa processing time…) live in details (JSON).
+ *
+ * VaayuTrip's margin: the backend team enters what VaayuTrip pays (cost_*). Agents see and pay net_* =
+ * cost + VaayuTrip's margin for that kind of service (admin settings; default hotels 3%, activities and
+ * transfers 5%), rounded to whole rupees. net_* is stored, so everything agent-facing reads it directly.
  */
-const { one, all } = require('./db');
+const { one, all, run, getSettings } = require('./db');
 const { round2 } = require('./util');
 
 const DESTINATIONS = {
@@ -198,7 +202,49 @@ async function productMap(ids) {
   return new Map((await all(`SELECT * FROM products WHERE status = 'published' AND id IN (${unique.map(() => '?').join(', ')})`, ...unique)).map((p) => [p.id, p]));
 }
 
+// ---------- VaayuTrip's margin ----------
+
+const DEFAULT_MARGINS = { hotel: 3, activity: 5, transfer: 5, flight: 0, visa: 0, insurance: 0 };
+const marginKey = (kind) => `margin_${kind}`;
+
+/** VaayuTrip's margin in % for a kind of service. */
+function marginPct(kind, settings) {
+  const v = parseFloat(settings[marginKey(kind)]);
+  return Number.isFinite(v) && v >= 0 ? v : DEFAULT_MARGINS[kind] ?? 0;
+}
+const withMargin = (cost, pct) => (cost == null ? null : Math.round(cost * (1 + pct / 100)));
+
+/** Product fields from the backend form (net_* = what VaayuTrip pays) → stored fields: cost_* and agents' net_*. */
+function priceForAgents(p, settings) {
+  const pct = marginPct(p.kind, settings);
+  return {
+    ...p,
+    cost_adult: p.net_adult, cost_child: p.net_child, cost_infant: p.net_infant,
+    net_adult: withMargin(p.net_adult, pct), net_child: withMargin(p.net_child, pct), net_infant: withMargin(p.net_infant, pct),
+  };
+}
+
+/** Recomputes agents' prices from costs, for one kind or all (after a margin change). */
+async function repriceProducts(kind = null) {
+  const settings = await getSettings();
+  for (const k of kind ? [kind] : Object.keys(KINDS)) {
+    const f = 1 + marginPct(k, settings) / 100;
+    await run(
+      `UPDATE products SET net_adult = ROUND(cost_adult * ?), net_child = ROUND(cost_child * ?), net_infant = ROUND(cost_infant * ?)
+       WHERE kind = ? AND cost_adult IS NOT NULL`, f, f, f, k,
+    );
+  }
+}
+
+/** One-time move for inventory entered before margins existed: its prices become costs, agents' prices get the margin. */
+async function ensureProductCosts() {
+  const moved = await run('UPDATE products SET cost_adult = net_adult, cost_child = net_child, cost_infant = net_infant WHERE cost_adult IS NULL');
+  if (moved.changes) await repriceProducts();
+  return moved.changes;
+}
+
 module.exports = {
+  DEFAULT_MARGINS, marginPct, priceForAgents, repriceProducts, ensureProductCosts,
   DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, MEAL_PLANS, KINDS, KIND_BY_PATH, BASIS_LABELS,
   destinationOf, parseProductDetails, productFromForm, publishProblems, describe, productLines, cardPrice, presentProduct,
   publishedProduct, productMap, childNet, lines,

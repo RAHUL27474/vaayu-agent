@@ -6,7 +6,7 @@ const { one, all, run, tx, notify, audit, getSettings, setSetting } = require('.
 const { num, round2, hashPassword } = require('../util');
 const { requireAdmin, h } = require('../auth');
 const svc = require('../services');
-const { KINDS } = require('../products');
+const { KINDS, marginPct, repriceProducts } = require('../products');
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 const { restoreFile } = require('../files');
 
@@ -402,16 +402,26 @@ router.post('/tickets/:id/reply', h(async (req, res, next) => {
   res.redirect(`/admin/tickets/${ticket.id}`);
 }));
 
-const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'tax_rate', 'tcs_rate', 'emi_rate'];
+const MARGIN_KEYS = Object.keys(KINDS).map((k) => `margin_${k}`);
+const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'tax_rate', 'tcs_rate', 'emi_rate', ...MARGIN_KEYS];
 
 router.get('/settings', async (req, res) => {
-  res.page('admin/settings', { title: 'Settings', keys: SETTING_KEYS, values: await getSettings() });
+  const values = await getSettings();
+  res.page('admin/settings', { title: 'Settings', keys: SETTING_KEYS, values, kinds: KINDS, margins: Object.fromEntries(Object.keys(KINDS).map((k) => [k, marginPct(k, values)])) });
 });
 
 router.post('/settings', h(async (req, res) => {
   const before = await getSettings();
-  for (const k of SETTING_KEYS) if (req.body[k] !== undefined) await setSetting(k, str(req.body[k]));
+  for (const k of MARGIN_KEYS) {
+    if (req.body[k] === undefined) continue;
+    const v = parseFloat(req.body[k]);
+    if (!(v >= 0 && v <= 100)) throw new svc.AppError('Margins must be between 0 and 100%.');
+    req.body[k] = String(v);
+  }
   const changed = SETTING_KEYS.filter((k) => req.body[k] !== undefined && str(req.body[k]) !== (before[k] ?? ''));
+  for (const k of SETTING_KEYS) if (req.body[k] !== undefined) await setSetting(k, str(req.body[k]));
+  // New margins apply to agents' prices right away (quotes already made keep theirs).
+  for (const k of changed.filter((x) => MARGIN_KEYS.includes(x))) await repriceProducts(k.replace('margin_', ''));
   if (changed.length) await audit(req.user, 'settings.updated', { entity: 'settings', summary: changed.join(', '), link: '/admin/settings' });
   req.flash('success', 'Settings saved.');
   res.redirect('/admin/settings');

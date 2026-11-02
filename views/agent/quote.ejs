@@ -87,7 +87,7 @@
     <% if (pkgView) { %>
       <details class="card more" style="padding:16px 20px">
         <summary>Package details shown to the customer · <%= pkgView.party.rooms %> room<%= pkgView.party.rooms > 1 ? 's' : '' %><%= pkgView.party.category ? ` · ${pkgView.party.category}` : '' %></summary>
-        <div style="margin-top:14px"><%- include('../partials/package-full', { p: pkgView, showCategory: pkgView.party.category }) %></div>
+        <div style="margin-top:14px"><%- include('../partials/package-full', { p: pkgView, showSource: true, showCategory: pkgView.party.category }) %></div>
       </details>
     <% } %>
 

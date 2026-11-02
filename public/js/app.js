@@ -184,3 +184,27 @@ document.querySelectorAll('table.table').forEach((table) => {
   });
   table.classList.add('stack');
 });
+
+// Backend product form: show what agents will pay (cost + VaayuTrip's margin) as the cost is typed.
+document.querySelectorAll('input[data-margin]').forEach((input) => {
+  const out = document.querySelector(`[data-agent-price="${input.id}"]`);
+  if (!out) return;
+  const pct = Number(input.dataset.margin) || 0;
+  const sync = () => {
+    const v = parseFloat(input.value);
+    out.textContent = Number.isFinite(v) ? `₹${Math.round(v * (1 + pct / 100)).toLocaleString('en-IN')} (+${pct}%)` : (input.placeholder || '—');
+  };
+  input.addEventListener('input', sync);
+  sync();
+});
+
+// Package form hotels: a customer's own hotel has no cost or price.
+const syncStaySource = (sel) => {
+  const client = sel.value === 'client';
+  sel.closest('[data-row]').querySelectorAll('[data-stay-priced]').forEach((input) => {
+    input.disabled = client;
+    if (client) input.value = '';
+    input.placeholder = client ? 'Not charged' : input.name.endsWith('[cost]') ? 'Your cost' : 'Your price';
+  });
+};
+document.addEventListener('change', (e) => { if (e.target.matches('select[data-stay-source]')) syncStaySource(e.target); });

@@ -39,7 +39,7 @@
     <img src="<%= cover(pkg) %>" alt="" style="width:100%;max-height:320px;object-fit:cover;border-radius:14px;margin-bottom:20px">
     <div class="card">
       <% if (pkg.summary) { %><p style="font-size:15px"><%= pkg.summary %></p><% } %>
-      <%- include('../partials/package-full', { p: view }) %>
+      <%- include('../partials/package-full', { p: view, showSource: true }) %>
     </div>
   </div>
 

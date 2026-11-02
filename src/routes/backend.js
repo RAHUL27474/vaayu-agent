@@ -5,12 +5,13 @@
  */
 const express = require('express');
 const multer = require('multer');
-const { one, all, run, tx, notify, audit } = require('../db');
+const { one, all, run, tx, notify, audit, getSettings } = require('../db');
 const { num, uniqueSlug } = require('../util');
 const { requireBackend, h } = require('../auth');
 const svc = require('../services');
 const {
   KINDS, DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, BASIS_LABELS, MEAL_PLANS, productFromForm, publishProblems, parseProductDetails, describe,
+  priceForAgents, marginPct,
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
 const { readXlsx, XlsxError } = require('../xlsx');
@@ -26,10 +27,12 @@ router.use((req, res, next) => {
 
 const str = (v) => String(v ?? '').trim();
 const FIELDS = ['kind', 'title', 'city', 'country', 'category', 'duration', 'summary', 'description', 'highlights', 'inclusions', 'exclusions', 'pickup',
-  'timing', 'cancellation', 'image_url', 'price_basis', 'group_size', 'net_adult', 'net_child', 'net_infant', 'details'];
+  'timing', 'cancellation', 'image_url', 'price_basis', 'group_size', 'cost_adult', 'cost_child', 'cost_infant', 'net_adult', 'net_child', 'net_infant', 'details'];
 const link = (id) => `/backend/products/${id}`;
 
-async function insertProduct(p, user) {
+// p: product fields as the backend enters them (net_* = what VaayuTrip pays); agents' prices get the margin.
+async function insertProduct(entered, user) {
+  const p = priceForAgents(entered, await getSettings());
   return (await run(
     `INSERT INTO products (${FIELDS.join(', ')}, slug, created_by, updated_by) VALUES (${FIELDS.map(() => '?').join(', ')}, ?, ?, ?)`,
     ...FIELDS.map((k) => p[k] ?? null), await uniqueSlug('products', `${p.title} ${p.city}`), user.id, user.id,
@@ -83,7 +86,7 @@ router.get('/products', h(async (req, res) => {
 
 const formData = (p) => ({
   p, d: parseProductDetails(p.details), cfg: KINDS[p.kind], kinds: KINDS, countries: PRODUCT_COUNTRIES, destinations: DESTINATIONS,
-  basisLabels: BASIS_LABELS, mealPlans: MEAL_PLANS, problems: p.id ? publishProblems(p) : [],
+  basisLabels: BASIS_LABELS, mealPlans: MEAL_PLANS, problems: p.id ? publishProblems(p) : [], marginPct,
 });
 
 router.get('/products/new', (req, res) => {
@@ -120,14 +123,14 @@ router.get('/products/:id', h(async (req, res, next) => {
 router.post('/products/:id', withCover(svc.AppError), h(async (req, res, next) => {
   const old = await ownedProduct(req);
   if (!old) return next();
-  const p = { ...productFromForm(req.body, old.kind), image_url: coverFrom(req, old.image_url) };
+  const p = priceForAgents({ ...productFromForm(req.body, old.kind), image_url: coverFrom(req, old.image_url) }, await getSettings());
   if (!p.title || !p.city) throw new svc.AppError('Title and city are required.');
   const keys = FIELDS.filter((k) => k !== 'kind');
   await run(`UPDATE products SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_by = ?, updated_at = datetime('now') WHERE id = ?`, ...keys.map((k) => p[k]), req.user.id, old.id);
-  const priceChanged = ['net_adult', 'net_child', 'net_infant', 'price_basis', 'group_size'].some((k) => (old[k] ?? null) !== (p[k] ?? null));
+  const priceChanged = ['cost_adult', 'cost_child', 'cost_infant', 'price_basis', 'group_size'].some((k) => (old[k] ?? null) !== (p[k] ?? null));
   await audit(req.user, priceChanged ? 'product.price_changed' : 'product.updated', {
     entity: 'product', id: old.id, link: link(old.id),
-    summary: priceChanged ? `${p.title}: net ₹${old.net_adult} → ₹${p.net_adult}` : p.title,
+    summary: priceChanged ? `${p.title}: cost ₹${old.cost_adult} → ₹${p.cost_adult} (agents ₹${old.net_adult} → ₹${p.net_adult})` : p.title,
   });
   const problems = publishProblems({ ...p, kind: old.kind });
   if (old.status === 'published' && problems.length) {
@@ -164,7 +167,7 @@ router.post('/products/:id/status', h(async (req, res, next) => {
 router.post('/products/:id/duplicate', h(async (req, res, next) => {
   const p = await ownedProduct(req);
   if (!p) return next();
-  const id = await insertProduct({ ...p, title: `${p.title} (copy)` }, req.user);
+  const id = await insertProduct({ ...p, title: `${p.title} (copy)`, net_adult: p.cost_adult, net_child: p.cost_child, net_infant: p.cost_infant }, req.user);
   await audit(req.user, 'product.created', { entity: 'product', id, summary: `Copy of ${p.title}`, link: link(id) });
   req.flash('success', 'Copy created as a draft.');
   res.redirect(link(id));
@@ -231,13 +234,14 @@ async function sameProduct(p) {
 
 /** VaayuTrip rate card workbook (Hotels / Activities / Transfers / Currency tabs): adds new items as drafts, updates rates of matching ones. */
 async function importRateCard(req, res, book) {
+  const settings = await getSettings();
   const knownCities = Object.fromEntries((await all('SELECT DISTINCT lower(city) AS city, country FROM products')).map((r) => [r.city, r.country]));
   const { items, skipped, skippedRows, notes } = readRateCard(book, { knownCities, fallbackCountry: req.body.country });
   let added = 0;
   let updated = 0;
   await tx(async () => {
     for (const item of items) {
-      const p = productFromForm(item, item.kind);
+      const p = priceForAgents(productFromForm(item, item.kind), settings);
       // Keep what the form fields can't hold: the hotel season and the rate as written on the card.
       p.details = JSON.stringify({ ...parseProductDetails(p.details), ...(item.d_season ? { season: item.d_season } : {}), rateCard: item.source });
       if (item.group_size == null && p.price_basis === 'per_group') p.group_size = 1;
@@ -245,12 +249,12 @@ async function importRateCard(req, res, book) {
       if (old) {
         // Rates always come from the card; text the card leaves blank keeps what the team wrote.
         const text = ['duration', 'timing', 'summary', 'description'];
-        const rates = ['category', 'price_basis', 'group_size', 'net_adult', 'net_child', 'net_infant', 'details'];
+        const rates = ['category', 'price_basis', 'group_size', 'cost_adult', 'cost_child', 'cost_infant', 'net_adult', 'net_child', 'net_infant', 'details'];
         await run(`UPDATE products SET ${[...text.map((k) => `${k} = COALESCE(?, ${k})`), ...rates.map((k) => `${k} = ?`)].join(', ')}, updated_by = ?, updated_at = datetime('now') WHERE id = ?`,
           ...[...text, ...rates].map((k) => p[k] ?? null), req.user.id, old.id);
         updated++;
       } else {
-        await insertProduct({ ...p, image_url: null }, req.user);
+        await insertProduct({ ...p, net_adult: p.cost_adult, net_child: p.cost_child, net_infant: p.cost_infant, image_url: null }, req.user);
         added++;
       }
     }
