@@ -40,10 +40,10 @@
                 <td class="num"><% if (l.supplier === 'agent') { %><%= l.cost ? inr(l.cost) : '—' %><% if (l.cost) { %><br><small class="muted">your cost</small><% } %><% } else { %><%= inr(l.unitNet) %><% } %></td>
                 <td class="num">
                   <% if (locked) { %><%= inr(l.unitSell) %><% } else { %>
-                  <input type="number" step="1" min="<%= l.supplier === 'agent' ? 0 : l.unitNet %>" name="sell_<%= l.id %>" value="<%= l.overridden || l.supplier === 'agent' ? l.unitSell : '' %>" placeholder="<%= Math.round(l.unitSell) %>" style="text-align:right">
+                  <input type="number" step="1" min="<%= l.supplier === 'agent' ? 0 : l.unitNet %>" name="sell_<%= l.id %>" aria-label="Price per unit for <%= l.title %>" value="<%= l.overridden || l.supplier === 'agent' ? l.unitSell : '' %>" placeholder="<%= Math.round(l.unitSell) %>" style="text-align:right">
                   <% } %>
                 </td>
-                <td class="num"><% if (locked) { %><%= l.qty %><% } else { %><input type="number" min="1" name="qty_<%= l.id %>" value="<%= l.qty %>" style="text-align:right"><% } %></td>
+                <td class="num"><% if (locked) { %><%= l.qty %><% } else { %><input type="number" min="1" name="qty_<%= l.id %>" aria-label="Quantity for <%= l.title %>" value="<%= l.qty %>" style="text-align:right"><% } %></td>
                 <td class="num"><b><%= inr(l.lineSell) %></b></td>
                 <td class="num profit"><%= inr(l.commission) %></td>
                 <td class="num"><% if (!locked) { %><button class="btn btn-ghost btn-sm btn-danger" formnovalidate formaction="/agent/quotes/<%= quote.id %>/items/<%= l.id %>/delete" title="Remove" aria-label="Remove">✕</button><% } %></td>
@@ -95,7 +95,7 @@
       <div class="card-head"><h3>Share &amp; collect payment</h3></div>
       <div class="field">
         <label>Customer link</label>
-        <div style="display:flex;gap:8px"><input type="text" readonly value="<%= shareUrl %>"><button class="btn" type="button" data-copy="<%= shareUrl %>">Copy</button></div>
+        <div style="display:flex;gap:8px"><input type="text" readonly value="<%= shareUrl %>" aria-label="Link to share with your customer"><button class="btn" type="button" data-copy="<%= shareUrl %>">Copy</button></div>
         <div class="hint">Shows the quote with <%= quote.invoice_mode === 'agent' ? 'your branding' : 'VaayuTrip branding and your name as the agent' %>, EMI options and an Accept button.
           <%# Opens a chat with the customer directly when we have their number (Indian 10-digit numbers get +91). %>
           <% const waDigits = customer && customer.phone ? customer.phone.replace(/\D/g, '') : ''; const waTo = waDigits.length === 10 ? `91${waDigits}` : waDigits; %>
@@ -182,7 +182,7 @@
           <input type="radio" name="invoice_mode" value="vaayu" <%= quote.invoice_mode === 'vaayu' ? 'checked' : '' %>>
           VaayuTrip invoice
           <small class="muted">Issued by VaayuTrip, naming you as the agent. Your commission is included in the total.</small>
-          <span class="check" style="margin-top:8px"><input type="checkbox" name="show_service_fee" value="1" <%= quote.show_service_fee ? 'checked' : '' %>> <small>Show my commission as a separate "service fee" line</small></span>
+          <label class="check" style="margin-top:8px"><input type="checkbox" name="show_service_fee" value="1" <%= quote.show_service_fee ? 'checked' : '' %>> <small>Show my commission as a separate "service fee" line</small></label>
         </label>
       </div>
       <% if (quote.invoice_mode === 'vaayu' && priced.hasAgentItems) { %><div class="alert warn" style="margin-top:10px;font-size:13px">Your own services aren't included on a VaayuTrip invoice; the customer sees them listed separately on the quote.</div><% } %>

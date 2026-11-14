@@ -1,7 +1,7 @@
 <div class="page-head"><div><h1>Customers</h1><p>Your client book: contacts, trips and spend.</p></div></div>
 <div class="split">
   <div class="card flush">
-    <form method="get" style="padding:14px 16px;display:flex;gap:8px"><input type="search" name="q" value="<%= q %>" placeholder="Search name, phone or email"><button class="btn">Search</button></form>
+    <form method="get" style="padding:14px 16px;display:flex;gap:8px"><input type="search" name="q" value="<%= q %>" placeholder="Search name, phone or email" aria-label="Search customers"><button class="btn">Search</button></form>
     <% if (!customers.length) { %><div class="empty"><span class="big"><%- icon('users') %></span>No customers yet.</div><% } else { %>
     <table class="table">
       <thead><tr><th>Name</th><th>Contact</th><th class="num">Trips</th><th class="num">Spend</th></tr></thead>

@@ -55,4 +55,10 @@ const h = (fn) => (req, res, next) => {
   }
 };
 
-module.exports = { requireAgent, requireActiveAgency, limitPendingAgency, requireAdmin, requireBackend, homeFor, h };
+// Record ids in URLs: anything that isn't a sensible number is a 404, not a database error.
+const idParam = (req, res, next, value) => (/^\d{1,9}$/.test(value) ? next() : next('router'));
+
+// Upper bound for any single money amount typed into a form (₹1 crore).
+const MAX_AMOUNT = 10000000;
+
+module.exports = { requireAgent, requireActiveAgency, limitPendingAgency, requireAdmin, requireBackend, homeFor, h, idParam, MAX_AMOUNT };

@@ -4,17 +4,21 @@ const path = require('path');
 const express = require('express');
 const { one, all, run, tx, notify, audit, getSettings, setSetting } = require('../db');
 const { num, round2, hashPassword } = require('../util');
-const { requireAdmin, h } = require('../auth');
+const { requireAdmin, h, idParam, MAX_AMOUNT } = require('../auth');
 const svc = require('../services');
 const { KINDS, marginPct, repriceProducts } = require('../products');
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 const { restoreFile } = require('../files');
 
 const router = express.Router();
+router.param('id', idParam);
+router.param('itemId', idParam);
 router.use(requireAdmin);
+// Menu badges, in one round trip.
 router.use(async (req, res, next) => {
-  res.locals.pendingTopups = (await one("SELECT COUNT(*) AS n FROM topup_requests WHERE status = 'pending'")).n;
-  res.locals.openTickets = (await one("SELECT COUNT(*) AS n FROM tickets WHERE status = 'open'")).n;
+  const c = await one("SELECT (SELECT COUNT(*) FROM topup_requests WHERE status = 'pending') AS topups, (SELECT COUNT(*) FROM tickets WHERE status = 'open') AS tickets");
+  res.locals.pendingTopups = c.topups;
+  res.locals.openTickets = c.tickets;
   next();
 });
 
@@ -26,30 +30,34 @@ const LOG_SQL = `SELECT l.*, u.name AS user_name, a.name AS agency_name FROM aud
 
 router.get('/', h(async (req, res) => {
   const month = new Date().toISOString().slice(0, 7);
-  const stats = {
-    agents: (await one("SELECT COUNT(*) AS n FROM agencies WHERE status = 'active'")).n,
-    pendingAgents: (await one("SELECT COUNT(*) AS n FROM agencies WHERE status = 'pending'")).n,
-    products: (await one("SELECT COUNT(*) AS n FROM products WHERE status = 'published'")).n,
-    drafts: (await one("SELECT COUNT(*) AS n FROM products WHERE status = 'draft'")).n,
-    agentPackages: (await one('SELECT COUNT(*) AS n FROM packages WHERE agency_id IS NOT NULL')).n,
-    ...await one(`SELECT COUNT(*) AS bookings, COALESCE(SUM(total_net), 0) AS revenue FROM bookings WHERE status != 'cancelled' AND substr(created_at, 1, 7) = ?`, month),
-    walletFloat: (await one('SELECT COALESCE(SUM(wallet_balance), 0) AS n FROM agencies')).n,
-    creditOut: (await one('SELECT COALESCE(SUM(credit_used), 0) AS n FROM agencies')).n,
-    cancelRequests: (await one("SELECT COUNT(*) AS n FROM bookings WHERE status = 'cancel_requested'")).n,
-  };
-  const bookings = await all('SELECT b.*, a.name AS agency_name FROM bookings b JOIN agencies a ON a.id = b.agency_id ORDER BY b.id DESC LIMIT 8');
-  const pending = await all("SELECT * FROM agencies WHERE status = 'pending' ORDER BY id DESC LIMIT 5");
-  const topAgents = await all(
-    `SELECT a.id, a.name, a.city, COUNT(b.id) AS bookings, COALESCE(SUM(b.total_net), 0) AS revenue
+  // All headline numbers in one query; the lists below run in parallel.
+  const statsQuery = one(`SELECT
+      (SELECT COUNT(*) FROM agencies WHERE status = 'active') AS agents,
+      (SELECT COUNT(*) FROM agencies WHERE status = 'pending') AS "pendingAgents",
+      (SELECT COUNT(*) FROM products WHERE status = 'published') AS products,
+      (SELECT COUNT(*) FROM products WHERE status = 'draft') AS drafts,
+      (SELECT COUNT(*) FROM packages WHERE agency_id IS NOT NULL) AS "agentPackages",
+      (SELECT COUNT(*) FROM bookings WHERE status != 'cancelled' AND substr(created_at, 1, 7) = ?) AS bookings,
+      (SELECT COALESCE(SUM(total_net), 0) FROM bookings WHERE status != 'cancelled' AND substr(created_at, 1, 7) = ?) AS revenue,
+      (SELECT COALESCE(SUM(wallet_balance), 0) FROM agencies) AS "walletFloat",
+      (SELECT COALESCE(SUM(credit_used), 0) FROM agencies) AS "creditOut",
+      (SELECT COUNT(*) FROM bookings WHERE status = 'cancel_requested') AS "cancelRequests"`, month, month);
+  const [stats, bookings, pending, topAgents, topProducts, recentLog] = await Promise.all([
+    statsQuery,
+    all('SELECT b.*, a.name AS agency_name FROM bookings b JOIN agencies a ON a.id = b.agency_id ORDER BY b.id DESC LIMIT 8'),
+    all("SELECT * FROM agencies WHERE status = 'pending' ORDER BY id DESC LIMIT 5"),
+    all(
+      `SELECT a.id, a.name, a.city, COUNT(b.id) AS bookings, COALESCE(SUM(b.total_net), 0) AS revenue
      FROM agencies a LEFT JOIN bookings b ON b.agency_id = a.id AND b.status != 'cancelled'
      WHERE a.status = 'active' GROUP BY a.id ORDER BY revenue DESC LIMIT 5`,
-  );
-  const topProducts = await all(
-    `SELECT p.id, p.kind, p.title, p.city, COUNT(DISTINCT b.id) AS bookings FROM products p
+    ),
+    all(
+      `SELECT p.id, p.kind, p.title, p.city, COUNT(DISTINCT b.id) AS bookings FROM products p
      LEFT JOIN quote_items qi ON qi.product_id = p.id LEFT JOIN bookings b ON b.quote_id = qi.quote_id AND b.status != 'cancelled'
      GROUP BY p.id ORDER BY bookings DESC, p.id LIMIT 5`,
-  );
-  const recentLog = await all(`${LOG_SQL} WHERE l.action != 'user.login' ORDER BY l.id DESC LIMIT 8`);
+    ),
+    all(`${LOG_SQL} WHERE l.action != 'user.login' ORDER BY l.id DESC LIMIT 8`),
+  ]);
   res.page('admin/dashboard', { title: 'Admin dashboard', stats, bookings, pending, topAgents, topProducts, recentLog, kinds: KINDS });
 }));
 
@@ -149,7 +157,9 @@ router.post('/agents/:id/status', h(async (req, res) => {
 
 router.post('/agents/:id/credit', h(async (req, res) => {
   const id = num(req.params.id);
-  await run('UPDATE agencies SET credit_limit = ? WHERE id = ?', Math.max(0, round2(num(req.body.credit_limit, 0))), id);
+  const limit = round2(num(req.body.credit_limit, NaN));
+  if (!(limit >= 0 && limit <= MAX_AMOUNT)) throw new svc.AppError('Enter a credit limit between ₹0 and ₹1 crore.');
+  await run('UPDATE agencies SET credit_limit = ? WHERE id = ?', limit, id);
   await notify(id, 'Credit limit updated', `Your credit limit is now ₹${Math.max(0, num(req.body.credit_limit, 0)).toLocaleString('en-IN')}.`, '/agent/wallet');
   await audit(req.user, 'agency.credit_limit', { entity: 'agency', id, agencyId: id, link: `/admin/agents/${id}`, summary: `Credit limit set to ₹${Math.max(0, num(req.body.credit_limit, 0)).toLocaleString('en-IN')}` });
   req.flash('success', 'Credit limit updated.');
@@ -160,6 +170,7 @@ router.post('/agents/:id/wallet', h(async (req, res) => {
   const id = num(req.params.id);
   const amount = round2(num(req.body.amount, 0));
   if (!amount) throw new svc.AppError('Enter a non-zero amount (negative to debit).');
+  if (Math.abs(amount) > MAX_AMOUNT) throw new svc.AppError('That adjustment is too large (limit ₹1 crore).');
   await tx(async () => await svc.moveWallet(id, amount > 0 ? 'topup' : 'adjustment', amount, str(req.body.ref) || null, str(req.body.note) || 'Adjustment by VaayuTrip'));
   await notify(id, amount > 0 ? 'Wallet credited' : 'Wallet debited', `₹${Math.abs(amount).toLocaleString('en-IN')} ${amount > 0 ? 'added to' : 'deducted from'} your wallet.`, '/agent/wallet');
   await audit(req.user, 'wallet.adjusted', { entity: 'agency', id, agencyId: id, link: `/admin/agents/${id}`, summary: `₹${amount.toLocaleString('en-IN')}: ${str(req.body.note) || 'Adjustment by VaayuTrip'}` });

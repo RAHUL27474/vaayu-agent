@@ -2,7 +2,7 @@
 <div class="card">
   <h3>Your API key</h3>
   <% if (agency.api_key && agency.status === 'active') { %>
-    <div style="display:flex;gap:8px;max-width:640px"><input type="text" readonly value="<%= agency.api_key %>"><button class="btn" data-copy="<%= agency.api_key %>">Copy</button></div>
+    <div style="display:flex;gap:8px;max-width:640px"><input type="text" readonly value="<%= agency.api_key %>" aria-label="Your API key"><button class="btn" data-copy="<%= agency.api_key %>">Copy</button></div>
     <form method="post" action="/agent/api/regenerate" data-confirm="Generate a new key? The current key will stop working immediately." style="margin-top:10px"><button class="btn btn-sm btn-danger">Regenerate key</button></form>
     <p class="muted" style="font-size:13px;margin-top:10px">Keep this secret; use it from your server, not from browser code.</p>
   <% } else { %>

@@ -4,7 +4,7 @@ const express = require('express');
 const multer = require('multer');
 const { one, all, run, tx, getSettings, notify, audit, UPLOADS_DIR } = require('../db');
 const { num, code, round2, uniqueSlug, fmtDate } = require('../util');
-const { requireAgent, requireActiveAgency, limitPendingAgency, h } = require('../auth');
+const { requireAgent, requireActiveAgency, limitPendingAgency, h, idParam, MAX_AMOUNT } = require('../auth');
 const svc = require('../services');
 const { priceQuote, emiPlans, agencyHasBranding, withTax } = require('../pricing');
 const {
@@ -18,6 +18,8 @@ const { persistFile } = require('../files');
 const { COUNTRIES, isIndia, kycLabel, requiredFiles, withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded } = require('../kyc');
 
 const router = express.Router();
+router.param('id', idParam);
+router.param('itemId', idParam);
 router.use(requireAgent);
 router.use(limitPendingAgency);
 
@@ -87,23 +89,29 @@ router.get('/', h(async (req, res) => {
   }
   const a = req.agency.id;
   const month = new Date().toISOString().slice(0, 7);
-  const stats = await one(
-    `SELECT COUNT(*) AS bookings, COALESCE(SUM(total_sell), 0) AS sales, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS earnings
-     FROM bookings WHERE agency_id = ? AND status != 'cancelled' AND substr(created_at, 1, 7) = ?`, a, month,
-  );
-  const openLeads = (await one("SELECT COUNT(*) AS n FROM leads WHERE agency_id = ? AND status IN ('new', 'contacted')", a)).n;
-  const quotes = await all('SELECT * FROM quotes WHERE agency_id = ? ORDER BY updated_at DESC LIMIT 5', a);
-  const bookings = await all('SELECT * FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 5', a);
-  const leads = await all("SELECT * FROM leads WHERE agency_id = ? AND status = 'new' ORDER BY id DESC LIMIT 5", a);
-  const upcoming = await all("SELECT * FROM bookings WHERE agency_id = ? AND status = 'confirmed' AND travel_date >= sqldate('now') ORDER BY travel_date LIMIT 5", a);
-  const featured = (await all("SELECT * FROM products WHERE status = 'published' ORDER BY created_at DESC, id DESC LIMIT 5")).map((x) => ({ ...x, price: cardPrice(req.agency, x), path: KINDS[x.kind].path }));
-  const hasPackage = Boolean(await one('SELECT 1 FROM packages WHERE agency_id = ?', a));
+  // Independent lookups run in parallel.
+  const [stats, openLeads, quotes, bookings, leads, upcoming, featuredRows, hasPackage, months, offers] = await Promise.all([
+    one(
+      `SELECT COUNT(*) AS bookings, COALESCE(SUM(total_sell), 0) AS sales, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS earnings
+       FROM bookings WHERE agency_id = ? AND status != 'cancelled' AND substr(created_at, 1, 7) = ?`, a, month,
+    ),
+    one("SELECT COUNT(*) AS n FROM leads WHERE agency_id = ? AND status IN ('new', 'contacted')", a).then((r) => r.n),
+    all('SELECT * FROM quotes WHERE agency_id = ? ORDER BY updated_at DESC LIMIT 5', a),
+    all('SELECT * FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 5', a),
+    all("SELECT * FROM leads WHERE agency_id = ? AND status = 'new' ORDER BY id DESC LIMIT 5", a),
+    all("SELECT * FROM bookings WHERE agency_id = ? AND status = 'confirmed' AND travel_date >= sqldate('now') ORDER BY travel_date LIMIT 5", a),
+    all("SELECT * FROM products WHERE status = 'published' ORDER BY created_at DESC, id DESC LIMIT 5"),
+    one('SELECT 1 FROM packages WHERE agency_id = ?', a).then(Boolean),
+    // Last 6 calendar months, oldest first, including months without bookings.
+    all(
+      `SELECT substr(created_at, 1, 7) AS month, SUM(total_sell - total_net - total_cost) AS earnings, COUNT(*) AS n FROM bookings
+       WHERE agency_id = ? AND status != 'cancelled' AND created_at >= sqldate('now', 'start of month', '-5 months') GROUP BY month`, a,
+    ),
+    liveOffers(2),
+  ]);
+  const featured = featuredRows.map((x) => ({ ...x, price: cardPrice(req.agency, x), path: KINDS[x.kind].path }));
   const branded = agencyHasBranding(req.agency);
-  // Last 6 calendar months, oldest first, including months without bookings.
-  const earned = Object.fromEntries((await all(
-    `SELECT substr(created_at, 1, 7) AS month, SUM(total_sell - total_net - total_cost) AS earnings, COUNT(*) AS n FROM bookings
-     WHERE agency_id = ? AND status != 'cancelled' AND created_at >= sqldate('now', 'start of month', '-5 months') GROUP BY month`, a,
-  )).map((m) => [m.month, m]));
+  const earned = Object.fromEntries(months.map((m) => [m.month, m]));
   const chart = [...Array(6)].map((_, i) => {
     const d = new Date();
     d.setUTCDate(1);
@@ -122,7 +130,7 @@ router.get('/', h(async (req, res) => {
     { done: hasBooking, label: 'Make your first booking', href: '/agent/quotes' },
   ];
   const services = Object.entries(KIND_BY_PATH).map(([path, kind]) => ({ path, kind, label: KINDS[kind].plural, icon: KINDS[kind].icon }));
-  res.page('agent/dashboard', { title: 'Dashboard', stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers: await liveOffers(2), services, destinations: Object.keys(DESTINATIONS) });
+  res.page('agent/dashboard', { title: 'Dashboard', stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers, services, destinations: Object.keys(DESTINATIONS) });
 }));
 
 // ---------- VaayuTrip inventory: activities, hotels, airfares, transfers, visas, insurance ----------
@@ -686,6 +694,7 @@ router.get('/wallet', h(async (req, res) => {
 router.post('/wallet/topup', requireActiveAgency, h(async (req, res) => {
   const amount = round2(num(req.body.amount, 0));
   if (amount < 100) throw new svc.AppError('Minimum top-up is ₹100.');
+  if (amount > MAX_AMOUNT) throw new svc.AppError('That amount is too large for one top-up. Split it, or contact VaayuTrip.');
   await run('INSERT INTO topup_requests (agency_id, amount, utr) VALUES (?, ?, ?)', req.agency.id, amount, str(req.body.utr) || null);
   await notify(null, 'Wallet top-up request', `${req.agency.name} requested ₹${amount.toLocaleString('en-IN')} (UTR ${str(req.body.utr) || 'n/a'}).`, '/admin/topups');
   await audit(req.user, 'topup.requested', { entity: 'topup', summary: `₹${amount.toLocaleString('en-IN')} (UTR ${str(req.body.utr) || 'n/a'})`, link: '/admin/topups' });
@@ -720,6 +729,7 @@ router.post('/payment-links', requireActiveAgency, h(async (req, res) => {
   const amount = round2(num(req.body.amount, 0));
   const purpose = str(req.body.purpose);
   if (amount <= 0 || !purpose) throw new svc.AppError('Enter what the payment is for and the amount.');
+  if (amount > MAX_AMOUNT) throw new svc.AppError('That amount is too large for one payment link.');
   await run('INSERT INTO payment_links (agency_id, code, purpose, amount, customer_name) VALUES (?, ?, ?, ?, ?)',
     req.agency.id, code('PAY'), purpose, amount, str(req.body.customer_name) || null);
   req.flash('success', 'Payment link created.');

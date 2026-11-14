@@ -106,8 +106,8 @@ function detailsFromForm(b, catalogue) {
       title: str(r.title),
       description: str(r.description),
       basis: r.basis === 'per_booking' ? 'per_booking' : 'per_person',
-      cost: r.source === 'client' ? 0 : money(r.cost),
-      price: r.source === 'client' ? 0 : money(r.price),
+      cost: money(r.cost),
+      price: money(r.price),
     }))
     .filter((r) => r.title);
   d.policies = {

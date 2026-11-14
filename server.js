@@ -29,6 +29,17 @@ app.disable('x-powered-by');
 // Behind Vercel's proxy, so share links get the real https:// scheme and host.
 if (process.env.VERCEL) app.set('trust proxy', true);
 
+// Basic browser protections: no framing by other sites, no MIME sniffing, no full URLs leaked to other sites.
+app.use((req, res, next) => {
+  res.set({
+    'X-Frame-Options': 'SAMEORIGIN',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'geolocation=(), microphone=(), camera=(self)',
+  });
+  if (process.env.VERCEL_ENV) res.set('Strict-Transport-Security', 'max-age=31536000');
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
 app.use((req, res, next) => start().then(() => next(), next));
 // Uploaded files live in the database; after a restart the disk cache is refilled on first request.
@@ -45,7 +56,8 @@ app.use(express.json({ limit: '1mb' }));
 // The signing key comes from the database, so the session middleware is created on the first request.
 let sessions;
 app.use(async (req, res, next) => {
-  sessions ||= cookieSession({ name: 'vt_sess', secret: await sessionSecret(), sameSite: 'lax', httpOnly: true, maxAge: 7 * 24 * 3600 * 1000 });
+  // On the live site (HTTPS) the cookie is never sent over plain HTTP.
+  sessions ||= cookieSession({ name: 'vt_sess', secret: await sessionSecret(), sameSite: 'lax', httpOnly: true, secure: Boolean(process.env.VERCEL_ENV), maxAge: 7 * 24 * 3600 * 1000 });
   sessions(req, res, next);
 });
 

@@ -115,12 +115,31 @@ net (what the agent pays VaayuTrip for activities, flights, hotels…)
 
 The agent pays VaayuTrip `net + GST` when booking, and pays their own hotels and suppliers directly. Their earning is `customer subtotal − net − their own costs`. The rules live in [src/pricing.js](src/pricing.js) and [src/packages.js](src/packages.js).
 
+## Testing
+
+```
+npm test
+```
+
+Runs every suite in `test/`, each against a fresh in-memory database with the demo data (about 30 seconds):
+
+| Suite | What it covers |
+|---|---|
+| `crawl` | Logs in as every role and follows every link: no server errors, no leaked `[object Promise]` / `NaN` / `undefined`, no slow pages, at most 25 database queries per page, labelled form fields and alt text |
+| `flows` | Every workflow through the real forms: customers, leads, quotes, sharing, payment links, booking, invoices, cancellations, packages (all three hotel sources), website, API, wallet, support, branding, sign-up and KYC, admin and backend tools |
+| `rules` | KYC document rules, the pending-agency lockdown, VaayuTrip margins, rate card import |
+| `abuse` | Bad amounts, other agencies' records, script tags, SQL-looking input, password guessing |
+| `lifecycle` | Deleted inventory, deleted customers, suspended agencies and switched-off staff |
+
+The rate card checks use `VaayuTrip-RateCard-Template.xlsx` from the Downloads folder when it is there.
+
 ## Project layout
 
 ```
 server.js               app setup, sessions, layout rendering
 src/db.js               Postgres schema and async query helpers: one/all/run/tx (Supabase live, PGlite locally)
 src/async-routes.js     lets Express 4 handle async route errors
+test/                   npm test suites (see Testing)
 src/files.js            uploaded files kept in the database, with a disk cache
 src/pricing.js          markup, totals, GST/TCS, EMI and invoice snapshots
 src/products.js         inventory: types, destinations, form parsing, per-person / per-group / per-room-night pricing

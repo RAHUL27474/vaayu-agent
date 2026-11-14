@@ -41,7 +41,8 @@ async function packageDetail(p) {
     route: v.route,
     highlights: v.highlights,
     itinerary: v.days,
-    hotels: v.stays,
+    // Agents sell under their own brand: say only whether a hotel is included or arranged by the traveller.
+    hotels: v.stays.map(({ source, ...h }) => ({ ...h, arrangedBy: source === 'client' ? 'traveller' : 'included' })),
     inclusions: v.inclusions,
     exclusions: v.exclusions,
     policies: v.policies,

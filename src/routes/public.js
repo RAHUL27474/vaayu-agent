@@ -60,13 +60,27 @@ router.get('/login', (req, res) => {
   res.page('public/login', { title: 'Log in', next: req.query.next || '', email: '' }, 'public');
 });
 
+// Password guessing: 8 failures for one email, or 30 from one address, in 15 minutes pause logins there.
+const LOGIN_LIMITS = { email: 8, ip: 30 };
+
 router.post('/login', h(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
+  const loginError = (message) => res.status(message.startsWith('Too many') ? 429 : 200)
+    .page('public/login', { title: 'Log in', next: req.body.next || '', email, flash: [{ type: 'error', message }] }, 'public');
+  const recent = await one(
+    "SELECT COUNT(*) FILTER (WHERE email = ?) AS by_email, COUNT(*) FILTER (WHERE ip = ?) AS by_ip FROM login_failures WHERE created_at > datetime('now', '-15 minutes')",
+    email, req.ip,
+  );
+  if (recent.by_email >= LOGIN_LIMITS.email || recent.by_ip >= LOGIN_LIMITS.ip) {
+    return loginError('Too many failed attempts. Wait 15 minutes and try again, or contact VaayuTrip support.');
+  }
   const user = await one('SELECT * FROM users WHERE email = ?', email);
   if (!user || !user.is_active || !verifyPassword(String(req.body.password || ''), user.password_hash)) {
-    const flash = [{ type: 'error', message: 'Wrong email or password.' }];
-    return res.page('public/login', { title: 'Log in', next: req.body.next || '', email, flash }, 'public');
+    await run('INSERT INTO login_failures (email, ip) VALUES (?, ?)', email, req.ip);
+    await run("DELETE FROM login_failures WHERE created_at < datetime('now', '-1 day')");
+    return loginError('Wrong email or password.');
   }
+  await run('DELETE FROM login_failures WHERE email = ?', email);
   req.session.userId = user.id;
   await audit(user, 'user.login', { entity: 'user', id: user.id, summary: `${user.name} logged in` });
   const next = String(req.body.next || '');

@@ -35,7 +35,7 @@
           <div style="border:1px dashed #cbd5e1;border-radius:10px;padding:16px;text-align:center;margin-bottom:10px;background:#fafbfd">
             <% if (agency.logo_path) { %><img src="<%= agency.logo_path %>" alt="Logo" style="max-height:64px"><% } else { %><span class="muted">No logo yet</span><% } %>
           </div>
-          <input type="file" name="logo" accept="image/png,image/jpeg,image/webp">
+          <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" aria-label="Company logo (PNG, JPG or WebP)">
           <div class="hint">PNG, JPG or WebP, up to 2 MB. A wide logo on a transparent background works best.</div>
           <% if (agency.logo_path) { %><label class="check" style="margin-top:8px"><input type="checkbox" name="remove_logo" value="1"> Remove logo</label><% } %>
         </div>

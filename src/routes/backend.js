@@ -7,7 +7,7 @@ const express = require('express');
 const multer = require('multer');
 const { one, all, run, tx, notify, audit, getSettings } = require('../db');
 const { num, uniqueSlug } = require('../util');
-const { requireBackend, h } = require('../auth');
+const { requireBackend, h, idParam } = require('../auth');
 const svc = require('../services');
 const {
   KINDS, DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, BASIS_LABELS, MEAL_PLANS, productFromForm, publishProblems, parseProductDetails, describe,
@@ -18,6 +18,8 @@ const { readXlsx, XlsxError } = require('../xlsx');
 const { readRateCard, isRateCard } = require('../ratecard');
 
 const router = express.Router();
+router.param('id', idParam);
+router.param('itemId', idParam);
 router.use(requireBackend);
 router.use((req, res, next) => {
   res.locals.kindsNav = KINDS;
