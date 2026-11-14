@@ -5,7 +5,7 @@
   <% }) %>
 </div>
 <div class="card flush">
-  <% if (!agents.length) { %><div class="empty">No agents here.</div><% } else { %>
+  <% if (!agents.length) { %><div class="empty"><span class="big"><%- icon('building') %></span><b>No agents here</b><p>Agencies appear here when they sign up.</p></div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Agency</th><th>Contact</th><th>Status</th><th>KYC</th><th class="num">Wallet</th><th class="num">Credit</th><th class="num">Bookings</th></tr></thead>
     <% agents.forEach(a => { %>
@@ -22,3 +22,4 @@
   </table></div>
   <% } %>
 </div>
+<%- include('../partials/pager', { pager }) %>

@@ -6,7 +6,7 @@
     <div>
       <img src="<%= cover(pkg) %>" alt="<%= pkg.title %>" style="width:100%;max-height:380px;object-fit:cover;border-radius:14px">
       <h1 style="margin-top:20px"><%= pkg.title %></h1>
-      <p class="muted"><%= pkg.nights %> nights · <%= pkg.destination %><%= pkg.theme ? ` · ${pkg.theme}` : '' %></p>
+      <p class="muted"><%= plural(pkg.nights, 'night') %> · <%= pkg.destination %><%= pkg.theme ? ` · ${pkg.theme}` : '' %></p>
       <p style="font-size:16px"><%= pkg.summary %></p>
       <%- include('../partials/package-full', { p: view }) %>
     </div>

@@ -3,7 +3,7 @@
   <div>
     <div class="card flush">
       <div class="card-head" style="padding:18px 20px 0"><h3>Your tickets</h3></div>
-      <% if (!tickets.length) { %><div class="empty"><span class="big"><%- icon('message') %></span>No tickets yet.</div><% } else { %>
+      <% if (!tickets.length) { %><div class="empty"><span class="big"><%- icon('message') %></span><b>No tickets yet</b><p>Questions about a booking or payment? Open a ticket and our team replies here.</p></div><% } else { %>
       <div class="table-wrap"><table class="table" style="margin-top:10px">
         <% tickets.forEach(t => { %>
           <tr class="click" data-href="/agent/support/<%= t.id %>">

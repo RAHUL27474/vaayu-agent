@@ -7,15 +7,14 @@
   <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>VaayuTrip for Travel Agents</title>
   <meta name="description" content="VaayuTrip is the B2B travel platform for Indian travel agents: airfares, hotels, activities, transfers and visas at net rates for Dubai, Bali, Vietnam, Cambodia, the UK and Europe, to build your own packages, with branded invoices and your own website.">
   <link rel="icon" href="/img/favicon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="<%= asset('/css/app.css') %>">
 </head>
 <body class="public">
 <% if (typeof bare === 'undefined' || !bare) { %>
 <header class="site-header">
 <nav class="site-nav" aria-label="Main">
-  <a class="logo" href="/"><img src="/img/vaayutrip-logo.png" alt="VaayuTrip"></a>
+  <a class="logo" href="/"><img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip" width="171" height="58"></a>
   <button class="icon-btn site-menu-toggle" type="button" data-site-menu aria-label="Menu" aria-expanded="false" aria-controls="site-menu"><%- icon('menu') %></button>
   <div class="links site-menu" id="site-menu">
     <a href="/#features">Features</a>
@@ -32,13 +31,13 @@
 </nav>
 </header>
 <% } %>
-<% if (typeof bare === 'undefined' || !bare) flash.forEach(f => { %><div class="section" style="padding-top:0;padding-bottom:0"><div class="alert <%= f.type %>"><%= f.message %></div></div><% }) %>
+<% if (typeof bare === 'undefined' || !bare) flash.forEach(f => { %><div class="section" style="padding-top:0;padding-bottom:0"><div class="alert <%= f.type %>" role="<%= f.type === 'error' ? 'alert' : 'status' %>" data-flash><%= f.message %></div></div><% }) %>
 <%- body %>
 <% if (typeof bare === 'undefined' || !bare) { %>
 <footer class="site-footer">
   <div class="inner">
     <div>
-      <img src="/img/vaayutrip-logo.png" alt="VaayuTrip DMC" class="footer-logo">
+      <img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip DMC" class="footer-logo" width="189" height="64" loading="lazy">
       <div style="margin-top:8px"><%= settings.legal_name %> · GSTIN <%= settings.gstin %></div>
       <div><%= settings.address %></div>
     </div>
@@ -55,6 +54,6 @@
 </a>
 <% } %>
 <% } %>
-<script src="/js/app.js"></script>
+<script src="<%= asset('/js/app.js') %>"></script>
 </body>
 </html>

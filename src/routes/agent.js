@@ -15,6 +15,7 @@ const {
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
 const { persistFile } = require('../files');
+const { paging, pageOf } = require('../paging');
 const { COUNTRIES, isIndia, kycLabel, requiredFiles, withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded } = require('../kyc');
 
 const router = express.Router();
@@ -174,14 +175,16 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
     if (f.dest) where.push([`country IN (${DESTINATIONS[f.dest].map(() => '?').join(', ')}, ?)`, ...DESTINATIONS[f.dest], ALL_DESTINATIONS]);
     if (f.city) where.push(['city = ?', f.city]);
     if (f.category) where.push(['category = ?', f.category]);
-    const products = (await all(
-      `SELECT * FROM products WHERE ${where.map(([c]) => c).join(' AND ')} ORDER BY country, city, net_adult`,
-      ...where.flatMap(([, ...p]) => p),
-    )).map(withPrices(req.agency));
+    const pg = paging(req, 48);
+    const found = pageOf(await all(
+      `SELECT * FROM products WHERE ${where.map(([c]) => c).join(' AND ')} ORDER BY country, city, net_adult, id ${pg.sql}`,
+      ...where.flatMap(([, ...p]) => p), ...pg.params,
+    ), pg);
+    const products = found.rows.map(withPrices(req.agency));
     const cities = (await all("SELECT city, country, COUNT(*) AS n FROM products WHERE status = 'published' AND kind = ? GROUP BY city, country ORDER BY country, city", kind))
       .filter((c) => !f.dest || DESTINATIONS[f.dest].includes(c.country) || c.country === ALL_DESTINATIONS);
     const services = Object.entries(KIND_BY_PATH).map(([p, k]) => ({ path: p, kind: k, label: KINDS[k].plural, icon: KINDS[k].icon }));
-    res.page('agent/catalogue', { title: cfg.plural, kind, cfg, products, cities, f, services, destinations: Object.keys(DESTINATIONS) });
+    res.page('agent/catalogue', { title: cfg.plural, kind, cfg, products, pager: found.pager, cities, f, services, destinations: Object.keys(DESTINATIONS) });
   }));
 
   router.get(`/${path}/:id`, h(async (req, res, next) => {
@@ -413,17 +416,21 @@ router.post('/packages/:id/quote', h(async (req, res) => {
 
 router.get('/quotes', h(async (req, res) => {
   const status = str(req.query.status);
+  const p = paging(req);
+  const { rows, pager } = pageOf(await all(
+    `SELECT q.*, c.name AS customer_name FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id
+     WHERE q.agency_id = ? ${status ? 'AND q.status = ?' : ''} ORDER BY q.updated_at DESC, q.id DESC ${p.sql}`,
+    req.agency.id, ...(status ? [status] : []), ...p.params,
+  ), p);
+  // Line items for the quotes on this page only, in one query.
   const itemsByQuote = new Map();
-  for (const it of await all('SELECT qi.* FROM quote_items qi JOIN quotes q ON q.id = qi.quote_id WHERE q.agency_id = ? ORDER BY qi.sort, qi.id', req.agency.id)) {
+  const items = rows.length ? await all(`SELECT * FROM quote_items WHERE quote_id IN (${rows.map(() => '?').join(', ')}) ORDER BY sort, id`, ...rows.map((q) => q.id)) : [];
+  for (const it of items) {
     if (!itemsByQuote.has(it.quote_id)) itemsByQuote.set(it.quote_id, []);
     itemsByQuote.get(it.quote_id).push(it);
   }
-  const quotes = (await all(
-    `SELECT q.*, c.name AS customer_name FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id
-     WHERE q.agency_id = ? ${status ? 'AND q.status = ?' : ''} ORDER BY q.updated_at DESC`,
-    req.agency.id, ...(status ? [status] : []),
-  )).map((q) => ({ ...q, priced: priceQuote(q, itemsByQuote.get(q.id) || []) }));
-  res.page('agent/quotes', { title: 'Quotes', quotes, status, customers: await customersOf(req.agency.id) });
+  const quotes = rows.map((q) => ({ ...q, priced: priceQuote(q, itemsByQuote.get(q.id) || []) }));
+  res.page('agent/quotes', { title: 'Quotes', quotes, pager, status, customers: await customersOf(req.agency.id) });
 }));
 
 router.post('/quotes', h(async (req, res) => {
@@ -561,11 +568,12 @@ router.post('/quotes/:id/delete', h(async (req, res) => {
 // ---------- bookings ----------
 
 router.get('/bookings', h(async (req, res) => {
-  const bookings = await all(
-    'SELECT b.*, c.name AS customer_name FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id WHERE b.agency_id = ? ORDER BY b.id DESC',
-    req.agency.id,
-  );
-  res.page('agent/bookings', { title: 'Bookings', bookings });
+  const p = paging(req);
+  const { rows: bookings, pager } = pageOf(await all(
+    `SELECT b.*, c.name AS customer_name FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id WHERE b.agency_id = ? ORDER BY b.id DESC ${p.sql}`,
+    req.agency.id, ...p.params,
+  ), p);
+  res.page('agent/bookings', { title: 'Bookings', bookings, pager });
 }));
 
 router.get('/bookings/:id', h(async (req, res, next) => {
@@ -590,13 +598,14 @@ router.post('/bookings/:id/cancel', h(async (req, res, next) => {
 
 router.get('/customers', h(async (req, res) => {
   const q = str(req.query.q);
-  const customers = await all(
+  const p = paging(req);
+  const { rows: customers, pager } = pageOf(await all(
     `SELECT c.*, (SELECT COUNT(*) FROM bookings b WHERE b.customer_id = c.id) AS trips,
        (SELECT COALESCE(SUM(total_sell), 0) FROM bookings b WHERE b.customer_id = c.id AND b.status != 'cancelled') AS spend
-     FROM customers c WHERE c.agency_id = ? ${q ? 'AND (c.name ILIKE ? OR c.phone ILIKE ? OR c.email ILIKE ?)' : ''} ORDER BY c.name`,
-    req.agency.id, ...(q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []),
-  );
-  res.page('agent/customers', { title: 'Customers', customers, q });
+     FROM customers c WHERE c.agency_id = ? ${q ? 'AND (c.name ILIKE ? OR c.phone ILIKE ? OR c.email ILIKE ?)' : ''} ORDER BY c.name, c.id ${p.sql}`,
+    req.agency.id, ...(q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []), ...p.params,
+  ), p);
+  res.page('agent/customers', { title: 'Customers', customers, pager, q });
 }));
 
 router.post('/customers', h(async (req, res) => {
@@ -705,9 +714,11 @@ router.post('/wallet/topup', requireActiveAgency, h(async (req, res) => {
 // ---------- invoices ----------
 
 router.get('/invoices', h(async (req, res) => {
-  const invoices = (await all('SELECT i.*, q.code AS quote_code FROM invoices i LEFT JOIN quotes q ON q.id = i.quote_id WHERE i.agency_id = ? ORDER BY i.id DESC', req.agency.id))
-    .map((i) => ({ ...i, doc: JSON.parse(i.data) }));
-  res.page('agent/invoices', { title: 'Invoices', invoices });
+  const p = paging(req);
+  const page = pageOf(await all(`SELECT i.*, q.code AS quote_code FROM invoices i LEFT JOIN quotes q ON q.id = i.quote_id WHERE i.agency_id = ? ORDER BY i.id DESC ${p.sql}`, req.agency.id, ...p.params), p);
+  const pager = page.pager;
+  const invoices = page.rows.map((i) => ({ ...i, doc: JSON.parse(i.data) }));
+  res.page('agent/invoices', { title: 'Invoices', pager, invoices });
 }));
 
 router.get('/invoices/:id', h(async (req, res, next) => {
@@ -721,8 +732,9 @@ router.get('/invoices/:id', h(async (req, res, next) => {
 // ---------- payment links ----------
 
 router.get('/payment-links', h(async (req, res) => {
-  const links = await all('SELECT * FROM payment_links WHERE agency_id = ? ORDER BY id DESC', req.agency.id);
-  res.page('agent/payment-links', { title: 'Payment links', links, base: `${req.protocol}://${req.get('host')}` });
+  const p = paging(req);
+  const { rows: links, pager } = pageOf(await all(`SELECT * FROM payment_links WHERE agency_id = ? ORDER BY id DESC ${p.sql}`, req.agency.id, ...p.params), p);
+  res.page('agent/payment-links', { title: 'Payment links', links, pager, base: `${req.protocol}://${req.get('host')}` });
 }));
 
 router.post('/payment-links', requireActiveAgency, h(async (req, res) => {

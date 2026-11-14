@@ -5,7 +5,7 @@
   <% }) %>
 </div>
 <div class="card flush">
-  <% if (!invoices.length) { %><div class="empty">No invoices.</div><% } else { %>
+  <% if (!invoices.length) { %><div class="empty"><span class="big"><%- icon('receipt') %></span><b>No invoices yet</b></div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Number</th><th>Type</th><th>Agent</th><th>Billed to</th><th class="num">Total</th></tr></thead>
     <% invoices.forEach(i => { %>
@@ -20,3 +20,4 @@
   </table></div>
   <% } %>
 </div>
+<%- include('../partials/pager', { pager }) %>

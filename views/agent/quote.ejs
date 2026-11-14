@@ -46,7 +46,7 @@
                 <td class="num"><% if (locked) { %><%= l.qty %><% } else { %><input type="number" min="1" name="qty_<%= l.id %>" aria-label="Quantity for <%= l.title %>" value="<%= l.qty %>" style="text-align:right"><% } %></td>
                 <td class="num"><b><%= inr(l.lineSell) %></b></td>
                 <td class="num profit"><%= inr(l.commission) %></td>
-                <td class="num"><% if (!locked) { %><button class="btn btn-ghost btn-sm btn-danger" formnovalidate formaction="/agent/quotes/<%= quote.id %>/items/<%= l.id %>/delete" title="Remove" aria-label="Remove">✕</button><% } %></td>
+                <td class="num"><% if (!locked) { %><button class="btn btn-ghost btn-sm btn-danger" formnovalidate formaction="/agent/quotes/<%= quote.id %>/items/<%= l.id %>/delete" data-confirm="Remove &quot;<%= l.title %>&quot; from this quote?" title="Remove" aria-label="Remove">✕</button><% } %></td>
               </tr>
             <% }) %>
           </tbody>

@@ -1,0 +1,12 @@
+<%#
+  Previous / next links for a paged list. Expects pager = { page, more }; keeps the other query filters.
+%>
+<% if (pager && (pager.page > 1 || pager.more)) {
+  const to = (n) => '?' + new URLSearchParams({ ...query, page: String(n) }).toString();
+%>
+  <nav class="pager" aria-label="Pages">
+    <% if (pager.page > 1) { %><a class="btn btn-sm" href="<%= to(pager.page - 1) %>" rel="prev"><%- icon('arrowLeft') %>Previous</a><% } else { %><span></span><% } %>
+    <span class="muted">Page <%= pager.page %></span>
+    <% if (pager.more) { %><a class="btn btn-sm" href="<%= to(pager.page + 1) %>" rel="next">Next<%- icon('arrowRight') %></a><% } else { %><span></span><% } %>
+  </nav>
+<% } %>

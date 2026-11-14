@@ -9,7 +9,7 @@
         <li>Your own travel website, free</li>
       </ul>
     </div>
-    <img src="/img/vaayutrip-logo.png" alt="VaayuTrip DMC" class="footer-logo">
+    <img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip DMC" class="footer-logo" width="189" height="64">
   </div>
   <div class="form">
     <div>
@@ -17,8 +17,8 @@
       <p class="muted">Agents and VaayuTrip team members.</p>
       <form method="post" action="/login">
         <input type="hidden" name="next" value="<%= next %>">
-        <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= email %>" required autofocus></div>
-        <div class="field"><label for="password">Password</label><input id="password" type="password" name="password" required></div>
+        <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= email %>" required autofocus autocomplete="username"></div>
+        <div class="field"><label for="password">Password</label><input id="password" type="password" name="password" required autocomplete="current-password"></div>
         <button class="btn btn-primary btn-lg" style="width:100%">Log in</button>
       </form>
       <p style="margin-top:18px" class="muted">New agent? <a href="/signup">Create a partner account</a></p>

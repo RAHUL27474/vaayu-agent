@@ -6,16 +6,18 @@
 <% if (stats.pendingAgents || stats.cancelRequests || pendingTopups) { %>
   <div class="alert warn">
     Needs attention:
-    <% if (stats.pendingAgents) { %><a href="/admin/agents?status=pending"><%= stats.pendingAgents %> agent<%= stats.pendingAgents > 1 ? 's' : '' %> awaiting approval</a> · <% } %>
-    <% if (stats.cancelRequests) { %><a href="/admin/bookings?status=cancel_requested"><%= stats.cancelRequests %> cancellation request<%= stats.cancelRequests > 1 ? 's' : '' %></a> · <% } %>
-    <% if (pendingTopups) { %><a href="/admin/topups"><%= pendingTopups %> wallet top-up<%= pendingTopups > 1 ? 's' : '' %> to verify</a><% } %>
+    <%- [
+      stats.pendingAgents && `<a href="/admin/agents?status=pending">${plural(stats.pendingAgents, 'agent')} awaiting approval</a>`,
+      stats.cancelRequests && `<a href="/admin/bookings?status=cancel_requested">${plural(stats.cancelRequests, 'cancellation request')}</a>`,
+      pendingTopups && `<a href="/admin/topups">${plural(pendingTopups, 'wallet top-up')} to verify</a>`,
+    ].filter(Boolean).join(' · ') %>
   </div>
 <% } %>
 
 <div class="grid grid-4" style="margin-bottom:20px">
-  <div class="stat"><div class="label">Revenue this month (net)</div><div class="value"><%= inr(stats.revenue) %></div><div class="sub"><%= stats.bookings %> bookings</div></div>
+  <div class="stat"><div class="label">Revenue this month (net)</div><div class="value"><%= inr(stats.revenue) %></div><div class="sub"><%= plural(stats.bookings, 'booking') %></div></div>
   <div class="stat"><div class="label">Active agents</div><div class="value"><%= stats.agents %></div><div class="sub"><%= stats.pendingAgents %> pending</div></div>
-  <a class="stat" href="/backend" style="color:inherit;text-decoration:none"><div class="label">Live inventory</div><div class="value"><%= stats.products %></div><div class="sub"><%= stats.drafts %> drafts · <%= stats.agentPackages %> packages built by agents</div></a>
+  <a class="stat" href="/backend" style="color:inherit;text-decoration:none"><div class="label">Live inventory</div><div class="value"><%= stats.products %></div><div class="sub"><%= plural(stats.drafts, 'draft') %> · <%= plural(stats.agentPackages, 'package') %> built by agents</div></a>
   <div class="stat"><div class="label">Agent wallets / credit out</div><div class="value"><%= inr(stats.walletFloat) %></div><div class="sub"><%= inr(stats.creditOut) %> credit used</div></div>
 </div>
 
@@ -35,7 +37,7 @@
   <div class="card flush">
     <div class="card-head"><h3>Top agents</h3></div>
     <table class="table" style="margin-top:10px">
-      <% topAgents.forEach(a => { %><tr class="click" data-href="/admin/agents/<%= a.id %>"><td><b><%= a.name %></b><br><small><%= a.city || '' %> · <%= a.bookings %> bookings</small></td><td class="num"><%= inr(a.revenue) %></td></tr><% }) %>
+      <% topAgents.forEach(a => { %><tr class="click" data-href="/admin/agents/<%= a.id %>"><td><b><%= a.name %></b><br><small><%= a.city || '' %> · <%= plural(a.bookings, 'booking') %></small></td><td class="num"><%= inr(a.revenue) %></td></tr><% }) %>
     </table>
   </div>
   <div class="card flush">

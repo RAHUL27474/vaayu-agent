@@ -1,7 +1,7 @@
 <div class="page-head"><div><h1>Payment links</h1><p>Collect advances or full payments from customers by UPI, card or EMI.</p></div></div>
 <div class="split">
   <div class="card flush">
-    <% if (!links.length) { %><div class="empty"><span class="big"><%- icon('link') %></span>No payment links yet.</div><% } else { %>
+    <% if (!links.length) { %><div class="empty"><span class="big"><%- icon('link') %></span><b>No payment links yet</b><p>Create one with the form to collect an advance or full payment by UPI, card or EMI.</p></div><% } else { %>
     <div class="table-wrap"><table class="table">
       <thead><tr><th>For</th><th>Customer</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
       <% links.forEach(l => { %>
@@ -12,7 +12,7 @@
           <td><span class="badge <%= l.status %>"><%= l.status %></span><% if (l.paid_at) { %><br><small><%= fmtDate(l.paid_at) %></small><% } %></td>
           <td class="num">
             <button class="btn btn-sm" data-copy="<%= base %>/pay/<%= l.code %>">Copy</button>
-            <% if (l.status === 'pending') { %><form method="post" action="/agent/payment-links/<%= l.id %>/expire" class="inline"><button class="btn btn-sm btn-ghost">Expire</button></form><% } %>
+            <% if (l.status === 'pending') { %><form method="post" action="/agent/payment-links/<%= l.id %>/expire" class="inline" data-confirm="Expire this link? The customer won't be able to pay with it."><button class="btn btn-sm btn-ghost">Expire</button></form><% } %>
           </td>
         </tr>
       <% }) %>
@@ -28,3 +28,4 @@
     <p class="muted" style="font-size:12px;margin:10px 0 0">Payments are simulated in this version. Connect Razorpay or Cashfree to go live.</p>
   </form>
 </div>
+<%- include('../partials/pager', { pager }) %>

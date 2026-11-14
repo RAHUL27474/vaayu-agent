@@ -2,7 +2,7 @@
 <div class="split">
   <div class="card flush">
     <form method="get" style="padding:14px 16px;display:flex;gap:8px"><input type="search" name="q" value="<%= q %>" placeholder="Search name, phone or email" aria-label="Search customers"><button class="btn">Search</button></form>
-    <% if (!customers.length) { %><div class="empty"><span class="big"><%- icon('users') %></span>No customers yet.</div><% } else { %>
+    <% if (!customers.length) { %><div class="empty"><span class="big"><%- icon('users') %></span><b>No customers yet</b><p>Add your clients with the form, or they're created for you from leads and quotes.</p></div><% } else { %>
     <table class="table">
       <thead><tr><th>Name</th><th>Contact</th><th class="num">Trips</th><th class="num">Spend</th></tr></thead>
       <% customers.forEach(c => { %>
@@ -21,3 +21,4 @@
     <button class="btn btn-primary">Add customer</button>
   </form>
 </div>
+<%- include('../partials/pager', { pager }) %>

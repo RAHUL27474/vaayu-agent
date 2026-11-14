@@ -9,6 +9,7 @@ const svc = require('../services');
 const { KINDS, marginPct, repriceProducts } = require('../products');
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 const { restoreFile } = require('../files');
+const { paging, pageOf } = require('../paging');
 
 const router = express.Router();
 router.param('id', idParam);
@@ -65,12 +66,13 @@ router.get('/', h(async (req, res) => {
 
 router.get('/agents', h(async (req, res) => {
   const status = ['pending', 'active', 'suspended'].includes(req.query.status) ? req.query.status : '';
-  const agents = await all(
+  const p = paging(req);
+  const { rows: agents, pager } = pageOf(await all(
     `SELECT a.*, (SELECT COUNT(*) FROM bookings b WHERE b.agency_id = a.id AND b.status != 'cancelled') AS bookings,
        (SELECT u.name FROM users u WHERE u.agency_id = a.id ORDER BY u.id LIMIT 1) AS contact
-     FROM agencies a ${status ? 'WHERE a.status = ?' : ''} ORDER BY a.id DESC`, ...(status ? [status] : []),
-  );
-  res.page('admin/agents', { title: 'Agents', agents: agents.map((a) => ({ ...a, missing: missingKyc(a) })), status });
+     FROM agencies a ${status ? 'WHERE a.status = ?' : ''} ORDER BY a.id DESC ${p.sql}`, ...(status ? [status] : []), ...p.params,
+  ), p);
+  res.page('admin/agents', { title: 'Agents', agents: agents.map((a) => ({ ...a, missing: missingKyc(a) })), pager, status });
 }));
 
 router.get('/agents/:id', h(async (req, res, next) => {
@@ -264,11 +266,12 @@ router.post('/team/:id/password', h(async (req, res, next) => {
 
 router.get('/bookings', h(async (req, res) => {
   const status = ['confirmed', 'cancel_requested', 'cancelled'].includes(req.query.status) ? req.query.status : '';
-  const bookings = await all(
+  const p = paging(req);
+  const { rows: bookings, pager } = pageOf(await all(
     `SELECT b.*, a.name AS agency_name, c.name AS customer_name FROM bookings b JOIN agencies a ON a.id = b.agency_id
-     LEFT JOIN customers c ON c.id = b.customer_id ${status ? 'WHERE b.status = ?' : ''} ORDER BY b.id DESC`, ...(status ? [status] : []),
-  );
-  res.page('admin/bookings', { title: 'Bookings', bookings, status });
+     LEFT JOIN customers c ON c.id = b.customer_id ${status ? 'WHERE b.status = ?' : ''} ORDER BY b.id DESC ${p.sql}`, ...(status ? [status] : []), ...p.params,
+  ), p);
+  res.page('admin/bookings', { title: 'Bookings', bookings, pager, status });
 }));
 
 router.get('/bookings/:id', h(async (req, res, next) => {
@@ -327,10 +330,13 @@ router.post('/topups/:id/reject', h(async (req, res) => {
 
 router.get('/invoices', h(async (req, res) => {
   const kind = ['b2b', 'customer_vaayu', 'customer_agent'].includes(req.query.kind) ? req.query.kind : '';
-  const invoices = (await all(
-    `SELECT i.*, a.name AS agency_name FROM invoices i JOIN agencies a ON a.id = i.agency_id ${kind ? 'WHERE i.kind = ?' : ''} ORDER BY i.id DESC`, ...(kind ? [kind] : []),
-  )).map((i) => ({ ...i, doc: JSON.parse(i.data) }));
-  res.page('admin/invoices', { title: 'Invoices', invoices, kind });
+  const p = paging(req);
+  const page = pageOf(await all(
+    `SELECT i.*, a.name AS agency_name FROM invoices i JOIN agencies a ON a.id = i.agency_id ${kind ? 'WHERE i.kind = ?' : ''} ORDER BY i.id DESC ${p.sql}`, ...(kind ? [kind] : []), ...p.params,
+  ), p);
+  const pager = page.pager;
+  const invoices = page.rows.map((i) => ({ ...i, doc: JSON.parse(i.data) }));
+  res.page('admin/invoices', { title: 'Invoices', pager, invoices, kind });
 }));
 
 router.get('/invoices/:id', h(async (req, res, next) => {

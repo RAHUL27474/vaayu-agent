@@ -61,6 +61,16 @@ const all = (sql, ...p) => db.prepare(sql).all(...p);
   check('switched-off backend user is sent to login', (await c.get('/backend', backend)).status === 302);
   await c.post(`/admin/team/${staff.id}/toggle`, admin, {});
 
+  // Long lists are paged: 60 customers → 50 on page 1, the rest on page 2.
+  const ag = await c.login(...ROLES.agent);
+  for (let i = 0; i < 60; i++) await db.prepare('INSERT INTO customers (agency_id, name) VALUES (?, ?)').run(sky.id, `Paging Customer ${String(i).padStart(2, '0')}`);
+  const p1 = await (await c.get('/agent/customers?q=Paging', ag)).text();
+  const p2 = await (await c.get('/agent/customers?q=Paging&page=2', ag)).text();
+  const rowsOn = (html) => (html.match(/Paging Customer \d\d/g) || []).length;
+  check('page 1 shows 50 customers and a Next link keeping the search', rowsOn(p1) === 50 && p1.includes('page=2') && p1.includes('q=Paging'), rowsOn(p1));
+  check('page 2 shows the other 10 and a Previous link', rowsOn(p2) === 10 && p2.includes('rel="prev"'), rowsOn(p2));
+  check('a nonsense page number falls back to page 1', (await c.get('/agent/customers?page=abc', ag)).status === 200);
+
   // Admin pages after all of the above.
   for (const p of ['/admin', '/admin/agents', '/admin/bookings', '/admin/invoices', '/admin/log', '/backend/products']) {
     check(`${p} still renders`, (await c.get(p, p.startsWith('/backend') ? await c.login(...ROLES.backend) : admin)).status === 200);

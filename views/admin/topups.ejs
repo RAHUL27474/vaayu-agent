@@ -1,6 +1,6 @@
 <div class="page-head"><div><h1>Wallet top-up requests</h1><p>Verify the UTR in your bank statement, then approve to credit the agent's wallet.</p></div></div>
 <div class="card flush">
-  <% if (!requests.length) { %><div class="empty">No requests.</div><% } else { %>
+  <% if (!requests.length) { %><div class="empty"><span class="big"><%- icon('topup') %></span><b>No top-up requests</b><p>Agents' wallet top-up requests appear here for you to verify.</p></div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Agent</th><th>UTR</th><th>Requested</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
     <% requests.forEach(r => { %>
@@ -13,7 +13,7 @@
         <td class="num">
           <% if (r.status === 'pending') { %>
             <form method="post" action="/admin/topups/<%= r.id %>/approve" class="inline"><button class="btn btn-sm btn-primary">Approve</button></form>
-            <form method="post" action="/admin/topups/<%= r.id %>/reject" class="inline"><button class="btn btn-sm btn-danger">Reject</button></form>
+            <form method="post" action="/admin/topups/<%= r.id %>/reject" class="inline" data-confirm="Reject this top-up request? The agent's wallet won't be credited."><button class="btn btn-sm btn-danger">Reject</button></form>
           <% } %>
         </td>
       </tr>

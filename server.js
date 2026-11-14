@@ -5,10 +5,11 @@ const cookieSession = require('cookie-session');
 
 const { one, getSettings, sessionSecret, UPLOADS_DIR } = require('./src/db');
 const { restoreFile } = require('./src/files');
+const { homeFor } = require('./src/auth');
 const { seed } = require('./src/seed');
 const { ensureProductCosts } = require('./src/products');
 const { inr, fmtDate } = require('./src/util');
-const { icon } = require('./src/icons');
+const { icon, SPRITE } = require('./src/icons');
 const { AppError } = require('./src/services');
 
 // Database start-up (schema check, demo data on an empty database) runs once; requests wait for it.
@@ -25,6 +26,8 @@ start().catch((e) => console.error('Start-up failed; retrying on the next reques
 const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+// Compiled templates are reused between requests on the live site (Express only does this when NODE_ENV=production).
+if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV) app.set('view cache', true);
 app.disable('x-powered-by');
 // Behind Vercel's proxy, so share links get the real https:// scheme and host.
 if (process.env.VERCEL) app.set('trust proxy', true);
@@ -40,7 +43,19 @@ app.use((req, res, next) => {
   if (process.env.VERCEL_ENV) res.set('Strict-Transport-Security', 'max-age=31536000');
   next();
 });
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
+// Stylesheet and script URLs carry a fingerprint of their contents (?v=…), so browsers can cache them for a
+// year and still pick up a new deploy at once.
+const fingerprint = (rel) => require('crypto').createHash('sha1').update(require('fs').readFileSync(path.join(__dirname, 'public', rel))).digest('hex').slice(0, 10);
+const ASSET_VERSIONS = { '/css/app.css': fingerprint('css/app.css'), '/js/app.js': fingerprint('js/app.js') };
+// "1 booking", "3 bookings": <%= plural(n, 'booking') %>
+app.locals.plural = (n, one, many = `${one}s`) => `${Number(n).toLocaleString('en-IN')} ${Number(n) === 1 ? one : many}`;
+app.locals.asset = (p) => (ASSET_VERSIONS[p] ? `${p}?v=${ASSET_VERSIONS[p]}` : p);
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1h',
+  setHeaders: (res, file) => { if (/[\\/](css|js|fonts)[\\/]/.test(file)) res.set('Cache-Control', 'public, max-age=31536000, immutable'); },
+}));
+// Icon sprite (see src/icons.js): no database needed, cached for a year (the URL changes with its content).
+app.get('/icons.svg', (req, res) => res.set({ 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=31536000, immutable' }).send(SPRITE));
 app.use((req, res, next) => start().then(() => next(), next));
 // Uploaded files live in the database; after a restart the disk cache is refilled on first request.
 app.use('/uploads', async (req, res, next) => {
@@ -68,6 +83,7 @@ app.use(async (req, res, next) => {
   // Package image, or a generated cover card with the destination name when none is uploaded.
   res.locals.cover = (p) => p.image_url || `/cover/${encodeURIComponent(p.destination || p.title || 'Holiday')}.svg`;
   res.locals.path = req.path;
+  res.locals.query = req.query;
   res.locals.settings = await getSettings();
   res.locals.flash = req.session.flash || [];
   req.session.flash = [];
@@ -115,9 +131,11 @@ app.use('/admin', require('./src/routes/admin'));
 app.use('/backend', require('./src/routes/backend'));
 app.use('/api/v1', require('./src/routes/api'));
 
+// Signed-in people see "not found" inside their own portal, with a link back to their dashboard.
+const homeOf = (req) => (req.user ? homeFor(req.user.role) : null);
 app.use((req, res) => {
   res.status(404);
-  res.page('public/message', { title: 'Page not found', heading: 'Page not found', message: "The page you're looking for doesn't exist." }, 'public');
+  res.page('public/message', { title: 'Page not found', heading: 'Page not found', message: "This page doesn't exist, or it has been removed.", home: homeOf(req), iconName: 'search' }, req.user ? 'app' : 'public');
 });
 
 app.use((err, req, res, next) => {
@@ -129,7 +147,7 @@ app.use((err, req, res, next) => {
   res.status(500);
   // Failures before the page helpers exist (e.g. the database is down) get a plain page.
   if (!res.page) return res.send('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>VaayuTrip</title><div style="font:16px system-ui;max-width:520px;margin:15vh auto;padding:0 20px;text-align:center"><h1 style="font-size:22px">We’ll be right back</h1><p style="color:#555">VaayuTrip is briefly unavailable. Please try again in a few minutes.</p></div>');
-  res.page('public/message', { title: 'Something went wrong', heading: 'Something went wrong', message: 'Please try again. If it keeps happening, contact support.' }, 'public');
+  res.page('public/message', { title: 'Something went wrong', heading: 'Something went wrong', message: 'Please try again. If it keeps happening, contact support.', home: homeOf(req), iconName: 'help' }, req.user ? 'app' : 'public');
 });
 
 // On Vercel the platform invokes the exported app; locally we listen ourselves.

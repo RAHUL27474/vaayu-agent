@@ -12,7 +12,7 @@
   <form method="post" action="/signup" class="card" enctype="multipart/form-data">
     <h3>1. Your agency</h3>
     <div class="row">
-      <div class="field"><label for="agency">Agency name</label><input id="agency" name="agency" value="<%= form.agency || '' %>" required></div>
+      <div class="field"><label for="agency">Agency name</label><input id="agency" name="agency" value="<%= form.agency || '' %>" required autocomplete="organization"></div>
       <div class="field"><label for="city">City</label><input id="city" name="city" value="<%= form.city || '' %>"></div>
     </div>
     <div class="row">
@@ -24,7 +24,7 @@
       </div>
       <div class="field" data-tax-india<%= india ? "" : " hidden" %>>
         <label for="gstin">GSTIN</label>
-        <input id="gstin" name="gstin" value="<%= form.gstin || '' %>" maxlength="15" placeholder="27ABCDE1234F1Z5" style="text-transform:uppercase" autocomplete="off">
+        <input id="gstin" name="gstin" value="<%= form.gstin || '' %>" maxlength="15" placeholder="27ABCDE1234F1Z5" style="text-transform:uppercase" autocomplete="off" autocapitalize="characters" spellcheck="false">
         <div class="hint">15-character GST number. Your PAN is read from it.</div>
       </div>
       <div class="field" data-tax-foreign<%= india ? " hidden" : "" %>>
@@ -59,11 +59,11 @@
 
     <h3 style="margin-top:8px">3. Your login</h3>
     <div class="row">
-      <div class="field"><label for="name">Your name</label><input id="name" name="name" value="<%= form.name || '' %>" required></div>
-      <div class="field"><label for="phone">Mobile</label><input id="phone" type="tel" name="phone" value="<%= form.phone || '' %>"></div>
+      <div class="field"><label for="name">Your name</label><input id="name" name="name" value="<%= form.name || '' %>" required autocomplete="name"></div>
+      <div class="field"><label for="phone">Mobile</label><input id="phone" type="tel" name="phone" value="<%= form.phone || '' %>" autocomplete="tel"></div>
     </div>
-    <div class="field"><label for="email">Work email</label><input id="email" type="email" name="email" value="<%= form.email || '' %>" required></div>
-    <div class="field"><label for="password">Password</label><input id="password" type="password" name="password" minlength="8" required><div class="hint">At least 8 characters.</div></div>
+    <div class="field"><label for="email">Work email</label><input id="email" type="email" name="email" value="<%= form.email || '' %>" required autocomplete="email"></div>
+    <div class="field"><label for="password">Password</label><input id="password" type="password" name="password" minlength="8" required autocomplete="new-password"><div class="hint">At least 8 characters.</div></div>
     <button class="btn btn-accent btn-lg" style="width:100%">Submit application</button>
     <p class="muted" style="margin:14px 0 0;text-align:center">Already a partner? <a href="/login">Log in</a></p>
   </form>

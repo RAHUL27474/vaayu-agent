@@ -1,4 +1,5 @@
-// Inline SVG icons (24×24 outline, Lucide-style paths, ISC licence). Use in views as <%- icon('plane') %>.
+// SVG icons (24×24 outline, Lucide-style paths, ISC licence). Use in views as <%- icon('plane') %>.
+// Pages reference one cached sprite (/icons.svg, served from SPRITE below) instead of repeating each drawing.
 const PATHS = {
   dashboard: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
   activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
@@ -48,10 +49,13 @@ const PATHS = {
   sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
 };
 
+const SPRITE = `<svg xmlns="http://www.w3.org/2000/svg">${Object.entries(PATHS).map(([name, d]) => `<symbol id="${name}" viewBox="0 0 24 24">${d}</symbol>`).join('')}</svg>`;
+const SPRITE_URL = `/icons.svg?v=${require('crypto').createHash('sha1').update(SPRITE).digest('hex').slice(0, 10)}`;
+
+// Stroke settings live on the outer <svg> and are inherited by the referenced symbol.
 function icon(name, cls = '') {
-  const d = PATHS[name];
-  if (!d) return '';
-  return `<svg class="i${cls ? ` ${cls}` : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  if (!PATHS[name]) return '';
+  return `<svg class="i${cls ? ` ${cls}` : ''}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="${SPRITE_URL}#${name}"/></svg>`;
 }
 
-module.exports = { icon, ICONS: Object.keys(PATHS) };
+module.exports = { icon, ICONS: Object.keys(PATHS), SPRITE };

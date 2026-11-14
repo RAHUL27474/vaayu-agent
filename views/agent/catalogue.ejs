@@ -21,7 +21,9 @@
   <a class="<%= !f.dest ? 'on' : '' %>" href="<%= qs({ dest: '', city: '' }) %>">All destinations</a>
   <% destinations.forEach(d => { %><a class="<%= f.dest === d ? 'on' : '' %>" href="<%= qs({ dest: d, city: '' }) %>"><%= d %></a><% }) %>
 </div>
-<form class="card" method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:14px 16px">
+<% const activeFilters = [f.q, f.city, f.category].filter(Boolean).length; %>
+<button type="button" class="btn filter-toggle" data-filter-toggle aria-controls="catalogue-filters" aria-expanded="false"><%- icon('search') %>Search &amp; filters<% if (activeFilters) { %> <span class="badge info"><%= activeFilters %></span><% } %></button>
+<form class="card filter-bar<%= activeFilters ? ' has-filters' : '' %>" id="catalogue-filters" method="get">
   <% if (f.dest) { %><input type="hidden" name="dest" value="<%= f.dest %>"><% } %>
   <div style="flex:1;min-width:200px"><label for="q">Search</label><input id="q" type="search" name="q" value="<%= f.q %>" placeholder="Name or city"></div>
   <div><label for="city">City</label><select id="city" name="city"><option value="">All cities</option><% cities.forEach(c => { %><option value="<%= c.city %>" <%= c.city === f.city ? 'selected' : '' %>><%= c.city %>, <%= c.country %> (<%= c.n %>)</option><% }) %></select></div>
@@ -46,3 +48,4 @@
     </a>
   <% }) %>
 </div>
+<%- include('../partials/pager', { pager }) %>

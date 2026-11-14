@@ -15,6 +15,7 @@ const {
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
 const { readXlsx, XlsxError } = require('../xlsx');
+const { paging, pageOf } = require('../paging');
 const { readRateCard, isRateCard } = require('../ratecard');
 
 const router = express.Router();
@@ -77,13 +78,15 @@ router.get('/products', h(async (req, res) => {
   if (f.status) { where.push('p.status = ?'); params.push(f.status); }
   if (f.dest) { where.push(`p.country IN (${DESTINATIONS[f.dest].map(() => '?').join(', ')})`); params.push(...DESTINATIONS[f.dest]); }
   if (f.q) { where.push('(p.title ILIKE ? OR p.city ILIKE ?)'); params.push(`%${f.q}%`, `%${f.q}%`); }
-  const products = (await all(
+  const p = paging(req);
+  const rows = (await all(
     `SELECT p.*, u.name AS updated_by_name,
        (SELECT COUNT(DISTINCT b.id) FROM quote_items qi JOIN bookings b ON b.quote_id = qi.quote_id AND b.status != 'cancelled' WHERE qi.product_id = p.id) AS bookings
      FROM products p LEFT JOIN users u ON u.id = p.updated_by ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-     ORDER BY p.kind, p.country, p.city, p.title`, ...params,
-  )).map((p) => ({ ...p, line: describe(p) }));
-  res.page('backend/products', { title: f.kind ? KINDS[f.kind].plural : 'All inventory', products, f, kinds: KINDS, destinations: Object.keys(DESTINATIONS), basisLabels: BASIS_LABELS });
+     ORDER BY p.kind, p.country, p.city, p.title, p.id ${p.sql}`, ...params, ...p.params,
+  )).map((x) => ({ ...x, line: describe(x) }));
+  const { rows: products, pager } = pageOf(rows, p);
+  res.page('backend/products', { title: f.kind ? KINDS[f.kind].plural : 'All inventory', products, pager, f, kinds: KINDS, destinations: Object.keys(DESTINATIONS), basisLabels: BASIS_LABELS });
 }));
 
 const formData = (p) => ({

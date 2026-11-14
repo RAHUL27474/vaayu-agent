@@ -20,9 +20,9 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-// Forms with data-confirm ask before submitting.
+// Forms (or the button pressed) with data-confirm ask before submitting.
 document.addEventListener('submit', (e) => {
-  const msg = e.target.dataset.confirm;
+  const msg = (e.submitter && e.submitter.dataset.confirm) || e.target.dataset.confirm;
   if (msg && !window.confirm(msg)) e.preventDefault();
 });
 
@@ -167,10 +167,11 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Phones: plain data tables are shown as stacked cards. Label each cell with its column heading.
-// Tables with form fields, without a header, or marked .no-stack keep their layout (they scroll sideways).
+// Tables without a header, or marked .no-stack, keep their layout (they scroll sideways).
 document.querySelectorAll('table.table').forEach((table) => {
   const head = table.querySelector('thead tr');
-  if (table.querySelector('input:not([type=hidden]), select, textarea')) { table.classList.add('edit'); return; }
+  // Tables with form fields (e.g. quote prices) stack too, so every field stays reachable without sideways scrolling.
+  if (table.querySelector('input:not([type=hidden]), select, textarea')) table.classList.add('edit');
   if (!head || table.classList.contains('no-stack')) return;
   const labels = [...head.children].map((th) => th.textContent.trim());
   if (labels.length < 2) return;
@@ -208,3 +209,64 @@ const syncStaySource = (sel) => {
   });
 };
 document.addEventListener('change', (e) => { if (e.target.matches('select[data-stay-source]')) syncStaySource(e.target); });
+
+// Catalogue on phones: filters fold behind a button.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-filter-toggle]');
+  if (!btn) return;
+  const form = document.getElementById(btn.getAttribute('aria-controls'));
+  const open = form.classList.toggle('open');
+  btn.setAttribute('aria-expanded', String(open));
+  if (open) form.querySelector('input, select')?.focus();
+});
+
+// Messages after an action: a close button on each; success messages fade out after a few seconds.
+document.querySelectorAll('[data-flash]').forEach((el) => {
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'alert-close';
+  close.setAttribute('aria-label', 'Dismiss message');
+  close.textContent = '×';
+  close.addEventListener('click', () => el.remove());
+  el.append(close);
+  if (el.classList.contains('success')) setTimeout(() => { el.classList.add('fade'); setTimeout(() => el.remove(), 400); }, 6000);
+});
+
+// Submitting: the button shows it's working and repeat clicks are ignored, so nothing is sent twice.
+// (The button isn't disabled: that would drop its name/value from the form data.)
+document.addEventListener('submit', (e) => {
+  const form = e.target;
+  if (e.defaultPrevented || form.method.toLowerCase() === 'get') return;
+  if (form.dataset.submitting) { e.preventDefault(); return; }
+  form.dataset.submitting = '1';
+  const button = e.submitter || form.querySelector('button:not([type=button])');
+  if (button) { button.classList.add('is-busy'); button.setAttribute('aria-busy', 'true'); }
+  // Downloads don't leave the page: let the form be used again after a while.
+  setTimeout(() => { delete form.dataset.submitting; if (button) { button.classList.remove('is-busy'); button.removeAttribute('aria-busy'); } }, 8000);
+});
+// Coming back with the browser's Back button restores the page as it was: reset busy forms.
+window.addEventListener('pageshow', () => document.querySelectorAll('form[data-submitting]').forEach((f) => {
+  delete f.dataset.submitting;
+  f.querySelectorAll('.is-busy').forEach((b) => { b.classList.remove('is-busy'); b.removeAttribute('aria-busy'); });
+}));
+
+// Password fields get a Show/Hide button (handy on phones).
+document.querySelectorAll('input[type=password]').forEach((input) => {
+  const wrap = document.createElement('span');
+  wrap.className = 'pw-wrap';
+  input.replaceWith(wrap);
+  wrap.append(input);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'pw-toggle';
+  btn.textContent = 'Show';
+  btn.setAttribute('aria-label', 'Show password');
+  btn.addEventListener('click', () => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.textContent = show ? 'Hide' : 'Show';
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    input.focus();
+  });
+  wrap.append(btn);
+});

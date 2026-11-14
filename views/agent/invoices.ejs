@@ -1,6 +1,6 @@
 <div class="page-head"><div><h1>Invoices</h1><p>Invoices you issued to customers, and VaayuTrip's net invoices to you.</p></div></div>
 <div class="card flush">
-  <% if (!invoices.length) { %><div class="empty"><span class="big"><%- icon('receipt') %></span>No invoices yet. Issue one from any quote.</div><% } else { %>
+  <% if (!invoices.length) { %><div class="empty"><span class="big"><%- icon('receipt') %></span><b>No invoices yet</b><p>Issue a customer invoice from any quote. VaayuTrip's invoices for your bookings appear here too.</p><div class="empty-actions"><a class="btn btn-primary btn-sm" href="/agent/quotes"><%- icon('file') %>Go to your quotes</a></div></div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Number</th><th>Type</th><th>Billed to</th><th>Trip</th><th class="num">Total</th></tr></thead>
     <% invoices.forEach(i => { %>
@@ -15,3 +15,4 @@
   </table></div>
   <% } %>
 </div>
+<%- include('../partials/pager', { pager }) %>

@@ -1,5 +1,10 @@
-<section class="section" style="text-align:center;min-height:50vh">
+<%
+  // Signed-in people get a way back to their own portal; visitors go to the home page.
+  const back = typeof home !== 'undefined' && home ? home : '/';
+%>
+<section class="section message-page">
+  <span class="big"><%- icon(typeof iconName !== 'undefined' ? iconName : 'search') %></span>
   <h1><%= heading %></h1>
   <p class="muted"><%= message %></p>
-  <a class="btn btn-primary" href="/">Go home</a>
+  <a class="btn btn-primary" href="<%= back %>"><%- icon('arrowLeft') %><%= back === '/' ? 'Go to the home page' : 'Back to your dashboard' %></a>
 </section>
