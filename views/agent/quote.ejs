@@ -205,7 +205,8 @@
       </div>
       <% if (quote.invoice_mode === 'vaayu' && priced.hasAgentItems) { %><div class="alert warn" style="margin-top:10px;font-size:13px">Your own services aren't included on a VaayuTrip invoice; the customer sees them listed separately on the quote.</div><% } %>
 
-      <div class="field" style="margin-top:14px"><label class="check"><input type="checkbox" name="emi_enabled" value="1" <%= quote.emi_enabled ? 'checked' : '' %>> Show EMI options to the customer</label></div>
+      <div class="field" style="margin-top:14px"><label class="check"><input type="checkbox" name="pay_online" value="1" <%= quote.pay_online ? 'checked' : '' %>> Let the customer pay online from the quote link<% if (!phonepeOn) { %> <small class="muted">(available once VaayuTrip connects PhonePe)</small><% } %></label></div>
+      <div class="field"><label class="check"><input type="checkbox" name="emi_enabled" value="1" <%= quote.emi_enabled ? 'checked' : '' %>> Show EMI options to the customer</label></div>
       <div class="field"><label for="notes">Notes for customer</label><textarea id="notes" name="notes" placeholder="Validity, cancellation policy, special requests…"><%= quote.notes || '' %></textarea></div>
       <button class="btn btn-primary" style="width:100%">Save details</button>
     </form>

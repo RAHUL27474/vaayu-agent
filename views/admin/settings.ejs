@@ -9,14 +9,22 @@
     tax_rate: ['GST rate (%)', 'Applied to customer and B2B invoices. Tour operator services: 5%.'],
     tcs_rate: ['TCS on overseas tour packages (%)', 'Collected on customer invoices for international packages. 2% from 1 April 2026 (Budget 2026); confirm with your CA.'],
     emi_rate: ['EMI interest rate (% p.a.)', 'Used for the EMI options shown to customers'],
+    pg_fee_pct: ['Gateway fee on customer payments (%)', 'Deducted when a customer pays an agency online through PhonePe, before the agency wallet is credited. 0 = VaayuTrip absorbs the fee.'],
+    bank_details: ['Bank details for wallet top-ups', 'Shown to agents who top up by bank transfer: bank, account number, IFSC, UPI ID (one per line).'],
   };
 %>
 <div class="page-head"><div><h1>Settings</h1><p>Company details used on VaayuTrip invoices, tax and EMI rates, and VaayuTrip's margin on inventory.</p></div></div>
+<div class="card" style="max-width:720px">
+  <h3>Online payments (PhonePe)</h3>
+  <p style="margin:6px 0"><span class="badge <%= phonepe === 'not set up' ? 'pending' : 'approved' %>"><%= phonepe %></span></p>
+  <p class="muted" style="font-size:13px;margin:0">Keys are kept in the hosting environment, not here. Webhook URL for the PhonePe dashboard: <code><%= origin %>/payments/phonepe/webhook</code></p>
+</div>
 <form class="card" method="post" action="/admin/settings" style="max-width:720px">
   <% keys.filter(k => labels[k]).forEach(k => { %>
     <div class="field">
       <label for="<%= k %>"><%= labels[k][0] %></label>
-      <input id="<%= k %>" name="<%= k %>" value="<%= values[k] || '' %>" <%= ['tax_rate', 'tcs_rate', 'emi_rate'].includes(k) ? 'type=number step=0.1 min=0' : '' %>>
+      <% if (k === 'bank_details') { %><textarea id="<%= k %>" name="<%= k %>" rows="4"><%= values[k] || '' %></textarea><% } else { %>
+      <input id="<%= k %>" name="<%= k %>" value="<%= values[k] || '' %>" <%= ['tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct'].includes(k) ? 'type=number step=0.01 min=0' : '' %>><% } %>
       <% if (labels[k][1]) { %><div class="hint"><%= labels[k][1] %></div><% } %>
     </div>
   <% }) %>

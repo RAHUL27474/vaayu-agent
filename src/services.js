@@ -180,7 +180,7 @@ async function approveCancellation(bookingId, refund) {
 
 async function approveTopup(requestId) {
   return await tx(async () => {
-    const r = await one("SELECT * FROM topup_requests WHERE id = ? AND status = 'pending' FOR UPDATE", requestId);
+    const r = await one("SELECT * FROM topup_requests WHERE id = ? AND status = 'pending' AND method = 'bank' FOR UPDATE", requestId);
     if (!r) throw new AppError('Request not found');
     await moveWallet(r.agency_id, 'topup', r.amount, r.utr, 'Wallet top-up');
     await run("UPDATE topup_requests SET status = 'approved' WHERE id = ?", requestId);

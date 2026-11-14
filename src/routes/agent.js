@@ -7,6 +7,8 @@ const { num, code, round2, uniqueSlug, fmtDate } = require('../util');
 const { requireAgent, requireActiveAgency, limitPendingAgency, h, idParam, MAX_AMOUNT } = require('../auth');
 const svc = require('../services');
 const { searchAgency } = require('../search');
+const phonepe = require('../phonepe');
+const payments = require('../payments');
 const { priceQuote, emiPlans, agencyHasBranding, withTax, markupRule } = require('../pricing');
 const {
   MEAL_PLANS, STAY_TYPES, EXTRA_TYPES, emptyDetails, parseDetails, itemIds, detailsFromForm, calcPackage, priceLines, fromPrice, publishProblems, present,
@@ -467,6 +469,7 @@ router.post('/quotes', h(async (req, res) => {
 }));
 
 router.get('/quotes/:id', h(async (req, res) => {
+  res.locals.phonepeOn = phonepe.enabled();
   const full = await ownQuote(req);
   const settings = await getSettings();
   const invoices = await all('SELECT * FROM invoices WHERE quote_id = ? ORDER BY id DESC', full.quote.id);
@@ -493,10 +496,10 @@ router.post('/quotes/:id', h(async (req, res) => {
   }
   const locked = ['booked', 'cancelled'].includes(quote.status);
   await run(
-    `UPDATE quotes SET title = ?, customer_id = ?, travel_date = ?, adults = ?, children = ?, notes = ?, invoice_mode = ?, show_service_fee = ?, emi_enabled = ?,
+    `UPDATE quotes SET title = ?, customer_id = ?, travel_date = ?, adults = ?, children = ?, notes = ?, invoice_mode = ?, show_service_fee = ?, emi_enabled = ?, pay_online = ?,
        markup_type = ?, markup_value = ?, markup_by_kind = ?, updated_at = datetime('now') WHERE id = ?`,
     str(b.title) || quote.title, num(b.customer_id, 0) || null, str(b.travel_date) || null, Math.max(1, num(b.adults, 1)), Math.max(0, num(b.children, 0)),
-    str(b.notes) || null, mode, b.show_service_fee ? 1 : 0, b.emi_enabled ? 1 : 0,
+    str(b.notes) || null, mode, b.show_service_fee ? 1 : 0, b.emi_enabled ? 1 : 0, b.pay_online ? 1 : 0,
     locked ? quote.markup_type : b.markup_type === 'flat' ? 'flat' : 'percent', locked ? quote.markup_value : Math.max(0, num(b.markup_value, 0)),
     locked ? quote.markup_by_kind : quoteKindMarkupsFromForm(b, req.agency), quote.id,
   );
@@ -752,15 +755,27 @@ router.post('/leads/:id/quote', h(async (req, res, next) => {
 // ---------- wallet ----------
 
 router.get('/wallet', h(async (req, res) => {
+  await payments.settlePending({ agencyId: req.agency.id, olderThanMinutes: 1 }).catch(() => 0);
   const txns = await all('SELECT * FROM wallet_txns WHERE agency_id = ? ORDER BY id DESC LIMIT 100', req.agency.id);
   const requests = await all('SELECT * FROM topup_requests WHERE agency_id = ? ORDER BY id DESC LIMIT 10', req.agency.id);
-  res.page('agent/wallet', { title: 'Wallet & credit', txns, requests });
+  res.page('agent/wallet', { title: 'Wallet & credit', txns, requests, phonepeOn: phonepe.enabled() });
 }));
 
 router.post('/wallet/topup', requireActiveAgency, h(async (req, res) => {
   const amount = round2(num(req.body.amount, 0));
   if (amount < 100) throw new svc.AppError('Minimum top-up is ₹100.');
   if (amount > MAX_AMOUNT) throw new svc.AppError('That amount is too large for one top-up. Split it, or contact VaayuTrip.');
+  if (req.body.method === 'phonepe') {
+    const id = (await run("INSERT INTO topup_requests (agency_id, amount, method) VALUES (?, ?, 'phonepe')", req.agency.id, amount)).lastInsertRowid;
+    await audit(req.user, 'topup.phonepe_started', { entity: 'topup', id, summary: `₹${amount.toLocaleString('en-IN')} via PhonePe`, link: '/admin/topups' });
+    try {
+      return res.redirect(303, await payments.startPayment({ purpose: 'topup', agencyId: req.agency.id, refId: id, amount, origin: res.locals.origin, note: `Wallet top-up ${req.agency.name}`, payerRef: `A${req.agency.id}` }));
+    } catch (e) {
+      await run("UPDATE topup_requests SET status = 'rejected' WHERE id = ?", id);
+      throw e;
+    }
+  }
+  if (!str(req.body.utr)) throw new svc.AppError('Enter the UTR / reference number of your transfer.');
   await run('INSERT INTO topup_requests (agency_id, amount, utr) VALUES (?, ?, ?)', req.agency.id, amount, str(req.body.utr) || null);
   await notify(null, 'Wallet top-up request', `${req.agency.name} requested ₹${amount.toLocaleString('en-IN')} (UTR ${str(req.body.utr) || 'n/a'}).`, '/admin/topups');
   await audit(req.user, 'topup.requested', { entity: 'topup', summary: `₹${amount.toLocaleString('en-IN')} (UTR ${str(req.body.utr) || 'n/a'})`, link: '/admin/topups' });

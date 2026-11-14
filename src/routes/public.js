@@ -1,12 +1,14 @@
 const express = require('express');
 const { one, all, run, tx, notify, audit, getSettings } = require('../db');
-const { hashPassword, verifyPassword, uniqueSlug, num } = require('../util');
+const { hashPassword, verifyPassword, uniqueSlug, num, code, round2 } = require('../util');
 const { getQuote, packageSellPrice, voucherFor } = require('../services');
 const { buildInvoice, emiPlans } = require('../pricing');
 const { h, homeFor } = require('../auth');
 const { parseDetails, present } = require('../packages');
 const { COUNTRIES, withKycDocs, checkTax, checkKycFiles, removeUploaded } = require('../kyc');
 const { DESTINATIONS, destinationOf } = require('../products');
+const phonepe = require('../phonepe');
+const payments = require('../payments');
 
 const router = express.Router();
 
@@ -276,6 +278,39 @@ router.get('/q/:code/invoice/:id', h(async (req, res, next) => {
   res.page('invoice', { title: `Invoice ${inv.number}`, inv, doc: JSON.parse(inv.data), back: `/q/${req.params.code}` }, 'doc');
 }));
 
+// Back from PhonePe (GET, or POST for older PhonePe set-ups): confirm the payment and show where it stands.
+router.all('/payments/return/:orderId', h(async (req, res, next) => {
+  let p = await one('SELECT * FROM payments WHERE order_id = ?', String(req.params.orderId).slice(0, 64));
+  if (!p) return next();
+  try { p = await payments.settle(p.order_id); } catch { /* status unknown for now; shown as processing */ }
+  const msg = p.status === 'completed' ? ['success', p.purpose === 'topup' ? `Payment received. ₹${p.amount.toLocaleString('en-IN')} added to your wallet.` : 'Payment successful. Thank you! Your travel agent has been notified.']
+    : p.status === 'failed' ? ['error', 'The payment did not go through and no money was taken. You can try again.']
+      : ['info', 'Your payment is being confirmed by PhonePe. This page will show it as paid within a few minutes; please don\'t pay again.'];
+  req.flash(...msg);
+  if (p.purpose === 'topup') return res.redirect('/agent/wallet');
+  const link = await one('SELECT code FROM payment_links WHERE id = ?', p.ref_id);
+  res.redirect(`/pay/${link.code}`);
+}));
+
+// "Pay now" on a shared quote (when the agent allows it): a payment link for the trip total, then PhonePe.
+router.post('/q/:code/pay', h(async (req, res, next) => {
+  const s = await sharedQuote(req.params.code);
+  if (!s) return next();
+  const total = round2(s.doc.totals.total + s.agentItems.reduce((t, l) => t + l.lineSell, 0));
+  if (!s.quote.pay_online || !['sent', 'accepted'].includes(s.quote.status) || total < 1) return res.redirect(`/q/${s.quote.code}`);
+  let link = await one("SELECT * FROM payment_links WHERE quote_id = ? AND status = 'pending' ORDER BY id DESC", s.quote.id);
+  if (link && Math.abs(link.amount - total) >= 0.01) {
+    await run("UPDATE payment_links SET status = 'expired' WHERE id = ?", link.id);
+    link = null;
+  }
+  if (!link) {
+    const id = (await run('INSERT INTO payment_links (agency_id, quote_id, code, purpose, amount, customer_name) VALUES (?, ?, ?, ?, ?, ?)',
+      s.quote.agency_id, s.quote.id, code('PAY'), s.quote.title, total, s.customer ? s.customer.name : null)).lastInsertRowid;
+    link = await one('SELECT * FROM payment_links WHERE id = ?', id);
+  }
+  res.redirect(`/pay/${link.code}`);
+}));
+
 // The customer's travel voucher, once the quote is booked.
 router.get('/q/:code/voucher', h(async (req, res, next) => {
   const q = await one('SELECT id FROM quotes WHERE code = ?', req.params.code);
@@ -288,8 +323,15 @@ router.get('/q/:code/voucher', h(async (req, res, next) => {
 }));
 
 router.get('/pay/:code', h(async (req, res, next) => {
-  const link = await one('SELECT * FROM payment_links WHERE code = ?', req.params.code);
+  let link = await one('SELECT * FROM payment_links WHERE code = ?', req.params.code);
   if (!link) return next();
+  // A payment started here but never returned from PhonePe: find out how it ended.
+  const open = link.status === 'pending' && await one("SELECT order_id FROM payments WHERE purpose = 'link' AND ref_id = ? AND status = 'pending' ORDER BY id DESC", link.id);
+  if (open) {
+    await payments.settle(open.order_id).catch(() => null);
+    link = await one('SELECT * FROM payment_links WHERE id = ?', link.id);
+  }
+  res.locals.payOnline = phonepe.enabled() ? 'phonepe' : process.env.VERCEL_ENV === 'production' ? null : 'demo';
   const agency = await one('SELECT * FROM agencies WHERE id = ?', link.agency_id);
   res.page('public/pay', { title: `Pay ${agency.name}`, link, site: agency, noindex: true, meta: { description: `${link.purpose}: payment to ${agency.name}.` }, emi: emiPlans(link.amount, await getSettings()) }, 'doc');
 }));
@@ -298,7 +340,22 @@ router.get('/pay/:code', h(async (req, res, next) => {
 router.post('/pay/:code', h(async (req, res, next) => {
   const link = await one('SELECT * FROM payment_links WHERE code = ?', req.params.code);
   if (!link) return next();
-  if (link.status === 'pending') {
+  if (link.status !== 'pending') return res.redirect(`/pay/${link.code}`);
+  if (phonepe.enabled()) {
+    try {
+      const url = await payments.startPayment({ purpose: 'link', agencyId: link.agency_id, refId: link.id, amount: link.amount, origin: res.locals.origin, note: link.purpose, payerRef: link.code });
+      return res.redirect(303, url);
+    } catch (e) {
+      req.flash('error', e.message);
+      return res.redirect(`/pay/${link.code}`);
+    }
+  }
+  // Without PhonePe the live site takes no payments; elsewhere the checkout is simulated for demos and tests.
+  if (process.env.VERCEL_ENV === 'production') {
+    req.flash('error', 'Online payment is not available yet. Please contact your travel agent to pay.');
+    return res.redirect(`/pay/${link.code}`);
+  }
+  {
     await run("UPDATE payment_links SET status = 'paid', paid_at = datetime('now') WHERE id = ?", link.id);
     await notify(link.agency_id, 'Payment received', `${link.customer_name || 'Customer'} paid ₹${link.amount.toLocaleString('en-IN')} for ${link.purpose}.`, '/agent/payment-links');
   }

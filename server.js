@@ -4,6 +4,8 @@ require('./src/async-routes');
 const cookieSession = require('cookie-session');
 
 const { one, getSettings, sessionSecret, UPLOADS_DIR } = require('./src/db');
+const phonepe = require('./src/phonepe');
+const payments = require('./src/payments');
 const { restoreFile } = require('./src/files');
 const { homeFor } = require('./src/auth');
 const { seed } = require('./src/seed');
@@ -69,6 +71,7 @@ app.use((req, res, next) => start().then(() => next(), next));
 app.get('/healthz', async (req, res) => {
   try {
     await one('SELECT 1 AS ok');
+    await payments.settlePending({ olderThanMinutes: 5, limit: 50 }).catch(() => 0);
     res.set('Cache-Control', 'no-store').json({ ok: true, time: new Date().toISOString() });
   } catch {
     res.status(503).set('Cache-Control', 'no-store').json({ ok: false });
@@ -83,6 +86,13 @@ app.use('/uploads', async (req, res, next) => {
 });
 app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '1h' }));
 // Package forms can have hundreds of fields (itinerary, hotels, rates…).
+// PhonePe calls this when a payment finishes; we then confirm with PhonePe's status API before crediting anything.
+app.post('/payments/phonepe/webhook', express.text({ type: '*/*', limit: '64kb' }), async (req, res) => {
+  const orderId = phonepe.webhookOrderId(req.headers, req.body);
+  if (!orderId) return res.status(401).json({ ok: false });
+  try { await payments.settle(orderId); } catch (e) { console.error('PhonePe webhook', e.message); }
+  res.json({ ok: true });
+});
 app.use(express.urlencoded({ extended: true, limit: '2mb', parameterLimit: 10000 }));
 app.use(express.json({ limit: '1mb' }));
 // The signing key comes from the database, so the session middleware is created on the first request.

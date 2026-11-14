@@ -10,14 +10,15 @@
     <% } else if (link.status === 'expired') { %>
       <div class="alert error">This payment link has expired. Contact <%= site.name %> for a new one.</div>
     <% } else { %>
+      <% if (payOnline) { %>
       <form method="post" action="/pay/<%= link.code %>">
-        <div class="radio-cards" style="text-align:left;margin-bottom:14px">
-          <label class="radio-card"><input type="radio" name="method" value="upi" checked> UPI<small class="muted">GPay, PhonePe, Paytm</small></label>
-          <label class="radio-card"><input type="radio" name="method" value="card"> Card / Netbanking<small class="muted">All major banks</small></label>
-        </div>
-        <button class="btn btn-accent btn-lg" style="width:100%">Pay <%= inr(link.amount) %></button>
-        <p class="muted" style="font-size:12px;margin-top:10px">Demo checkout: payment is simulated. Connect Razorpay or Cashfree for live payments.</p>
+        <button class="btn btn-accent btn-lg" style="width:100%">Pay <%= inr(link.amount) %> securely</button>
+        <p class="muted" style="font-size:12.5px;margin-top:10px">UPI (any app), debit/credit card or netbanking, on PhonePe's secure page.</p>
+        <% if (payOnline === 'demo') { %><p class="muted" style="font-size:12px">Demo checkout: PhonePe isn't connected here, so payment is simulated.</p><% } %>
       </form>
+      <% } else { %>
+        <div class="alert info">Online payment is not available yet. Please contact <b><%= site.name %></b><%= site.phone ? ` on ${site.phone}` : '' %> to pay.</div>
+      <% } %>
       <details class="more" style="text-align:left;margin-top:12px">
         <summary>EMI options</summary>
         <table class="table" style="margin-top:8px">

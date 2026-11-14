@@ -7,6 +7,8 @@ const { num, round2, hashPassword } = require('../util');
 const { requireAdmin, h, idParam, MAX_AMOUNT } = require('../auth');
 const svc = require('../services');
 const { searchAll } = require('../search');
+const phonepe = require('../phonepe');
+const payments = require('../payments');
 const { KINDS, marginPct, repriceProducts } = require('../products');
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 const { restoreFile } = require('../files');
@@ -317,6 +319,7 @@ router.post('/bookings/:id/reject-cancel', h(async (req, res) => {
 // ---------- wallet top-ups ----------
 
 router.get('/topups', h(async (req, res) => {
+  await payments.settlePending().catch(() => 0);
   const requests = await all('SELECT t.*, a.name AS agency_name, a.wallet_balance FROM topup_requests t JOIN agencies a ON a.id = t.agency_id ORDER BY t.status = \'pending\' DESC, t.id DESC');
   res.page('admin/topups', { title: 'Top-up requests', requests });
 }));
@@ -438,11 +441,11 @@ router.post('/tickets/:id/reply', h(async (req, res, next) => {
 }));
 
 const MARGIN_KEYS = Object.keys(KINDS).map((k) => `margin_${k}`);
-const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'tax_rate', 'tcs_rate', 'emi_rate', ...MARGIN_KEYS];
+const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'bank_details', ...MARGIN_KEYS];
 
 router.get('/settings', async (req, res) => {
   const values = await getSettings();
-  res.page('admin/settings', { title: 'Settings', keys: SETTING_KEYS, values, kinds: KINDS, margins: Object.fromEntries(Object.keys(KINDS).map((k) => [k, marginPct(k, values)])) });
+  res.page('admin/settings', { title: 'Settings', phonepe: phonepe.describe(), origin: res.locals.origin, keys: SETTING_KEYS, values, kinds: KINDS, margins: Object.fromEntries(Object.keys(KINDS).map((k) => [k, marginPct(k, values)])) });
 });
 
 router.post('/settings', h(async (req, res) => {
