@@ -1,0 +1,27 @@
+<%# Portal search results (agent and admin). Locals: q, groups %>
+<div class="page-head">
+  <div><h1>Search</h1><p><%= q ? `Results for “${q}”` : 'Search by name, code, phone, email or invoice number.' %></p></div>
+</div>
+<form class="card search-page-form" method="get" role="search">
+  <label class="sr-only" for="search-q">Search</label>
+  <input id="search-q" type="search" name="q" value="<%= q %>" placeholder="Quote or booking code, customer, phone, invoice no." autofocus minlength="2">
+  <button class="btn btn-primary"><%- icon('search') %>Search</button>
+</form>
+<% if (q && q.length < 2) { %>
+  <div class="empty card"><p>Type at least 2 characters.</p></div>
+<% } else if (q && !groups.length) { %>
+  <div class="empty card"><%- icon('search') %><h3>Nothing found</h3><p>No match for “<%= q %>”. Try a code (e.g. Q-…, VT-…), a name or a phone number.</p></div>
+<% } %>
+<% groups.forEach(g => { %>
+  <div class="card flush">
+    <div class="card-head"><h3><%= g.label %></h3><span class="muted"><%= g.items.length %><%= g.items.length >= 8 ? '+' : '' %></span></div>
+    <table class="table">
+      <% g.items.forEach(it => { %>
+        <tr class="click" data-href="<%= it.href %>">
+          <td><a href="<%= it.href %>"><b><%= it.title %></b></a><% if (it.sub) { %><br><small class="muted"><%= it.sub %></small><% } %></td>
+          <td class="num"><% if (it.badge) { %><span class="badge <%= it.badge %>"><%= it.badge.replace('_', ' ') %></span><% } %><% if (it.amount != null) { %><%= inr(it.amount) %><% } %></td>
+        </tr>
+      <% }) %>
+    </table>
+  </div>
+<% }) %>

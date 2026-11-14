@@ -120,7 +120,7 @@
       </div>
       <div id="q-new">
         <div class="field"><label for="q-cust">Customer</label><select id="q-cust" name="customer_id"><option value="">Choose later</option><% customers.forEach(c => { %><option value="<%= c.id %>"><%= c.name %></option><% }) %></select></div>
-        <div class="field"><label for="q-date">Travel date</label><input id="q-date" type="date" name="date"></div>
+        <div class="field"><label for="q-date">Travel date</label><input id="q-date" type="date" min="<%= today %>" name="date"></div>
       </div>
       <button class="btn btn-accent" style="width:100%">Add · <%= inr(priced.sell) %></button>
     </form>

@@ -72,6 +72,7 @@
       <% if (!empty && ['draft', 'sent'].includes(quote.status)) { %>
         <form method="post" action="/q/<%= quote.code %>/accept"><button class="btn btn-primary btn-lg" style="background:<%= brandColor %>;border-color:<%= brandColor %>">Accept this quote</button></form>
       <% } %>
+      <% if (quote.status === 'booked') { %><a class="btn btn-primary btn-lg" style="background:<%= brandColor %>;border-color:<%= brandColor %>" href="/q/<%= quote.code %>/voucher">Your travel voucher</a><% } %>
       <% if (payLink) { %><a class="btn btn-accent btn-lg" href="/pay/<%= payLink.code %>">Pay <%= inr(payLink.amount) %> now</a><% } %>
       <button class="btn btn-lg" onclick="window.print()">Download PDF</button>
     </div>

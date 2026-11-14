@@ -1,0 +1,98 @@
+<%#
+  Travel voucher for the customer: what is booked, for whom and whom to call. No prices.
+  Shown to the agent (/agent/bookings/:id/voucher) and shared with the customer (/q/:code/voucher).
+  Locals: booking, quote, customer, priced, doc (seller = agency or VaayuTrip), agency, settings, pkgView, kinds, back, shareUrl
+%>
+<%
+  const brandColor = doc.seller.color || '#0077c0';
+  const travellers = [quote.adults ? plural(quote.adults, 'adult') : '', quote.children ? plural(quote.children, 'child', 'children') : '', quote.infants ? plural(quote.infants, 'infant') : ''].filter(Boolean).join(', ');
+  const cancelled = booking.status !== 'confirmed';
+%>
+<div class="doc-wrap">
+  <div class="doc-toolbar no-print">
+    <% if (typeof back !== 'undefined' && back) { %><a class="btn" href="<%= back %>"><%- icon('arrowLeft') %>Back</a><% } %>
+    <% if (typeof shareUrl !== 'undefined' && shareUrl) { %><button class="btn" data-copy="<%= shareUrl %>">Copy customer link</button><% } %>
+    <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
+  </div>
+
+  <article class="doc voucher" style="--doc-color: <%= brandColor %>">
+    <header class="doc-head">
+      <div>
+        <% if (doc.seller.logo) { %><img src="<%= doc.seller.logo %>" alt="<%= doc.seller.name %>"><% } else { %><h2 style="margin:0"><%= doc.seller.name %></h2><% } %>
+        <div style="margin-top:8px;font-size:13px" class="muted"><%= [doc.seller.phone, doc.seller.email].filter(Boolean).join(' · ') %></div>
+      </div>
+      <div class="title">
+        <h1>TRAVEL VOUCHER</h1>
+        <div><b><%= booking.code %></b></div>
+        <div class="muted">Issued <%= fmtDate(booking.created_at) %></div>
+        <div style="margin-top:6px"><span class="badge <%= booking.status %>"><%= cancelled ? booking.status.replace('_', ' ') : 'confirmed' %></span></div>
+      </div>
+    </header>
+
+    <% if (cancelled) { %><div class="alert warn">This booking is <%= booking.status === 'cancelled' ? 'cancelled' : 'being cancelled' %>. This voucher is not valid for travel.</div><% } %>
+
+    <h2 style="font-size:22px;margin-bottom:4px"><%= quote.title %></h2>
+    <section class="doc-parties">
+      <div>
+        <% if (customer) { %>
+          <h4>Lead traveller</h4>
+          <b><%= customer.name %></b><br>
+          <%= [customer.phone, customer.email].filter(Boolean).join(' · ') %>
+        <% } else { %>
+          <h4>Guests</h4>
+          <b><%= travellers || doc.meta.travellers %></b>
+        <% } %>
+      </div>
+      <div>
+        <h4>Trip</h4>
+        <% if (booking.travel_date) { %>Travel date: <b><%= fmtDate(booking.travel_date) %></b><br><% } %>
+        Travellers: <%= travellers || doc.meta.travellers %>
+        <% if (pkgView && pkgView.nights) { %><br>Duration: <%= pkgView.nights %> nights<% } %>
+      </div>
+    </section>
+
+    <table class="lines">
+      <thead><tr><th style="width:36px">#</th><th>Booked services</th><th style="width:120px">Type</th><th class="num" style="width:60px">Qty</th></tr></thead>
+      <tbody>
+        <% priced.lines.forEach((l, i) => { %>
+          <tr>
+            <td><%= i + 1 %></td>
+            <td><b><%= l.title %></b><% if (l.description) { %><br><small><%= l.description %></small><% } %></td>
+            <td><%= kinds[l.type] ? kinds[l.type].label : 'Service' %></td>
+            <td class="num"><%= l.qty %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <% if (pkgView) { %>
+      <div style="margin-top:24px"><%- include('partials/package-full', { p: pkgView, showCategory: pkgView.party && pkgView.party.category }) %></div>
+    <% } %>
+
+    <% if (quote.notes) { %><div class="alert info" style="margin-top:20px;white-space:pre-line"><%= quote.notes %></div><% } %>
+
+    <section class="voucher-help">
+      <div>
+        <h4>Your travel agent</h4>
+        <b><%= agency.name %></b><br>
+        <%= [agency.phone, agency.email].filter(Boolean).join(' · ') %>
+      </div>
+      <div>
+        <h4>24×7 ground support</h4>
+        <b><%= settings.company_name || 'VaayuTrip' %></b><br>
+        <%= [settings.phone, settings.email].filter(Boolean).join(' · ') %>
+      </div>
+    </section>
+
+    <h4 style="margin:22px 0 6px">Before you travel</h4>
+    <ul class="voucher-notes">
+      <li>Show this voucher (printed or on your phone) with a photo ID at every hotel, activity and transfer.</li>
+      <li>Passports must be valid for at least 6 months from the travel date. Carry printed visas and travel insurance.</li>
+      <li>Hotel check-in is usually from 14:00 and check-out by 12:00; early check-in is subject to availability.</li>
+      <li>Be ready at the hotel lobby 10 minutes before pick-up times. Missed pick-ups cannot be refunded.</li>
+      <li>For any change to the booking, contact your travel agent.</li>
+    </ul>
+
+    <footer class="doc-foot">Booking reference <%= booking.code %> · Quote <%= quote.code %></footer>
+  </article>
+</div>

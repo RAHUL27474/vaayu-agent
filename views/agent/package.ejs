@@ -46,7 +46,7 @@
   <div>
     <form class="card calc" method="get" action="/agent/packages/<%= pkg.id %>" style="position:sticky;top:76px">
       <h3>Price this trip</h3>
-      <div class="field"><label for="date">Travel date</label><input id="date" type="date" name="date" value="<%= o.date %>"></div>
+      <div class="field"><label for="date">Travel date</label><input id="date" type="date" min="<%= o.date && o.date < today ? o.date : today %>" name="date" value="<%= o.date %>"></div>
       <div class="row">
         <div class="field"><label for="adults">Adults</label><input id="adults" type="number" min="1" name="adults" value="<%= o.adults %>"></div>
         <div class="field"><label for="children">Children 2–11</label><input id="children" type="number" min="0" name="children" value="<%= o.children %>"></div>

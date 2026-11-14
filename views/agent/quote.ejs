@@ -159,7 +159,7 @@
         <select id="customer_id" name="customer_id"><option value="">—</option><% customers.forEach(c => { %><option value="<%= c.id %>" <%= c.id === quote.customer_id ? 'selected' : '' %>><%= c.name %></option><% }) %></select>
         <div class="hint"><a href="/agent/customers">Add a new customer</a></div>
       </div>
-      <div class="field"><label for="travel_date">Travel date</label><input id="travel_date" type="date" name="travel_date" value="<%= quote.travel_date || '' %>"></div>
+      <div class="field"><label for="travel_date">Travel date</label><input id="travel_date" type="date" min="<%= quote.travel_date && quote.travel_date < today ? quote.travel_date : today %>" name="travel_date" value="<%= quote.travel_date || '' %>"></div>
       <div class="row">
         <div class="field"><label for="adults">Adults</label><input id="adults" type="number" min="1" name="adults" value="<%= quote.adults %>"></div>
         <div class="field"><label for="children">Children</label><input id="children" type="number" min="0" name="children" value="<%= quote.children %>"></div>

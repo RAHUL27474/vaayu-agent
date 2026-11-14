@@ -6,6 +6,7 @@ const { one, all, run, tx, getSettings, notify, audit, UPLOADS_DIR } = require('
 const { num, code, round2, uniqueSlug, fmtDate } = require('../util');
 const { requireAgent, requireActiveAgency, limitPendingAgency, h, idParam, MAX_AMOUNT } = require('../auth');
 const svc = require('../services');
+const { searchAgency } = require('../search');
 const { priceQuote, emiPlans, agencyHasBranding, withTax, markupRule } = require('../pricing');
 const {
   MEAL_PLANS, STAY_TYPES, EXTRA_TYPES, emptyDetails, parseDetails, itemIds, detailsFromForm, calcPackage, priceLines, fromPrice, publishProblems, present,
@@ -162,7 +163,7 @@ const ownPackages = async (agencyId) => await all('SELECT id, title, nights, des
 const withPrices = (agency) => (p) => ({ ...p, price: cardPrice(agency, p), line: describe(p) });
 
 // Dashboard booking panel: send the agent to the chosen service's catalogue with the destination and search applied.
-router.get('/search', (req, res) => {
+router.get('/find', (req, res) => {
   const path = KIND_BY_PATH[req.query.svc] ? req.query.svc : 'hotels';
   const qs = new URLSearchParams();
   if (DESTINATIONS[req.query.dest]) qs.set('dest', req.query.dest);
@@ -609,6 +610,14 @@ router.get('/bookings/:id', h(async (req, res, next) => {
   res.page('agent/booking', { title: `Booking ${booking.code}`, booking, full, invoices });
 }));
 
+router.get('/bookings/:id/voucher', h(async (req, res, next) => {
+  const booking = await one('SELECT * FROM bookings WHERE id = ? AND agency_id = ?', num(req.params.id), req.agency.id);
+  const v = await svc.voucherFor(booking);
+  if (!v) return next();
+  const shareUrl = `${req.protocol}://${req.get('host')}/q/${v.quote.code}/voucher`;
+  res.page('voucher', { title: `Voucher ${booking.code}`, ...v, back: `/agent/bookings/${booking.id}`, shareUrl, noindex: true }, 'doc');
+}));
+
 router.post('/bookings/:id/cancel', h(async (req, res, next) => {
   const booking = await one("SELECT * FROM bookings WHERE id = ? AND agency_id = ? AND status = 'confirmed'", num(req.params.id), req.agency.id);
   if (!booking) return next();
@@ -800,6 +809,13 @@ router.post('/api/regenerate', requireActiveAgency, h(async (req, res) => {
   await run('UPDATE agencies SET api_key = ? WHERE id = ?', `vt_live_${crypto.randomBytes(18).toString('hex')}`, req.agency.id);
   req.flash('success', 'New API key generated. The old key stopped working.');
   res.redirect('/agent/api');
+}));
+
+router.get('/search', h(async (req, res) => {
+  // The dashboard booking panel used to submit here.
+  if (req.query.svc) return res.redirect(`/agent/find?${new URLSearchParams(req.query)}`);
+  const q = str(req.query.q).slice(0, 80);
+  res.page('search', { title: 'Search', q, groups: q.length >= 2 ? await searchAgency(req.agency.id, q) : [] });
 }));
 
 router.get('/notifications', h(async (req, res) => {

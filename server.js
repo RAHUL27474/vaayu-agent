@@ -89,6 +89,7 @@ app.use(async (req, res, next) => {
   // Package image, or a generated cover card with the destination name when none is uploaded.
   res.locals.cover = (p) => p.image_url || `/cover/${encodeURIComponent(p.destination || p.title || 'Holiday')}.svg`;
   res.locals.path = req.path;
+  res.locals.today = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10); // India date, for date pickers' min
   res.locals.origin = `${req.protocol}://${req.get('host')}`;
   res.locals.query = req.query;
   res.locals.settings = await getSettings();

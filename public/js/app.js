@@ -279,3 +279,11 @@ document.addEventListener('change', (e) => {
   row.querySelectorAll('[data-kind-own]').forEach((el) => { el.disabled = box.checked; });
   if (!box.checked) row.querySelector('input[data-kind-own]').focus();
 });
+
+// "/" focuses the portal search box (unless already typing somewhere).
+document.addEventListener('keydown', (e) => {
+  if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest('input, textarea, select, [contenteditable]')) return;
+  const box = document.querySelector('[data-search-key]');
+  if (box && box.offsetParent) { e.preventDefault(); box.focus(); }
+});

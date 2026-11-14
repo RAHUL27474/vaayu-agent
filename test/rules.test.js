@@ -141,6 +141,20 @@ const png = [PNG, 'image/png', 'me.png'];
   const items3 = await db.prepare('SELECT * FROM quote_items WHERE quote_id = ?').all(q3);
   check('"Add to quote" carries that price into the quote line', items3.length && items3.every((i) => Math.abs(i.sell_price - i.net_price * 1.25) < 0.02), items3.map((i) => `${i.net_price}→${i.sell_price}`).join(', '));
 
+  // ---------- travel voucher and search ----------
+  const bk = await one("SELECT b.*, q.code AS qcode FROM bookings b JOIN quotes q ON q.id = b.quote_id WHERE b.agency_id = (SELECT agency_id FROM users WHERE email = ?) AND b.status = 'confirmed' ORDER BY b.id LIMIT 1", ROLES.agent[0]);
+  const voucher = await (await c.get(`/agent/bookings/${bk.id}/voucher`, agent)).text();
+  check('agent opens a travel voucher with no prices', voucher.includes('TRAVEL VOUCHER') && voucher.includes(bk.code) && !voucher.includes('₹'));
+  const shared = await c.get(`/q/${bk.qcode}/voucher`);
+  check('customer opens the voucher from the quote link', shared.status === 200 && (await shared.text()).includes(bk.code));
+  const other = await one('SELECT id FROM bookings WHERE agency_id != (SELECT agency_id FROM users WHERE email = ?) LIMIT 1', ROLES.agent[0]);
+  check("another agency's voucher is not found", !other || (await c.get(`/agent/bookings/${other.id}/voucher`, agent)).status === 404);
+  const found = await (await c.get(`/agent/search?q=${encodeURIComponent(bk.code)}`, agent)).text();
+  check('agent search finds a booking by code', found.includes(`/agent/bookings/${bk.id}`));
+  check('agent search treats % literally', !(await (await c.get('/agent/search?q=%25%25', agent)).text()).includes('/agent/bookings/'));
+  const adminCookie = await c.login(...ROLES.admin);
+  check('admin search finds the agency by name', (await (await c.get('/admin/search?q=skyline', adminCookie)).text()).includes('/admin/agents/'));
+
   // ---------- rate card ----------
   const card = 'C:/Users/Dell/Downloads/VaayuTrip-RateCard-Template.xlsx';
   if (fs.existsSync(card)) {

@@ -5,7 +5,7 @@
     <form class="card" method="post" action="/agent/quotes" style="position:absolute;right:28px;z-index:4;width:320px;margin-top:8px">
       <div class="field"><label for="nq-title">Title</label><input id="nq-title" name="title" placeholder="e.g. Manali family trip" required></div>
       <div class="field"><label for="nq-cust">Customer</label><select id="nq-cust" name="customer_id"><option value="">—</option><% customers.forEach(c => { %><option value="<%= c.id %>"><%= c.name %></option><% }) %></select></div>
-      <div class="field"><label for="nq-date">Travel date</label><input id="nq-date" type="date" name="travel_date"></div>
+      <div class="field"><label for="nq-date">Travel date</label><input id="nq-date" type="date" min="<%= today %>" name="travel_date"></div>
       <button class="btn btn-primary">Create</button>
     </form>
   </details>

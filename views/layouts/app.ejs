@@ -134,6 +134,14 @@
         <span class="crumb-current"><%- crumb ? crumb.label : (typeof title !== 'undefined' ? title : 'Dashboard') %></span>
       </nav>
       <div class="spacer"></div>
+      <% if (isAdmin || (agency && agency.status === 'active')) { %>
+        <form class="top-search" action="<%= home %>/search" method="get" role="search">
+          <%- icon('search') %>
+          <input type="search" name="q" placeholder="<%= isAdmin ? 'Search agencies, bookings, invoices…' : 'Search quotes, bookings, customers…' %>" aria-label="Search" value="<%= path === home + '/search' && query.q ? query.q : '' %>" minlength="2" data-search-key>
+          <kbd>/</kbd>
+        </form>
+        <a class="icon-btn search-btn" href="<%= home %>/search" aria-label="Search"><%- icon('search') %></a>
+      <% } %>
       <% if (agency && agency.status === 'active') { %>
         <a class="balance" href="/agent/wallet"><span>Wallet</span><b><%= inr(agency.wallet_balance) %></b></a>
         <a class="balance" href="/agent/wallet"><span>Credit available</span><b><%= inr(agency.credit_limit - agency.credit_used) %></b></a>

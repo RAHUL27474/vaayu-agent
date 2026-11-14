@@ -1,7 +1,7 @@
 const express = require('express');
 const { one, all, run, tx, notify, audit, getSettings } = require('../db');
 const { hashPassword, verifyPassword, uniqueSlug, num } = require('../util');
-const { getQuote, packageSellPrice } = require('../services');
+const { getQuote, packageSellPrice, voucherFor } = require('../services');
 const { buildInvoice, emiPlans } = require('../pricing');
 const { h, homeFor } = require('../auth');
 const { parseDetails, present } = require('../packages');
@@ -226,6 +226,17 @@ router.get('/q/:code/invoice/:id', h(async (req, res, next) => {
   const inv = q && await one("SELECT * FROM invoices WHERE id = ? AND quote_id = ? AND kind != 'b2b'", num(req.params.id), q.id);
   if (!inv) return next();
   res.page('invoice', { title: `Invoice ${inv.number}`, inv, doc: JSON.parse(inv.data), back: `/q/${req.params.code}` }, 'doc');
+}));
+
+// The customer's travel voucher, once the quote is booked.
+router.get('/q/:code/voucher', h(async (req, res, next) => {
+  const q = await one('SELECT id FROM quotes WHERE code = ?', req.params.code);
+  const v = q && await voucherFor(await one('SELECT * FROM bookings WHERE quote_id = ? ORDER BY id DESC', q.id));
+  if (!v) return next();
+  res.page('voucher', {
+    title: `Travel voucher ${v.booking.code}`, ...v, back: `/q/${req.params.code}`, noindex: true,
+    site: v.favicon ? v.agency : undefined, meta: { description: `Your travel voucher for ${v.quote.title}.` },
+  }, 'doc');
 }));
 
 router.get('/pay/:code', h(async (req, res, next) => {

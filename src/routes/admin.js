@@ -6,6 +6,7 @@ const { one, all, run, tx, notify, audit, getSettings, setSetting } = require('.
 const { num, round2, hashPassword } = require('../util');
 const { requireAdmin, h, idParam, MAX_AMOUNT } = require('../auth');
 const svc = require('../services');
+const { searchAll } = require('../search');
 const { KINDS, marginPct, repriceProducts } = require('../products');
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 const { restoreFile } = require('../files');
@@ -343,6 +344,11 @@ router.get('/invoices/:id', h(async (req, res, next) => {
   const inv = await one('SELECT * FROM invoices WHERE id = ?', num(req.params.id));
   if (!inv) return next();
   res.page('invoice', { title: `Invoice ${inv.number}`, inv, doc: JSON.parse(inv.data), back: '/admin/invoices' }, 'doc');
+}));
+
+router.get('/search', h(async (req, res) => {
+  const q = String(req.query.q || '').trim().slice(0, 80);
+  res.page('search', { title: 'Search', q, groups: q.length >= 2 ? await searchAll(q) : [] });
 }));
 
 router.get('/notifications', h(async (req, res) => {

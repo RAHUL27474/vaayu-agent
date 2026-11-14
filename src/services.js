@@ -3,7 +3,7 @@ const { one, all, run, tx, getSettings, notify } = require('./db');
 const { code, round2 } = require('./util');
 const { priceQuote, buildInvoice, agencyHasBranding, taxRate } = require('./pricing');
 const { parseDetails, itemIds, calcPackage, snapshot, fromPrice } = require('./packages');
-const { productMap, productLines } = require('./products');
+const { productMap, productLines, KINDS } = require('./products');
 
 class AppError extends Error {}
 
@@ -194,7 +194,24 @@ async function packageSellPrice(agency, pkg) {
   return await fromPrice(agency, pkg, d, await productMap(itemIds(d)));
 }
 
+/**
+ * Everything the travel voucher (views/voucher.ejs) shows for a booking made from a quote: branded with the
+ * agency when it has its own branding (as its customer invoices are), otherwise with VaayuTrip.
+ */
+async function voucherFor(booking) {
+  if (!booking || !booking.quote_id) return null;
+  const full = await getQuote(booking.quote_id);
+  if (!full) return null;
+  const agency = await one('SELECT * FROM agencies WHERE id = ?', booking.agency_id);
+  const settings = await getSettings();
+  const kind = full.quote.invoice_mode === 'agent' && agencyHasBranding(agency) ? 'customer_agent' : 'customer_vaayu';
+  const doc = buildInvoice(kind, { ...full, agency, settings });
+  const pkgView = full.quote.package_snapshot ? JSON.parse(full.quote.package_snapshot) : null;
+  return { booking, ...full, agency, settings, doc, pkgView, kinds: KINDS, favicon: kind === 'customer_agent' ? agency.logo_path : null };
+}
+
 module.exports = {
+  voucherFor,
   AppError, getQuote, createQuote, createQuoteFromPackage, addProductToQuote, addQuoteItem, moveWallet, issueInvoice,
   bookQuote, approveCancellation, approveTopup, packageSellPrice, defaultInvoiceMode,
 };
