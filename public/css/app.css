@@ -972,3 +972,10 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .kind-default { font-size: 12.5px; white-space: nowrap; margin: 0; }
 .kind-row[data-kind-row] { grid-template-columns: minmax(0, 1fr) 64px 84px; row-gap: 4px; }
 .kind-row[data-kind-row] .kind-name { grid-column: 1 / -1; }
+
+/* Product page: markup choice in the price calculator */
+.calc-markup { margin: 2px 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.calc-markup > b { display: block; font-size: 13px; margin-bottom: 6px; }
+.calc-markup .check { font-size: 13px; margin-bottom: 8px; }
+.calc-markup .row { margin: 0; }
+.calc-markup .field { margin-bottom: 0; }

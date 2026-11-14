@@ -129,6 +129,18 @@ const png = [PNG, 'image/png', 'me.png'];
   await c.post(`/agent/quotes/${qid}`, agent, { ...form, use_default_hotel: '1' });
   check('ticking "Default" again restores hotels to 8%', pct(await priced(), 'hotel') === 8);
 
+  // ---------- markup chosen on a product page ----------
+  const pp = await (await c.get(`/agent/activities/${actP.id}?adults=2`, agent)).text();
+  check('product page offers "My default" (ticked) with the service default', pp.includes('name="use_default" value="1" checked') && pp.includes('(20%)'));
+  const own = await (await c.get(`/agent/activities/${actP.id}?adults=2&mu_type=percent&mu=25`, agent)).text();
+  const pl = (await import('../src/products.js')).default || require('../src/products');
+  const lines = pl.productLines(actP, { adults: 2, children: 0, infants: 0, rooms: 1, nights: 1 });
+  const net = lines.reduce((n, l) => n + l.net * l.qty, 0);
+  check('unticked with 25%: the page prices at net + 25%', own.includes(`₹${Math.round(net * 1.25).toLocaleString('en-IN')}`) && own.includes('name="mu" value="25"'), Math.round(net * 1.25));
+  const q3 = Number((await c.post(`/agent/activities/${actP.id}/quote`, agent, { quote_id: 'new', new_title: 'Own markup', adults: '2', children: '0', mu_type: 'percent', mu: '25' })).headers.get('location').match(/quotes\/(\d+)/)[1]);
+  const items3 = await db.prepare('SELECT * FROM quote_items WHERE quote_id = ?').all(q3);
+  check('"Add to quote" carries that price into the quote line', items3.length && items3.every((i) => Math.abs(i.sell_price - i.net_price * 1.25) < 0.02), items3.map((i) => `${i.net_price}→${i.sell_price}`).join(', '));
+
   // ---------- rate card ----------
   const card = 'C:/Users/Dell/Downloads/VaayuTrip-RateCard-Template.xlsx';
   if (fs.existsSync(card)) {

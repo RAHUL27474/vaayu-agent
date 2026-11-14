@@ -70,13 +70,24 @@
           <div class="field"><label for="nights">Nights</label><input id="nights" type="number" min="1" max="60" name="nights" value="<%= party.nights %>"></div>
         </div>
       <% } %>
+      <%
+        const defLabel = defaultRule.type === 'flat' ? inr(defaultRule.value) : defaultRule.value + '%';
+      %>
+      <div class="calc-markup" data-kind-row>
+        <b>Your markup</b>
+        <label class="check"><input type="checkbox" name="use_default" value="1" <%= own ? '' : 'checked' %> data-kind-default> My default for <%= cfg.plural.toLowerCase() %> (<%= defLabel %>)</label>
+        <div class="row">
+          <div class="field"><label for="mu_type">Type</label><select id="mu_type" name="mu_type" data-kind-own <%= own ? '' : 'disabled' %>><option value="percent" <%= own && own.markup_type === 'flat' ? '' : 'selected' %>>% of net</option><option value="flat" <%= own && own.markup_type === 'flat' ? 'selected' : '' %>>₹ amount</option></select></div>
+          <div class="field"><label for="mu">Value</label><input id="mu" type="number" min="0" step="0.5" name="mu" value="<%= own ? own.markup_value : '' %>" placeholder="Own" data-kind-own <%= own ? '' : 'disabled' %>></div>
+        </div>
+      </div>
       <button class="btn" style="width:100%">Recalculate</button>
       <table class="table" style="font-size:12.5px;margin-top:10px">
         <% lines.forEach(l => { %><tr><td style="padding:6px 0"><%= l.title.replace(p.title, '').replace(/^: /, '') || 'Per group' %> <span class="muted">× <%= l.qty %></span></td><td class="num" style="padding:6px 0"><%= inr(l.net * l.qty) %></td></tr><% }) %>
       </table>
       <table class="totals" style="margin-top:8px">
         <tr><td class="muted">Net to VaayuTrip</td><td class="num"><b><%= inr(priced.net) %></b></td></tr>
-        <tr><td class="muted">Your markup</td><td class="num profit">+ <%= inr(priced.sell - priced.net) %></td></tr>
+        <tr><td class="muted">Your markup <%= own ? (own.markup_type === 'flat' ? '' : `(${own.markup_value}%)`) : `(${defLabel})` %></td><td class="num profit">+ <%= inr(priced.sell - priced.net) %></td></tr>
         <tr class="grand"><td>Selling price</td><td class="num"><%= inr(priced.sell) %></td></tr>
         <tr><td class="pp" colspan="2">≈ <%= inr(pax ? priced.sell / pax : 0) %> per person · + GST + TCS</td></tr>
       </table>
@@ -100,6 +111,7 @@
     <form class="card" method="post" action="/agent/<%= cfg.path %>/<%= p.id %>/quote">
       <h3>Add to a quote</h3>
       <% ['adults', 'children', 'infants', 'rooms', 'nights'].forEach(k => { %><input type="hidden" name="<%= k %>" value="<%= party[k] %>"><% }) %>
+      <% if (own) { %><input type="hidden" name="mu_type" value="<%= own.markup_type %>"><input type="hidden" name="mu" value="<%= own.markup_value %>"><% } %>
       <div class="field"><label for="q-id">Quote</label>
         <select id="q-id" name="quote_id" data-new-toggle="q-new">
           <option value="new">+ New quote</option>

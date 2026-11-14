@@ -6,7 +6,7 @@ const { one, all, run, tx, getSettings, notify, audit, UPLOADS_DIR } = require('
 const { num, code, round2, uniqueSlug, fmtDate } = require('../util');
 const { requireAgent, requireActiveAgency, limitPendingAgency, h, idParam, MAX_AMOUNT } = require('../auth');
 const svc = require('../services');
-const { priceQuote, emiPlans, agencyHasBranding, withTax } = require('../pricing');
+const { priceQuote, emiPlans, agencyHasBranding, withTax, markupRule } = require('../pricing');
 const {
   MEAL_PLANS, STAY_TYPES, EXTRA_TYPES, emptyDetails, parseDetails, itemIds, detailsFromForm, calcPackage, priceLines, fromPrice, publishProblems, present,
 } = require('../packages');
@@ -45,6 +45,16 @@ const upload = multer({
 const openQuotes = async (agencyId) => await all("SELECT id, code, title FROM quotes WHERE agency_id = ? AND status IN ('draft', 'sent', 'accepted') ORDER BY updated_at DESC LIMIT 30", agencyId);
 const customersOf = async (agencyId) => await all('SELECT id, name FROM customers WHERE agency_id = ? ORDER BY name', agencyId);
 const str = (v) => String(v ?? '').trim();
+
+/**
+ * Markup chosen on a product page: null = the agent's default for that service; otherwise the agent's own
+ * % or ₹ for this item ("My default" unticked, mu_type / mu filled in).
+ */
+function ownMarkup(src) {
+  if (src.use_default || str(src.mu) === '') return null;
+  const type = src.mu_type === 'flat' ? 'flat' : 'percent';
+  return { markup_type: type, markup_value: Math.min(type === 'flat' ? MAX_AMOUNT : 500, Math.max(0, num(src.mu, 0))) };
+}
 
 async function ownQuote(req) {
   const full = await svc.getQuote(num(req.params.id), req.agency.id);
@@ -193,10 +203,12 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
     if (!p) return next();
     const party = partyOf(req.query);
     const lines = productLines(p, party).map((l) => ({ ...l, supplier: 'vaayu', sell: null }));
+    const own = ownMarkup(req.query);
     const more = (await all("SELECT * FROM products WHERE status = 'published' AND kind = ? AND city = ? AND id != ? ORDER BY net_adult LIMIT 4", kind, p.city, p.id))
       .map(withPrices(req.agency));
     res.page('agent/product', {
-      title: p.title, kind, cfg, p: withPrices(req.agency)(p), d: parseProductDetails(p.details), party, lines, priced: priceLines(req.agency, lines), more,
+      title: p.title, kind, cfg, p: withPrices(req.agency)(p), d: parseProductDetails(p.details), party, lines, priced: priceLines(own || req.agency, lines), more,
+      own, defaultRule: markupRule(req.agency, kind),
       quotes: await openQuotes(req.agency.id), packages: await ownPackages(req.agency.id), customers: await customersOf(req.agency.id), mealPlans: PRODUCT_MEAL_PLANS,
     });
   }));
@@ -218,8 +230,18 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
       });
       await audit(req.user, 'quote.created', { entity: 'quote', id: quoteId, summary: `From ${cfg.label.toLowerCase()}: ${p.title}` });
     }
-    await svc.addProductToQuote(quoteId, p, party);
-    req.flash('success', `${p.title} added to the quote.`);
+    const own = ownMarkup(req.body);
+    if (own) {
+      // The agent's own markup for this item: its lines go on the quote at the price shown on the product page.
+      const priced = priceLines(own, productLines(p, party).map((l) => ({ ...l, supplier: 'vaayu', sell: null })));
+      await tx(async () => {
+        for (const l of priced.lines) await svc.addQuoteItem(quoteId, { type: l.type, title: l.title, description: l.description, net: l.net_price, sell: l.unitSell, qty: l.qty, productId: l.productId });
+        await run('UPDATE quotes SET is_international = 1 WHERE id = ?', quoteId);
+      });
+    } else {
+      await svc.addProductToQuote(quoteId, p, party);
+    }
+    req.flash('success', `${p.title} added to the quote${own ? ' at your price' : ''}.`);
     res.redirect(`/agent/quotes/${quoteId}#items`);
   }));
 
