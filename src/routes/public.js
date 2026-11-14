@@ -9,6 +9,7 @@ const { COUNTRIES, withKycDocs, checkTax, checkKycFiles, removeUploaded } = requ
 const { DESTINATIONS, destinationOf } = require('../products');
 const phonepe = require('../phonepe');
 const payments = require('../payments');
+const { invoiceView } = require('../invoice-view');
 
 const router = express.Router();
 
@@ -275,7 +276,7 @@ router.get('/q/:code/invoice/:id', h(async (req, res, next) => {
   const q = await one('SELECT id FROM quotes WHERE code = ?', req.params.code);
   const inv = q && await one("SELECT * FROM invoices WHERE id = ? AND quote_id = ? AND kind != 'b2b'", num(req.params.id), q.id);
   if (!inv) return next();
-  res.page('invoice', { title: `Invoice ${inv.number}`, inv, doc: JSON.parse(inv.data), back: `/q/${req.params.code}` }, 'doc');
+  res.page('invoice', { title: `Invoice ${inv.number}`, inv, ...await invoiceView(inv), back: `/q/${req.params.code}`, noindex: true }, 'doc');
 }));
 
 // Back from PhonePe (GET, or POST for older PhonePe set-ups): confirm the payment and show where it stands.

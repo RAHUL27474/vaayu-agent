@@ -162,6 +162,7 @@ function agencyParty(agency) {
     legalName: agency.legal_name || agency.name,
     gstin: agency.gstin || '',
     taxId: agency.tax_id || '',
+    pan: agency.pan || '',
     address: [agency.address, agency.city, agency.country && agency.country !== 'India' ? agency.country : ''].filter(Boolean).join(', '),
     phone: agency.phone || '',
     email: agency.email || '',

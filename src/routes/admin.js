@@ -9,6 +9,7 @@ const svc = require('../services');
 const { searchAll } = require('../search');
 const phonepe = require('../phonepe');
 const payments = require('../payments');
+const { invoiceView } = require('../invoice-view');
 const { KINDS, marginPct, repriceProducts } = require('../products');
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 const { restoreFile } = require('../files');
@@ -358,7 +359,7 @@ router.get('/invoices', h(async (req, res) => {
 router.get('/invoices/:id', h(async (req, res, next) => {
   const inv = await one('SELECT * FROM invoices WHERE id = ?', num(req.params.id));
   if (!inv) return next();
-  res.page('invoice', { title: `Invoice ${inv.number}`, inv, doc: JSON.parse(inv.data), back: '/admin/invoices' }, 'doc');
+  res.page('invoice', { title: `Invoice ${inv.number}`, inv, ...await invoiceView(inv), back: '/admin/invoices', noindex: true }, 'doc');
 }));
 
 router.get('/search', h(async (req, res) => {
@@ -441,7 +442,7 @@ router.post('/tickets/:id/reply', h(async (req, res, next) => {
 }));
 
 const MARGIN_KEYS = Object.keys(KINDS).map((k) => `margin_${k}`);
-const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'bank_details', ...MARGIN_KEYS];
+const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'bank_details', 'sac_code', ...MARGIN_KEYS];
 
 router.get('/settings', async (req, res) => {
   const values = await getSettings();

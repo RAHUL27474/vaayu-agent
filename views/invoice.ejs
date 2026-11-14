@@ -1,5 +1,13 @@
+<%#
+  Tax invoice (CGST Rule 46): supplier and recipient with GSTIN, PAN and state; number and date; place of supply;
+  SAC; taxable value; CGST + SGST or IGST; TCS; total in figures and words; signatory.
+  Locals: inv, doc, gst, words, booking, payment, bank, terms (src/invoice-view.js), back, shareUrl
+%>
 <%
-  const kindLabel = { customer_agent: 'Tax invoice', customer_vaayu: 'Tax invoice', b2b: 'B2B tax invoice' }[inv.kind];
+  const title = gst.registered ? (inv.kind === 'b2b' ? 'Tax Invoice (B2B)' : 'Tax Invoice') : 'Invoice';
+  const money = (v) => inr(v, { decimals: 2 });
+  const stateLine = (s) => (s ? `${s.name} (${s.code})` : '');
+  const t = doc.totals;
 %>
 <div class="doc-wrap">
   <div class="doc-toolbar no-print">
@@ -8,37 +16,47 @@
     <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
   </div>
 
-  <article class="doc" style="--doc-color: <%= doc.seller.color || '#0077c0' %>">
+  <article class="doc invoice" style="--doc-color: <%= doc.seller.color || '#0077c0' %>">
     <header class="doc-head">
-      <div>
+      <div class="inv-seller">
         <% if (doc.seller.logo) { %><img src="<%= doc.seller.logo %>" alt="<%= doc.seller.name %>"><% } else { %><h2 style="margin:0"><%= doc.seller.name %></h2><% } %>
-        <div style="margin-top:10px;font-size:13px">
-          <b><%= doc.seller.legalName %></b><br>
-          <% if (doc.seller.address) { %><%= doc.seller.address %><br><% } %>
-          <%= [doc.seller.phone, doc.seller.email].filter(Boolean).join(' · ') %>
-          <% if (doc.seller.gstin) { %><br>GSTIN: <%= doc.seller.gstin %><% } %>
-          <% if (doc.seller.taxId) { %><br>Tax ID: <%= doc.seller.taxId %><% } %>
+        <div class="inv-party">
+          <b><%= doc.seller.legalName %></b>
+          <% if (doc.seller.address) { %><div><%= doc.seller.address %></div><% } %>
+          <% if (doc.seller.gstin) { %><div>GSTIN: <b><%= doc.seller.gstin %></b><% if (gst.supplierState) { %> · State: <%= stateLine(gst.supplierState) %><% } %></div><% } %>
+          <% if (doc.seller.pan) { %><div>PAN: <%= doc.seller.pan %></div><% } %>
+          <% if (doc.seller.taxId) { %><div>Tax ID: <%= doc.seller.taxId %></div><% } %>
+          <div><%= [doc.seller.phone, doc.seller.email].filter(Boolean).join(' · ') %></div>
         </div>
       </div>
       <div class="title">
-        <h1><%= kindLabel.toUpperCase() %></h1>
-        <div><b>#<%= inv.number %></b></div>
-        <div class="muted">Date: <%= fmtDate(inv.created_at) %></div>
-        <div class="muted">Ref: <%= doc.meta.quoteCode %></div>
+        <h1><%= title.toUpperCase() %></h1>
+        <div class="muted inv-copy">Original for recipient</div>
+        <% if (payment) { %><div class="inv-stamp <%= payment.status === 'Paid' ? 'paid' : 'part' %>"><%= payment.status %></div><% } %>
       </div>
     </header>
+
+    <section class="inv-meta">
+      <div><span>Invoice no.</span><b><%= inv.number %></b></div>
+      <div><span>Invoice date</span><b><%= fmtDate(inv.created_at) %></b></div>
+      <div><span>Place of supply</span><b><%= gst.pos ? stateLine(gst.pos) : '—' %></b></div>
+      <div><span>Reverse charge</span><b>No</b></div>
+      <div><span><%= booking ? 'Booking ref.' : 'Quote ref.' %></span><b><%= booking ? booking.code : doc.meta.quoteCode %></b></div>
+      <% if (doc.meta.travelDate) { %><div><span>Travel date</span><b><%= fmtDate(doc.meta.travelDate) %></b></div><% } %>
+    </section>
 
     <section class="doc-parties">
       <div>
         <h4>Bill to</h4>
         <b><%= doc.buyer.legalName || doc.buyer.name %></b><br>
         <% if (doc.buyer.address) { %><%= doc.buyer.address %><br><% } %>
+        <% if (doc.buyer.gstin) { %>GSTIN: <b><%= doc.buyer.gstin %></b><% if (gst.buyerState) { %> · State: <%= stateLine(gst.buyerState) %><% } %><br><% } %>
+        <% if (doc.buyer.pan) { %>PAN: <%= doc.buyer.pan %><br><% } %>
+        <% if (doc.buyer.taxId) { %>Tax ID: <%= doc.buyer.taxId %><br><% } %>
         <%= [doc.buyer.phone, doc.buyer.email].filter(Boolean).join(' · ') %>
-        <% if (doc.buyer.gstin) { %><br>GSTIN: <%= doc.buyer.gstin %><% } %>
-        <% if (doc.buyer.taxId) { %><br>Tax ID: <%= doc.buyer.taxId %><% } %>
       </div>
       <div>
-        <h4>Trip</h4>
+        <h4>Trip details</h4>
         <b><%= doc.meta.trip %></b><br>
         <% if (doc.meta.travelDate) { %>Travel date: <%= fmtDate(doc.meta.travelDate) %><br><% } %>
         Travellers: <%= doc.meta.travellers %>
@@ -47,31 +65,63 @@
     </section>
 
     <table class="lines">
-      <thead><tr><th style="width:36px">#</th><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
+      <thead><tr><th style="width:32px">#</th><th>Description of service</th><th style="width:72px">SAC</th><th class="num" style="width:48px">Qty</th><th class="num" style="width:110px">Rate</th><th class="num" style="width:120px">Taxable value</th></tr></thead>
       <tbody>
         <% doc.lines.forEach((l, i) => { %>
           <tr>
             <td><%= i + 1 %></td>
             <td><b><%= l.title %></b><% if (l.description) { %><br><small><%= l.description %></small><% } %></td>
+            <td><%= gst.sac %></td>
             <td class="num"><%= l.qty %></td>
-            <td class="num"><%= inr(l.unit, { decimals: 2 }) %></td>
-            <td class="num"><%= inr(l.amount, { decimals: 2 }) %></td>
+            <td class="num"><%= money(l.unit) %></td>
+            <td class="num"><%= money(l.amount) %></td>
           </tr>
         <% }) %>
       </tbody>
     </table>
 
-    <table class="doc-totals">
-      <tr><td>Subtotal</td><td class="num"><%= inr(doc.totals.subtotal, { decimals: 2 }) %></td></tr>
-      <tr><td>GST (<%= doc.totals.taxRate %>%)</td><td class="num"><%= inr(doc.totals.tax, { decimals: 2 }) %></td></tr>
-      <% if (doc.totals.tcs) { %><tr><td>TCS (<%= doc.totals.tcsRate %>%)</td><td class="num"><%= inr(doc.totals.tcs, { decimals: 2 }) %></td></tr><% } %>
-      <tr class="grand"><td>Total</td><td class="num"><%= inr(doc.totals.total, { decimals: 2 }) %></td></tr>
-    </table>
+    <div class="inv-bottom">
+      <div class="inv-tax">
+        <% if (gst.registered && t.tax) { %>
+        <h4>Tax summary</h4>
+        <table class="inv-taxtable">
+          <thead><tr><th>SAC</th><th class="num">Taxable value</th><% gst.rows.forEach(r => { %><th class="num"><%= r.label %></th><% }) %><th class="num">Total tax</th></tr></thead>
+          <tbody><tr>
+            <td><%= gst.sac %></td><td class="num"><%= money(t.subtotal) %></td>
+            <% gst.rows.forEach(r => { %><td class="num"><%= money(r.amount) %><br><small><%= r.rate %>%</small></td><% }) %>
+            <td class="num"><%= money(t.tax) %></td>
+          </tr></tbody>
+        </table>
+        <% } %>
+        <div class="inv-words"><span>Amount in words</span><b><%= words %></b></div>
+        <% if (payment) { %><div class="inv-words"><span>Payment</span><b><%= payment.detail %></b></div><% } %>
+      </div>
+      <table class="doc-totals">
+        <tr><td>Taxable value</td><td class="num"><%= money(t.subtotal) %></td></tr>
+        <% gst.rows.forEach(r => { %><tr><td><%= r.label %> @ <%= r.rate %>%</td><td class="num"><%= money(r.amount) %></td></tr><% }) %>
+        <% if (t.tcs) { %><tr><td>TCS @ <%= t.tcsRate %>% <small class="muted">(sec. 206C(1G))</small></td><td class="num"><%= money(t.tcs) %></td></tr><% } %>
+        <tr class="grand"><td>Total amount</td><td class="num"><%= money(t.total) %></td></tr>
+      </table>
+    </div>
+
+    <section class="inv-foot">
+      <div>
+        <% if (bank) { %><h4>Bank details for payment</h4><div class="inv-bank"><%= bank %></div><% } %>
+        <h4>Terms &amp; conditions</h4>
+        <ol class="inv-terms">
+          <% doc.notes.forEach(n => { %><li><%= n %></li><% }) %>
+          <% terms.forEach(n => { %><li><%= n %></li><% }) %>
+        </ol>
+      </div>
+      <div class="inv-sign">
+        <div>For <b><%= doc.seller.legalName.replace(/\.$/, '') %></b></div>
+        <div class="inv-sign-line">Authorised signatory</div>
+      </div>
+    </section>
 
     <footer class="doc-foot">
-      <% doc.notes.forEach(n => { %><p><%= n %></p><% }) %>
-      <p>This is a computer-generated invoice and does not require a signature.
-      Issued by <%= doc.seller.legalName.replace(/\.$/, '') %><%= inv.kind === 'customer_vaayu' && doc.meta.bookedThrough ? ` on behalf of your travel agent, ${doc.meta.bookedThrough}` : '' %>.</p>
+      This is a computer-generated invoice and does not require a physical signature.
+      Issued by <%= doc.seller.legalName.replace(/\.$/, '') %><%= inv.kind === 'customer_vaayu' && doc.meta.bookedThrough ? ` on behalf of your travel agent, ${doc.meta.bookedThrough}` : '' %>.
     </footer>
   </article>
 </div>

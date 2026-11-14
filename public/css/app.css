@@ -1017,3 +1017,35 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .inline-reset summary { font-size: 12.5px; color: var(--brand); cursor: pointer; }
 .inline-reset form { display: flex; gap: 6px; margin-top: 6px; }
 .inline-reset input { flex: 1; min-width: 0; height: 32px; }
+
+/* Tax invoice */
+.invoice .inv-party { margin-top: 10px; font-size: 12.5px; line-height: 1.55; color: var(--ink-2); }
+.invoice .inv-copy { font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; }
+.inv-stamp { display: inline-block; margin-top: 10px; padding: 4px 14px; border: 2px solid; border-radius: 6px; font-weight: 800; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; transform: rotate(-4deg); }
+.inv-stamp.paid { color: #15803d; border-color: #15803d; }
+.inv-stamp.part { color: #b45309; border-color: #b45309; }
+.inv-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-bottom: 20px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.inv-meta > div { padding: 8px 12px; border-right: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); font-size: 13px; }
+.inv-meta > div:nth-child(3n) { border-right: 0; }
+.inv-meta span, .inv-words span { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 2px; }
+.inv-bottom { display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start; margin-top: 16px; }
+.inv-bottom .doc-totals { margin-top: 0; width: 100%; }
+.inv-tax h4, .inv-foot h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 6px; }
+.inv-taxtable { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+.inv-taxtable th, .inv-taxtable td { padding: 6px 8px; border: 1px solid var(--line-2); }
+.inv-taxtable th { background: var(--bg); font-weight: 600; font-size: 11px; }
+.inv-words { font-size: 13px; margin-bottom: 10px; }
+.inv-foot { display: grid; grid-template-columns: 1fr 220px; gap: 24px; margin-top: 26px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12px; }
+.inv-bank { white-space: pre-line; margin-bottom: 12px; color: var(--ink-2); }
+.inv-terms { margin: 0; padding-left: 16px; color: var(--ink-2); line-height: 1.55; }
+.inv-sign { align-self: end; text-align: right; font-size: 12.5px; }
+.inv-sign-line { margin-top: 48px; padding-top: 6px; border-top: 1px solid var(--ink-3); color: var(--muted); }
+@media (max-width: 700px) {
+  .inv-meta { grid-template-columns: 1fr 1fr; }
+  .inv-meta > div:nth-child(3n) { border-right: 1px solid var(--line-2); }
+  .inv-bottom, .inv-foot { grid-template-columns: 1fr; }
+}
+@media print {
+  .invoice .lines tr, .inv-bottom, .inv-foot { break-inside: avoid; }
+}
+.doc table.lines th.num { text-align: right; }

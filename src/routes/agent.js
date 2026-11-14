@@ -9,6 +9,7 @@ const svc = require('../services');
 const { searchAgency } = require('../search');
 const phonepe = require('../phonepe');
 const payments = require('../payments');
+const { invoiceView } = require('../invoice-view');
 const { priceQuote, emiPlans, agencyHasBranding, withTax, markupRule } = require('../pricing');
 const {
   MEAL_PLANS, STAY_TYPES, EXTRA_TYPES, emptyDetails, parseDetails, itemIds, detailsFromForm, calcPackage, priceLines, fromPrice, publishProblems, present,
@@ -798,7 +799,7 @@ router.get('/invoices/:id', h(async (req, res, next) => {
   if (!inv) return next();
   const quote = inv.quote_id ? await one('SELECT code FROM quotes WHERE id = ?', inv.quote_id) : null;
   const shareUrl = quote && inv.kind !== 'b2b' ? `${req.protocol}://${req.get('host')}/q/${quote.code}/invoice/${inv.id}` : null;
-  res.page('invoice', { title: `Invoice ${inv.number}`, inv, doc: JSON.parse(inv.data), back: '/agent/invoices', shareUrl }, 'doc');
+  res.page('invoice', { title: `Invoice ${inv.number}`, inv, ...await invoiceView(inv), back: '/agent/invoices', shareUrl, noindex: true }, 'doc');
 }));
 
 // ---------- payment links ----------

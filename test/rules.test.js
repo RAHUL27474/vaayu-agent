@@ -155,6 +155,19 @@ const png = [PNG, 'image/png', 'me.png'];
   const adminCookie = await c.login(...ROLES.admin);
   check('admin search finds the agency by name', (await (await c.get('/admin/search?q=skyline', adminCookie)).text()).includes('/admin/agents/'));
 
+  // ---------- tax invoice details ----------
+  const b2bInv = await one("SELECT i.id FROM invoices i JOIN users u ON u.agency_id = i.agency_id WHERE u.email = ? AND i.kind = 'b2b' ORDER BY i.id LIMIT 1", ROLES.agent[0]);
+  const b2bPage = await (await c.get(`/agent/invoices/${b2bInv.id}`, agent)).text();
+  check('B2B invoice to another state charges IGST, with SAC, place of supply and words', /IGST @ 5%/.test(b2bPage) && !b2bPage.includes('CGST') && b2bPage.includes('998552') && b2bPage.includes('Maharashtra (27)') && /Rupees [A-Za-z ]+ Only/.test(b2bPage));
+  check('B2B invoice shows PANs and that it was paid', b2bPage.includes('AABCV1234F') && b2bPage.includes('AAKFS5678K') && b2bPage.includes('inv-stamp paid'));
+  const custQ = await one("SELECT q.id FROM quotes q JOIN users u ON u.agency_id = q.agency_id WHERE u.email = ? AND EXISTS (SELECT 1 FROM quote_items i WHERE i.quote_id = q.id) ORDER BY q.id LIMIT 1", ROLES.agent[0]);
+  await db.prepare("UPDATE quotes SET invoice_mode = 'agent' WHERE id = ?").run(custQ.id);
+  const custLoc = (await c.post(`/agent/quotes/${custQ.id}/invoice`, agent, {})).headers.get('location') || '';
+  const custPage = await (await c.get(custLoc, agent)).text();
+  check('customer invoice within the agency\'s state splits CGST and SGST', /CGST @ 2.5%/.test(custPage) && /SGST\/UTGST @ 2.5%/.test(custPage) && !custPage.includes('IGST @'), custLoc);
+  const { rupeesInWords } = require('../src/invoice-view');
+  check('amount in words uses lakh and crore', rupeesInWords(12345678.5) === 'Rupees One Crore Twenty Three Lakh Forty Five Thousand Six Hundred Seventy Eight and Fifty Paise Only');
+
   // ---------- duplicate quote ----------
   const srcQ = await one('SELECT q.* FROM quotes q WHERE q.agency_id = (SELECT agency_id FROM users WHERE email = ?) AND EXISTS (SELECT 1 FROM quote_items i WHERE i.quote_id = q.id) ORDER BY q.id LIMIT 1', ROLES.agent[0]);
   const dupLoc = (await c.post(`/agent/quotes/${srcQ.id}/duplicate`, agent, {})).headers.get('location') || '';
