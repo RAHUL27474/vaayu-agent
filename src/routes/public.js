@@ -93,6 +93,10 @@ router.post('/logout', (req, res) => {
   res.redirect('/login');
 });
 
+// Terms of use and privacy policy (views/public/legal.ejs).
+router.get('/terms', (req, res) => res.page('public/legal', { title: 'Terms of use', page: 'terms', meta: { description: 'Terms of use for travel agencies using the VaayuTrip B2B platform: accounts, rates, payments, cancellations and liability.' } }, 'public'));
+router.get('/privacy', (req, res) => res.page('public/legal', { title: 'Privacy policy', page: 'privacy', meta: { description: 'How VaayuTrip collects, uses, shares and protects agency and traveller data.' } }, 'public'));
+
 router.get('/signup', (req, res) => {
   res.page('public/signup', { title: 'Become a VaayuTrip partner', form: { country: 'India' }, countries: COUNTRIES }, 'public');
 });
@@ -149,7 +153,11 @@ router.get('/site/:slug/p/:pkg', h(async (req, res, next) => {
   const pkg = agency && await one("SELECT * FROM packages WHERE slug = ? AND agency_id = ? AND status = 'published'", req.params.pkg, agency.id);
   if (!pkg) return next();
   const view = await present(pkg, parseDetails(pkg.details));
-  res.page('public/site-package', { title: `${pkg.title} · ${agency.name}`, site: agency, pkg, view, price: (await packageSellPrice(agency, pkg)).sell, bare: true }, 'public');
+  const price = (await packageSellPrice(agency, pkg)).sell;
+  res.page('public/site-package', {
+    title: `${pkg.title} · ${agency.name}`, site: agency, pkg, view, price, bare: true,
+    meta: { description: `${pkg.nights} nights in ${pkg.destination}${pkg.summary ? `: ${pkg.summary.trim().replace(/\.+$/, '')}` : ''}. From ₹${Math.round(price).toLocaleString('en-IN')} per person.`, image: pkg.image_url, type: 'article' },
+  }, 'public');
 }));
 
 router.post('/site/:slug/enquire', h(async (req, res, next) => {
@@ -196,6 +204,9 @@ router.get('/q/:code', h(async (req, res, next) => {
     title: `${s.quote.title} — quote`, ...s, payLink, total,
     emi: s.quote.emi_enabled && total > 0 ? emiPlans(total, s.settings) : [],
     favicon: s.kind === 'customer_agent' ? s.agency.logo_path : null,
+    noindex: true,
+    site: s.kind === 'customer_agent' ? s.agency : undefined,
+    meta: { description: `Your holiday quote${s.agency ? ` from ${s.agency.name}` : ''}: ${s.quote.title}.`, image: s.quote.package_snapshot ? JSON.parse(s.quote.package_snapshot).image : null },
   }, 'doc');
 }));
 
@@ -221,7 +232,7 @@ router.get('/pay/:code', h(async (req, res, next) => {
   const link = await one('SELECT * FROM payment_links WHERE code = ?', req.params.code);
   if (!link) return next();
   const agency = await one('SELECT * FROM agencies WHERE id = ?', link.agency_id);
-  res.page('public/pay', { title: `Pay ${agency.name}`, link, site: agency, emi: emiPlans(link.amount, await getSettings()) }, 'doc');
+  res.page('public/pay', { title: `Pay ${agency.name}`, link, site: agency, noindex: true, meta: { description: `${link.purpose}: payment to ${agency.name}.` }, emi: emiPlans(link.amount, await getSettings()) }, 'doc');
 }));
 
 // Demo checkout: a real deployment would redirect to Razorpay/Cashfree and mark paid from their webhook.
@@ -234,6 +245,20 @@ router.post('/pay/:code', h(async (req, res, next) => {
   }
   req.flash('success', 'Payment successful. A receipt has been sent to your travel agent.');
   res.redirect(`/pay/${link.code}`);
+}));
+
+// Public pages for search engines: VaayuTrip's own pages, plus each live agency website and its packages.
+router.get('/sitemap.xml', h(async (req, res) => {
+  const base = `${req.protocol}://${req.get('host')}`;
+  const urls = ['/', '/signup', '/terms', '/privacy'];
+  const sites = await all("SELECT id, slug FROM agencies WHERE status = 'active' AND website_enabled = 1");
+  const pkgs = sites.length ? await all(`SELECT agency_id, slug FROM packages WHERE status = 'published' AND agency_id IN (${sites.map(() => '?').join(', ')})`, ...sites.map((s) => s.id)) : [];
+  for (const s of sites) {
+    urls.push(`/site/${s.slug}`);
+    for (const p of pkgs.filter((x) => x.agency_id === s.id)) urls.push(`/site/${s.slug}/p/${p.slug}`);
+  }
+  const esc = (u) => u.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${esc(base + u)}</loc></url>`).join('\n')}\n</urlset>\n`);
 }));
 
 module.exports = router;

@@ -54,6 +54,12 @@ app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1h',
   setHeaders: (res, file) => { if (/[\\/](css|js|fonts)[\\/]/.test(file)) res.set('Cache-Control', 'public, max-age=31536000, immutable'); },
 }));
+// Search engines: public pages only; the portals, shared quotes and payment links stay out.
+app.get('/robots.txt', (req, res) => res.type('text/plain').send([
+  'User-agent: *', 'Disallow: /agent', 'Disallow: /admin', 'Disallow: /backend', 'Disallow: /q/', 'Disallow: /pay/', 'Disallow: /api/',
+  `Sitemap: ${req.protocol}://${req.get('host')}/sitemap.xml`, '',
+].join('\n')));
+
 // Icon sprite (see src/icons.js): no database needed, cached for a year (the URL changes with its content).
 app.get('/icons.svg', (req, res) => res.set({ 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=31536000, immutable' }).send(SPRITE));
 app.use((req, res, next) => start().then(() => next(), next));
@@ -83,6 +89,7 @@ app.use(async (req, res, next) => {
   // Package image, or a generated cover card with the destination name when none is uploaded.
   res.locals.cover = (p) => p.image_url || `/cover/${encodeURIComponent(p.destination || p.title || 'Holiday')}.svg`;
   res.locals.path = req.path;
+  res.locals.origin = `${req.protocol}://${req.get('host')}`;
   res.locals.query = req.query;
   res.locals.settings = await getSettings();
   res.locals.flash = req.session.flash || [];

@@ -979,3 +979,14 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .calc-markup .check { font-size: 13px; margin-bottom: 8px; }
 .calc-markup .row { margin: 0; }
 .calc-markup .field { margin-bottom: 0; }
+
+/* Terms of use and privacy policy */
+.legal { max-width: 780px; }
+.legal h1 { margin: 6px 0 8px; }
+.legal h2 { font-size: 18px; margin: 28px 0 8px; }
+.legal p, .legal li { line-height: 1.65; color: var(--ink-2, inherit); }
+.legal ul { padding-left: 20px; }
+.legal li { margin-bottom: 6px; }
+.legal-tabs { display: flex; gap: 6px; margin: 18px 0 6px; border-bottom: 1px solid var(--line); }
+.legal-tabs a { padding: 8px 14px; color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 500; }
+.legal-tabs a.on { color: var(--brand); border-bottom-color: var(--brand); }

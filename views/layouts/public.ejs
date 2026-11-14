@@ -4,8 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <title><%= typeof title !== 'undefined' ? title + ' · ' : '' %>VaayuTrip for Travel Agents</title>
-  <meta name="description" content="VaayuTrip is the B2B travel platform for Indian travel agents: airfares, hotels, activities, transfers and visas at net rates for Dubai, Bali, Vietnam, Cambodia, the UK and Europe, to build your own packages, with branded invoices and your own website.">
+<%- include('../partials/meta') %>
   <link rel="icon" href="/img/favicon.png">
   <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="<%= asset('/css/app.css') %>">
@@ -44,7 +43,8 @@
     <div>
       <div><a href="mailto:<%= settings.email %>"><%= settings.email %></a></div>
       <div><%= settings.phone %></div>
-      <div style="margin-top:8px">© <%= new Date().getFullYear() %> VaayuTrip</div>
+      <div style="margin-top:8px"><a href="/terms">Terms of use</a> · <a href="/privacy">Privacy policy</a></div>
+      <div>© <%= new Date().getFullYear() %> VaayuTrip</div>
     </div>
   </div>
 </footer>

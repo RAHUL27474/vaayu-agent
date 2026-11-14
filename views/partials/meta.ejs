@@ -1,0 +1,28 @@
+<%#
+  Page description and link previews (WhatsApp, Facebook, LinkedIn, X) for public pages.
+  Optional locals: meta = { description, image, type }, site (an agency's own website: no VaayuTrip
+  branding), noindex (private pages such as shared quotes and payment links).
+%>
+<%
+  const ownSite = typeof site !== 'undefined' && site;
+  const m = typeof meta !== 'undefined' && meta ? meta : {};
+  const brand = ownSite ? site.name : 'VaayuTrip for Travel Agents';
+  const pageTitle = typeof title !== 'undefined' && title ? (ownSite || title.includes(brand) ? title : `${title} · ${brand}`) : brand;
+  const description = m.description || (ownSite
+    ? (site.website_tagline || `Holidays by ${site.name}`)
+    : 'VaayuTrip is the B2B travel platform for Indian travel agents: airfares, hotels, activities, transfers and visas at net rates for Dubai, Bali, Vietnam, Cambodia, the UK and Europe, to build your own packages, with branded invoices and your own website.');
+  // Previews need an absolute URL to a PNG/JPG image (SVG isn't shown by WhatsApp).
+  const raster = (u) => u && /\.(png|jpe?g|webp)(\?|$)/i.test(u) ? u : null;
+  const imageRel = raster(m.image) || (ownSite ? raster(site.logo_path) : null) || (ownSite ? null : '/img/vaayutrip-logo.png');
+  const abs = (u) => (/^https?:\/\//i.test(u) ? u : `${origin}${u}`);
+%>
+  <title><%= pageTitle %></title>
+  <meta name="description" content="<%= description %>">
+  <% if (typeof noindex !== 'undefined' && noindex) { %><meta name="robots" content="noindex, nofollow"><% } %>
+  <meta property="og:type" content="<%= m.type || 'website' %>">
+  <meta property="og:site_name" content="<%= brand %>">
+  <meta property="og:title" content="<%= typeof title !== 'undefined' && title ? title : brand %>">
+  <meta property="og:description" content="<%= description %>">
+  <meta property="og:url" content="<%= origin %><%= path %>">
+  <% if (imageRel) { %><meta property="og:image" content="<%= abs(imageRel) %>">
+  <meta name="twitter:card" content="<%= m.image ? 'summary_large_image' : 'summary' %>"><% } %>

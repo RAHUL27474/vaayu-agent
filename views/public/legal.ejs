@@ -1,0 +1,85 @@
+<%#
+  Terms of use and privacy policy. Company details come from Admin → Settings.
+  A starting draft for a B2B travel platform in India: have it reviewed by your lawyer before relying on it.
+%>
+<%
+  const co = settings.legal_name || 'VaayuTrip Travel Pvt. Ltd.';
+  const brand = settings.company_name || 'VaayuTrip';
+  const email = settings.email || 'support@vaayutrip.com';
+  const updated = '14 November 2026';
+%>
+<section class="section legal">
+  <span class="eyebrow" style="text-align:left"><%= page === 'terms' ? 'Terms of use' : 'Privacy policy' %></span>
+  <h1><%= page === 'terms' ? `Terms of use for ${brand} partners` : `How ${brand} handles your data` %></h1>
+  <p class="muted">Last updated <%= updated %>. <%= co %><%= settings.gstin ? ` · GSTIN ${settings.gstin}` : '' %><%= settings.address ? ` · ${settings.address}` : '' %></p>
+  <nav class="legal-tabs"><a class="<%= page === 'terms' ? 'on' : '' %>" href="/terms">Terms of use</a><a class="<%= page === 'privacy' ? 'on' : '' %>" href="/privacy">Privacy policy</a></nav>
+
+  <% if (page === 'terms') { %>
+    <h2>1. Who these terms are for</h2>
+    <p><%= brand %> (operated by <%= co %>) is a business-to-business platform for registered travel agencies. By creating a partner account you accept these terms on behalf of your agency. Travellers who receive a quote, invoice or payment link from an agency deal with that agency.</p>
+
+    <h2>2. Your account and verification</h2>
+    <ul>
+      <li>You must give true details about your agency and upload genuine tax registration documents and a photo of the person applying. We verify them before approving your account and may ask for more.</li>
+      <li>You are responsible for everything done with your logins and API key. Tell us at once at <a href="mailto:<%= email %>"><%= email %></a> if you suspect misuse.</li>
+      <li>We may suspend an account that breaks these terms, gives false information, or puts travellers or other partners at risk.</li>
+    </ul>
+
+    <h2>3. Rates, quotes and bookings</h2>
+    <ul>
+      <li>Rates shown to you are net rates for agents and are confidential. Prices can change until a booking is confirmed; a confirmed booking keeps its price.</li>
+      <li>You set your own selling price and are responsible for the prices, taxes and terms you give your customers.</li>
+      <li>Services (hotels, activities, transfers, airfares, visas, insurance) are provided by their operators under their own conditions. We act as your booking partner, not as the operator.</li>
+      <li>Visa approval is decided by the issuing government; we do not guarantee it.</li>
+    </ul>
+
+    <h2>4. Payments, wallet and credit</h2>
+    <ul>
+      <li>Bookings are paid from your wallet first and then from any credit line we have agreed with you. Wallet top-ups are credited after we verify the payment.</li>
+      <li>Credit must be repaid by the agreed date. We may pause bookings while an amount is overdue.</li>
+      <li>GST and, for overseas tour packages, TCS apply as required by law and are shown on invoices.</li>
+    </ul>
+
+    <h2>5. Cancellations and refunds</h2>
+    <p>Cancellation charges follow the cancellation policy shown for each service. Refunds for approved cancellations go back to your credit line first (up to what was drawn) and then to your wallet. Refunds to travellers are the agency's responsibility.</p>
+
+    <h2>6. Your website, branding and API</h2>
+    <p>You may publish your packages on the website and API we provide, under your own brand. You must have the right to use any logo, text and photos you upload, and must not present yourself as <%= brand %>.</p>
+
+    <h2>7. Liability</h2>
+    <p>We are not liable for losses caused by events outside our control (weather, strikes, government action, operator failure), or for indirect losses. Our total liability for a booking is limited to the amount paid to us for that booking. Nothing here limits liability that cannot be limited by law.</p>
+
+    <h2>8. Changes and law</h2>
+    <p>We may update these terms; the date above shows the latest version, and continued use means you accept it. These terms are governed by the laws of India, and the courts of New Delhi have jurisdiction.</p>
+  <% } else { %>
+    <h2>1. What we collect</h2>
+    <ul>
+      <li><b>About your agency:</b> name, contact details, address, GSTIN or tax ID, PAN, and the documents and photo you upload for verification.</li>
+      <li><b>About your users:</b> names, email addresses, phone numbers and an encrypted (hashed) password.</li>
+      <li><b>About your customers:</b> the names, contact details and trip details you enter for quotes, bookings and invoices.</li>
+      <li><b>Activity:</b> logins and changes made in the portal, kept as an audit log for security.</li>
+    </ul>
+
+    <h2>2. Why we use it</h2>
+    <p>To verify your agency, run your account, make and service bookings, issue invoices, meet tax and legal obligations, prevent fraud, and support you. We do not sell personal data or use your customers' details for our own marketing.</p>
+
+    <h2>3. Who we share it with</h2>
+    <ul>
+      <li>Service operators and suppliers, only the details needed to deliver a booking.</li>
+      <li>Payment, hosting and database providers who process data for us under contract. Our database is hosted by Supabase in the European Union (Paris).</li>
+      <li>Authorities, when the law requires it.</li>
+    </ul>
+
+    <h2>4. Your verification documents</h2>
+    <p>KYC documents and photos are stored privately and can only be opened by <%= brand %>'s verification team. They are never shown to other agencies or to travellers.</p>
+
+    <h2>5. How long we keep it</h2>
+    <p>Account and booking records are kept for as long as your account is active and afterwards for as long as tax and accounting law requires (generally up to 8 years). Other data is deleted or anonymised when no longer needed.</p>
+
+    <h2>6. Your choices</h2>
+    <p>You can see and correct your agency details in Company &amp; branding. To get a copy of your data, close your account or ask a question, write to <a href="mailto:<%= email %>"><%= email %></a>. Agencies are responsible for having a lawful basis to share their customers' details with us.</p>
+
+    <h2>7. Grievance officer</h2>
+    <p>Questions or complaints about how we handle personal data can be sent to our grievance officer at <a href="mailto:<%= email %>"><%= email %></a><%= settings.phone ? `, ${settings.phone}` : '' %>. We aim to respond within 15 days.</p>
+  <% } %>
+</section>
