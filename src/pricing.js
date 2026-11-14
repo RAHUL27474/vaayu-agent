@@ -4,7 +4,9 @@
  * Every quote line has a net price (what the agent pays VaayuTrip) and a sell price
  * (what the customer pays). The sell price is either set by the agent on the line,
  * or derived from the quote's markup (percent of net, or a flat amount spread across
- * lines in proportion to their net). The difference is the agent's commission.
+ * lines in proportion to their net). Each kind of service can have its own markup
+ * (markup_by_kind: hotels 8%, transfers ₹500 …); a flat amount is spread over the lines it covers.
+ * The difference is the agent's commission.
  *
  * Lines with supplier "agent" are the agent's own services (hotels they arrange,
  * their guide, visa help). They have no VaayuTrip cost and can only be billed on the
@@ -19,23 +21,53 @@
  */
 const { round2 } = require('./util');
 
+/** A holder's (agency's or quote's) per-service markups, normalised: { kind: { type, value, custom } }. */
+function kindRates(holder) {
+  let rates = holder.markup_by_kind;
+  if (typeof rates === 'string') { try { rates = JSON.parse(rates); } catch { rates = null; } }
+  const out = {};
+  for (const [k, r] of Object.entries(rates || {})) {
+    if (typeof r === 'number') out[k] = { type: 'percent', value: r, custom: false };
+    else if (r && Number.isFinite(Number(r.value))) out[k] = { type: r.type === 'flat' ? 'flat' : 'percent', value: Number(r.value), custom: Boolean(r.custom) };
+  }
+  return out;
+}
+
+/**
+ * The markup for a kind of service (hotel, activity, flight, …): the holder's own rule for that kind,
+ * or else its overall default. { type: 'percent' | 'flat', value, overall } — overall when it's the default.
+ */
+function markupRule(holder, kind) {
+  const r = kindRates(holder)[kind];
+  if (r) return { type: r.type, value: r.value, overall: false };
+  return { type: holder.markup_type === 'flat' ? 'flat' : 'percent', value: Number(holder.markup_value) || 0, overall: true };
+}
+
 function taxRate(settings) {
   return Number(settings.tax_rate ?? 5);
 }
 
 function priceQuote(quote, items) {
   const vaayuAuto = items.filter((i) => i.supplier === 'vaayu' && i.sell_price == null);
-  const autoNetTotal = vaayuAuto.reduce((s, i) => s + i.net_price * i.qty, 0);
+  const rules = new Map(vaayuAuto.map((i) => [i, markupRule(quote, i.type)]));
 
-  // A flat markup is split by net across the auto-priced lines; the last line takes the
-  // rounding remainder so the shares add up to the markup exactly.
+  // A flat amount is split by net across the lines it covers (one service, or every line on the overall
+  // default); the last line takes the rounding remainder so the shares add up to the amount exactly.
   const flatShare = new Map();
-  if (quote.markup_type === 'flat' && autoNetTotal) {
+  const groups = new Map();
+  for (const i of vaayuAuto) {
+    const r = rules.get(i);
+    if (r.type !== 'flat') continue;
+    const key = r.overall ? '*' : i.type;
+    if (!groups.has(key)) groups.set(key, { amount: r.value, lines: [] });
+    groups.get(key).lines.push(i);
+  }
+  for (const { amount, lines: covered } of groups.values()) {
+    const netTotal = covered.reduce((s, i) => s + i.net_price * i.qty, 0);
+    if (!netTotal) continue;
     let given = 0;
-    vaayuAuto.forEach((i, idx) => {
-      const share = idx === vaayuAuto.length - 1
-        ? round2(quote.markup_value - given)
-        : round2((quote.markup_value * i.net_price * i.qty) / autoNetTotal);
+    covered.forEach((i, idx) => {
+      const share = idx === covered.length - 1 ? round2(amount - given) : round2((amount * i.net_price * i.qty) / netTotal);
       given = round2(given + share);
       flatShare.set(i, share);
     });
@@ -46,10 +78,10 @@ function priceQuote(quote, items) {
     let lineSell;
     if (i.sell_price != null) unitSell = i.sell_price;
     else if (i.supplier === 'agent') unitSell = i.net_price;
-    else if (quote.markup_type === 'flat') {
+    else if (rules.get(i).type === 'flat') {
       lineSell = round2(i.net_price * i.qty + (flatShare.get(i) || 0));
       unitSell = lineSell / (i.qty || 1);
-    } else unitSell = i.net_price * (1 + quote.markup_value / 100);
+    } else unitSell = i.net_price * (1 + rules.get(i).value / 100);
 
     const unitNet = i.supplier === 'agent' ? 0 : i.net_price;
     const lineNet = round2(unitNet * i.qty);
@@ -189,4 +221,4 @@ function buildInvoice(kind, { quote, items, agency, customer, settings }) {
   return { kind, seller, buyer, meta, lines, totals, notes };
 }
 
-module.exports = { priceQuote, withTax, emiPlans, buildInvoice, agencyHasBranding, vaayuParty, taxRate };
+module.exports = { kindRates, markupRule, priceQuote, withTax, emiPlans, buildInvoice, agencyHasBranding, vaayuParty, taxRate };

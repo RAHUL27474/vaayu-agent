@@ -270,3 +270,12 @@ document.querySelectorAll('input[type=password]').forEach((input) => {
   });
   wrap.append(btn);
 });
+
+// Quote markup by service: "Default" ticked → own % / ₹ boxes are off; unticked → fill them in.
+document.addEventListener('change', (e) => {
+  const box = e.target.closest('[data-kind-default]');
+  if (!box) return;
+  const row = box.closest('[data-kind-row]');
+  row.querySelectorAll('[data-kind-own]').forEach((el) => { el.disabled = box.checked; });
+  if (!box.checked) row.querySelector('input[data-kind-own]').focus();
+});

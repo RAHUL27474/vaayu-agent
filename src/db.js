@@ -382,6 +382,11 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_by INTEGER REFERENCES user
 ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_adult DOUBLE PRECISION;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_child DOUBLE PRECISION;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_infant DOUBLE PRECISION;
+-- Agent's markup per kind of service: {"hotel": {"type": "percent", "value": 8}, "transfer": {"type": "flat", "value": 500}}.
+-- Kinds left out use markup_type / markup_value. Agencies hold their defaults; each quote gets a copy, and a
+-- service set by hand on a quote is marked "custom": true (the quote's "use my default" box is unticked).
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS markup_by_kind TEXT;
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS markup_by_kind TEXT;
 
 -- Postgres doesn't index foreign keys by itself; these cover the per-agency and per-parent lookups.
 CREATE INDEX IF NOT EXISTS users_agency_id ON users (agency_id);

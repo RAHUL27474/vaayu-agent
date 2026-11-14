@@ -25,6 +25,17 @@
           <div class="field"><label for="markup_type">Type</label><select id="markup_type" name="markup_type"><option value="percent" <%= agency.markup_type === 'percent' ? 'selected' : '' %>>Percent of net</option><option value="flat" <%= agency.markup_type === 'flat' ? 'selected' : '' %>>Flat ₹ per booking</option></select></div>
           <div class="field"><label for="markup_value">Value</label><input id="markup_value" type="number" min="0" step="0.5" name="markup_value" value="<%= agency.markup_value %>"></div>
         </div>
+        <div class="kind-markups">
+          <b>Default by service</b>
+          <p class="muted" style="font-size:12.5px;margin:2px 0 10px">Your usual markup for each service, as a % of net or a ₹ amount. Leave a service empty to use the default above. On any quote you can keep these or set your own.</p>
+          <% Object.entries(kinds).forEach(([k, c]) => { const r = kindMarkups(agency)[k]; %>
+            <div class="kind-row">
+              <span class="kind-name"><%- icon(c.icon) %><%= c.plural %></span>
+              <select name="markup_type_<%= k %>" aria-label="<%= c.plural %>: % or ₹"><option value="percent" <%= !r || r.type === 'percent' ? 'selected' : '' %>>%</option><option value="flat" <%= r && r.type === 'flat' ? 'selected' : '' %>>₹</option></select>
+              <input name="markup_<%= k %>" type="number" min="0" step="0.5" value="<%= r ? r.value : '' %>" placeholder="Default" aria-label="<%= c.plural %> markup">
+            </div>
+          <% }) %>
+        </div>
       </div>
     </div>
     <div>

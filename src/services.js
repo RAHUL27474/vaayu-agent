@@ -23,10 +23,10 @@ function defaultInvoiceMode(agency) {
 
 async function createQuote(agency, { title, customerId = null, leadId = null, packageId = null, travelDate = null, adults = 2, children = 0, infants = 0 }) {
   return (await run(
-    `INSERT INTO quotes (agency_id, customer_id, lead_id, package_id, code, title, travel_date, adults, children, infants, markup_type, markup_value, invoice_mode)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO quotes (agency_id, customer_id, lead_id, package_id, code, title, travel_date, adults, children, infants, markup_type, markup_value, markup_by_kind, invoice_mode)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     agency.id, customerId, leadId, packageId, code('Q'), title, travelDate, adults, children, infants,
-    agency.markup_type, agency.markup_value, defaultInvoiceMode(agency),
+    agency.markup_type, agency.markup_value, agency.markup_by_kind || null, defaultInvoiceMode(agency),
   )).lastInsertRowid;
 }
 
@@ -47,10 +47,10 @@ async function createQuoteFromPackage(agency, packageId, opts = {}) {
   return await tx(async () => {
     const quoteId = (await run(
       `INSERT INTO quotes (agency_id, customer_id, lead_id, package_id, code, title, travel_date, adults, children, infants, markup_type, markup_value,
-         invoice_mode, is_international, package_snapshot)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         markup_by_kind, invoice_mode, is_international, package_snapshot)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       agency.id, opts.customerId || null, opts.leadId || null, pkg.id, code('Q'), opts.title || pkg.title, o.date || null,
-      o.adults, o.children, o.infants, agency.markup_type, agency.markup_value, defaultInvoiceMode(agency),
+      o.adults, o.children, o.infants, agency.markup_type, agency.markup_value, agency.markup_by_kind || null, defaultInvoiceMode(agency),
       pkg.is_international ? 1 : 0, JSON.stringify(await snapshot(pkg, details, calc, products)),
     )).lastInsertRowid;
     for (const l of calc.lines) await addQuoteItem(quoteId, l);

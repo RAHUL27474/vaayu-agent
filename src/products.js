@@ -16,6 +16,7 @@
  */
 const { one, all, run, getSettings } = require('./db');
 const { round2 } = require('./util');
+const { kindRates, markupRule } = require('./pricing');
 
 const DESTINATIONS = {
   Dubai: ['United Arab Emirates'],
@@ -178,8 +179,9 @@ const UNIT_LABELS = { per_person: 'per adult', per_room_night: 'per room / night
 /** Catalogue card price: net per unit and what the agent earns with their default markup. */
 function cardPrice(agency, p) {
   const unit = p.price_basis === 'per_group' ? `per group of ${p.group_size}` : UNIT_LABELS[p.price_basis];
-  if (agency.markup_type === 'flat') return { net: p.net_adult, unit, earn: agency.markup_value, earnLabel: 'You earn per booking' };
-  return { net: p.net_adult, unit, earn: round2((p.net_adult * agency.markup_value) / 100), earnLabel: `You earn ${unit}` };
+  const rule = markupRule(agency, p.kind);
+  if (rule.type === 'flat') return { net: p.net_adult, unit, earn: rule.value, earnLabel: 'You earn per booking' };
+  return { net: p.net_adult, unit, earn: round2((p.net_adult * rule.value) / 100), earnLabel: `You earn ${unit}` };
 }
 
 /** What a customer sees about a product inside an itinerary (no prices). */
@@ -201,6 +203,41 @@ async function productMap(ids) {
   if (!unique.length) return new Map();
   return new Map((await all(`SELECT * FROM products WHERE status = 'published' AND id IN (${unique.map(() => '?').join(', ')})`, ...unique)).map((p) => [p.id, p]));
 }
+
+const markupNumber = (v) => {
+  const n = Number(String(v ?? '').trim());
+  return String(v ?? '').trim() !== '' && Number.isFinite(n) && n >= 0 ? Math.min(1e7, Math.round(n * 100) / 100) : null;
+};
+
+/** Agent settings form → per-service defaults (markup_type_<kind> % or ₹, markup_<kind> value; blank = overall default). */
+function kindMarkupsFromForm(b) {
+  const rates = {};
+  for (const k of Object.keys(KINDS)) {
+    const value = markupNumber(b[`markup_${k}`]);
+    if (value === null) continue;
+    rates[k] = { type: b[`markup_type_${k}`] === 'flat' ? 'flat' : 'percent', value: b[`markup_type_${k}`] === 'flat' ? value : Math.min(500, value) };
+  }
+  return Object.keys(rates).length ? JSON.stringify(rates) : null;
+}
+
+/**
+ * Quote form → the quote's per-service markups. A ticked "use my default" box (use_default_<kind>) takes the
+ * agency's current default for that service; unticked, the agent's own % or ₹ is stored as custom.
+ */
+function quoteKindMarkupsFromForm(b, agency) {
+  const defaults = kindRates(agency);
+  const rates = {};
+  for (const k of Object.keys(KINDS)) {
+    const own = markupNumber(b[`markup_${k}`]);
+    if (!b[`use_default_${k}`] && own !== null) {
+      rates[k] = { type: b[`markup_type_${k}`] === 'flat' ? 'flat' : 'percent', value: own, custom: true };
+    } else if (defaults[k]) {
+      rates[k] = { type: defaults[k].type, value: defaults[k].value };
+    }
+  }
+  return Object.keys(rates).length ? JSON.stringify(rates) : null;
+}
+const kindMarkups = kindRates;
 
 // ---------- VaayuTrip's margin ----------
 
@@ -244,7 +281,7 @@ async function ensureProductCosts() {
 }
 
 module.exports = {
-  DEFAULT_MARGINS, marginPct, priceForAgents, repriceProducts, ensureProductCosts,
+  DEFAULT_MARGINS, marginPct, kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups, priceForAgents, repriceProducts, ensureProductCosts,
   DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, MEAL_PLANS, KINDS, KIND_BY_PATH, BASIS_LABELS,
   destinationOf, parseProductDetails, productFromForm, publishProblems, describe, productLines, cardPrice, presentProduct,
   publishedProduct, productMap, childNet, lines,

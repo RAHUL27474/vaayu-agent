@@ -12,6 +12,7 @@ const {
 } = require('../packages');
 const {
   KINDS, KIND_BY_PATH, DESTINATIONS, ALL_DESTINATIONS, MEAL_PLANS: PRODUCT_MEAL_PLANS, productLines, productMap, cardPrice, describe, parseProductDetails, publishedProduct,
+  kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups,
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
 const { persistFile } = require('../files');
@@ -451,6 +452,7 @@ router.get('/quotes/:id', h(async (req, res) => {
   const customerTotal = withTax(full.priced.sell, settings, { international: Boolean(full.quote.is_international) });
   const netPayable = withTax(full.priced.net, settings);
   res.page('agent/quote', {
+    kinds: KINDS, kindMarkups, agencyRates: kindMarkups(req.agency),
     title: full.quote.title, ...full, invoices, links, booking, customerTotal, netPayable,
     customers: await customersOf(req.agency.id), branded: agencyHasBranding(req.agency),
     pkgView: full.quote.package_snapshot ? JSON.parse(full.quote.package_snapshot) : null,
@@ -469,10 +471,11 @@ router.post('/quotes/:id', h(async (req, res) => {
   const locked = ['booked', 'cancelled'].includes(quote.status);
   await run(
     `UPDATE quotes SET title = ?, customer_id = ?, travel_date = ?, adults = ?, children = ?, notes = ?, invoice_mode = ?, show_service_fee = ?, emi_enabled = ?,
-       markup_type = ?, markup_value = ?, updated_at = datetime('now') WHERE id = ?`,
+       markup_type = ?, markup_value = ?, markup_by_kind = ?, updated_at = datetime('now') WHERE id = ?`,
     str(b.title) || quote.title, num(b.customer_id, 0) || null, str(b.travel_date) || null, Math.max(1, num(b.adults, 1)), Math.max(0, num(b.children, 0)),
     str(b.notes) || null, mode, b.show_service_fee ? 1 : 0, b.emi_enabled ? 1 : 0,
-    locked ? quote.markup_type : b.markup_type === 'flat' ? 'flat' : 'percent', locked ? quote.markup_value : Math.max(0, num(b.markup_value, 0)), quote.id,
+    locked ? quote.markup_type : b.markup_type === 'flat' ? 'flat' : 'percent', locked ? quote.markup_value : Math.max(0, num(b.markup_value, 0)),
+    locked ? quote.markup_by_kind : quoteKindMarkupsFromForm(b, req.agency), quote.id,
   );
   req.flash('success', 'Quote saved.');
   res.redirect(`/agent/quotes/${quote.id}`);
@@ -924,7 +927,7 @@ router.get('/reports/ledger.csv', h(async (req, res) => {
 }));
 
 router.get('/settings', (req, res) => {
-  res.page('agent/settings', { title: 'Company & branding', branded: agencyHasBranding(req.agency), countries: COUNTRIES, missing: missingKyc(req.agency) });
+  res.page('agent/settings', { title: 'Company & branding', branded: agencyHasBranding(req.agency), countries: COUNTRIES, missing: missingKyc(req.agency), kinds: KINDS, kindMarkups });
 });
 
 router.post('/settings/tax', withKycDocs, h(async (req, res) => {
@@ -960,10 +963,10 @@ router.post('/settings', upload.single('logo'), h(async (req, res) => {
   if (req.logoRejected) req.flash('error', 'Logo must be a PNG, JPG or WebP image; it was not changed.');
   await run(
     `UPDATE agencies SET name = ?, legal_name = ?, pan = ?, phone = ?, email = ?, address = ?, city = ?, brand_color = ?, logo_path = ?,
-       markup_type = ?, markup_value = ? WHERE id = ?`,
+       markup_type = ?, markup_value = ?, markup_by_kind = ? WHERE id = ?`,
     str(b.name) || req.agency.name, str(b.legal_name) || null, str(b.pan).toUpperCase() || null, str(b.phone) || null,
     str(b.email) || null, str(b.address) || null, str(b.city) || null, /^#[0-9a-f]{6}$/i.test(b.brand_color) ? b.brand_color : '#0e7490', logo,
-    b.markup_type === 'flat' ? 'flat' : 'percent', Math.max(0, num(b.markup_value, 0)), req.agency.id,
+    b.markup_type === 'flat' ? 'flat' : 'percent', Math.max(0, num(b.markup_value, 0)), kindMarkupsFromForm(b), req.agency.id,
   );
   req.flash('success', 'Company profile saved.');
   res.redirect('/agent/settings');

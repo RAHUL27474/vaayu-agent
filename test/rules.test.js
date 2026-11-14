@@ -88,6 +88,47 @@ const png = [PNG, 'image/png', 'me.png'];
   check('a margin over 100% is refused', (await one('SELECT net_adult FROM products WHERE id = ?', hotelId)).net_adult === 103);
   await c.post('/admin/settings', admin, { margin_activity: '5' });
 
+  // ---------- agent markup by service ----------
+  const agent = await c.login(...ROLES.agent);
+  const sky = await one("SELECT * FROM agencies WHERE slug = 'skyline-holidays'");
+  await c.post('/agent/settings', agent, {
+    name: sky.name, markup_type: 'percent', markup_value: '12',
+    markup_type_hotel: 'percent', markup_hotel: '8', markup_type_activity: 'percent', markup_activity: '20', markup_type_transfer: 'flat', markup_transfer: '500', markup_flight: '',
+  });
+  const { kindRates, priceQuote } = require('../src/pricing');
+  const rates = kindRates(await one('SELECT markup_by_kind FROM agencies WHERE id = ?', sky.id));
+  check('agent saves a default per service: hotels 8%, activities 20%, transfers ₹500 (airfares blank = overall 12%)',
+    rates.hotel.value === 8 && rates.activity.value === 20 && rates.transfer.type === 'flat' && rates.transfer.value === 500 && !rates.flight, JSON.stringify(rates));
+  const pick = (kind) => one("SELECT * FROM products WHERE kind = ? AND status = 'published' ORDER BY id LIMIT 1", kind);
+  const [actP, hotP, fliP, traP] = [await pick('activity'), await pick('hotel'), await pick('flight'), await pick('transfer')];
+  const cat = await (await c.get(`/agent/activities?q=${encodeURIComponent(actP.title.slice(0, 12))}`, agent)).text();
+  check('catalogue "You earn" uses the activity default (20%)', cat.includes(`₹${Math.round(actP.net_adult * 0.2).toLocaleString('en-IN')}`));
+  const qid = Number((await c.post('/agent/quotes', agent, { title: 'Per-service markup' })).headers.get('location').match(/(\d+)$/)[1]);
+  for (const [path, p] of [['activities', actP], ['hotels', hotP], ['flights', fliP], ['transfers', traP]]) await c.post(`/agent/${path}/${p.id}/quote`, agent, { quote_id: String(qid) });
+  const priced = async () => priceQuote(await one('SELECT * FROM quotes WHERE id = ?', qid), await db.prepare('SELECT * FROM quote_items WHERE quote_id = ?').all(qid));
+  const pct = (p, kind) => { const l = p.lines.find((x) => x.type === kind); return Math.round((l.unitSell / l.unitNet - 1) * 1000) / 10; };
+  const earnOn = (p, kind) => Math.round(p.lines.filter((x) => x.type === kind).reduce((n, x) => n + x.commission, 0) * 100) / 100;
+  let p = await priced();
+  check('new quote uses the defaults: activity +20%, hotel +8%, airfare +12%', pct(p, 'activity') === 20 && pct(p, 'hotel') === 8 && pct(p, 'flight') === 12, `${pct(p, 'activity')}/${pct(p, 'hotel')}/${pct(p, 'flight')}`);
+  check('transfers earn the ₹500 default, spread over their lines', earnOn(p, 'transfer') === 500, earnOn(p, 'transfer'));
+  const page = await (await c.get(`/agent/quotes/${qid}`, agent)).text();
+  check('quote shows a ticked "Default" box per service', (page.match(/name="use_default_[a-z]+" value="1"\s+checked/g) || []).length === 6 && page.includes('Default (8%)'));
+  // Untick hotels → own 10%; untick activities → own ₹1,000; leave the rest on their defaults.
+  const form = { title: 'Per-service markup', adults: '2', markup_type: 'percent', markup_value: '12',
+    markup_type_hotel: 'percent', markup_hotel: '10', markup_type_activity: 'flat', markup_activity: '1000',
+    use_default_flight: '1', use_default_transfer: '1', use_default_visa: '1', use_default_insurance: '1' };
+  await c.post(`/agent/quotes/${qid}`, agent, form);
+  p = await priced();
+  check("unticked hotel uses this quote's own 10%", pct(p, 'hotel') === 10, pct(p, 'hotel'));
+  check("unticked activity earns this quote's own ₹1,000", earnOn(p, 'activity') === 1000, earnOn(p, 'activity'));
+  check('ticked services keep their defaults (transfer ₹500, airfare 12%)', earnOn(p, 'transfer') === 500 && pct(p, 'flight') === 12);
+  check("the agent's own defaults are unchanged", kindRates(await one('SELECT markup_by_kind FROM agencies WHERE id = ?', sky.id)).hotel.value === 8);
+  const after = await (await c.get(`/agent/quotes/${qid}`, agent)).text();
+  check('the quote page shows hotels unticked with 10%', /name="use_default_hotel" value="1"\s+(?!checked)/.test(after) && after.includes('name="markup_hotel" type="number" min="0" step="0.5" value="10"'));
+  // Ticking a box again goes back to the default.
+  await c.post(`/agent/quotes/${qid}`, agent, { ...form, use_default_hotel: '1' });
+  check('ticking "Default" again restores hotels to 8%', pct(await priced(), 'hotel') === 8);
+
   // ---------- rate card ----------
   const card = 'C:/Users/Dell/Downloads/VaayuTrip-RateCard-Template.xlsx';
   if (fs.existsSync(card)) {

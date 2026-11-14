@@ -1,6 +1,9 @@
 <%
   const locked = ['booked', 'cancelled'].includes(quote.status);
   const markupLabel = quote.markup_type === 'flat' ? `${inr(quote.markup_value)} flat` : `${quote.markup_value}%`;
+  // Per-service rules in force, e.g. "hotels 8%, transfers ₹500, others 12%".
+  const byKind = kindMarkups(quote);
+  const kindLabel = Object.keys(byKind).length ? Object.entries(byKind).map(([k, r]) => `${kinds[k].plural.toLowerCase()} ${r.type === 'flat' ? inr(r.value) : r.value + '%'}`).join(', ') + `, others ${markupLabel}` : '';
 %>
 <a href="/agent/quotes"><%- icon('arrowLeft') %>All quotes</a>
 <div class="page-head" style="margin-top:10px">
@@ -24,7 +27,7 @@
 <div class="split">
   <div>
     <form class="card flush" id="items" method="post" action="/agent/quotes/<%= quote.id %>/items">
-      <div class="card-head"><h3>Items &amp; your prices</h3><span class="muted">Leave "Your price" blank to use your <%= markupLabel %> markup</span></div>
+      <div class="card-head"><h3>Items &amp; your prices</h3><span class="muted">Leave "Your price" blank to use your markup: <%= kindLabel || markupLabel %></span></div>
       <div class="table-wrap" style="margin-top:10px">
         <table class="table">
           <thead><tr><th>Item</th><th class="num">Net</th><th class="num" style="width:130px">Your price</th><th class="num" style="width:86px">Qty</th><th class="num">Total</th><th class="num">You earn</th><th></th></tr></thead>
@@ -170,6 +173,20 @@
         <div class="field"><label for="markup_value">Value</label><input id="markup_value" type="number" min="0" step="0.5" name="markup_value" value="<%= quote.markup_value %>" <%= locked ? 'disabled' : '' %>></div>
       </div>
       <div class="hint" style="margin:-6px 0 14px">Applies to lines without your own price.</div>
+        <div class="kind-markups">
+          <b>By service</b>
+          <p class="muted" style="font-size:12.5px;margin:2px 0 10px">Ticked: your default for that service. Untick to set this quote's own % or ₹ (a ₹ amount is spread over that service's lines).</p>
+          <% Object.entries(kinds).forEach(([k, c]) => {
+               const mine = kindMarkups(quote)[k]; const custom = Boolean(mine && mine.custom); const def = agencyRates[k];
+               const defLabel = def ? (def.type === 'flat' ? inr(def.value) : def.value + '%') : (quote.markup_type === 'flat' ? 'overall' : quote.markup_value + '%'); %>
+            <div class="kind-row" data-kind-row>
+              <span class="kind-name"><%- icon(c.icon) %><%= c.plural %></span>
+              <label class="check kind-default"><input type="checkbox" name="use_default_<%= k %>" value="1" <%= custom ? '' : 'checked' %> <%= locked ? 'disabled' : '' %> data-kind-default> Default (<%= defLabel %>)</label>
+              <select name="markup_type_<%= k %>" aria-label="<%= c.plural %>: % or ₹" <%= custom && !locked ? '' : 'disabled' %> data-kind-own><option value="percent" <%= !custom || mine.type === 'percent' ? 'selected' : '' %>>%</option><option value="flat" <%= custom && mine.type === 'flat' ? 'selected' : '' %>>₹</option></select>
+              <input name="markup_<%= k %>" type="number" min="0" step="0.5" value="<%= custom ? mine.value : '' %>" placeholder="<%= custom ? '' : 'Own' %>" aria-label="<%= c.plural %> markup on this quote" <%= custom && !locked ? '' : 'disabled' %> data-kind-own>
+            </div>
+          <% }) %>
+        </div>
 
       <h3>Customer invoice</h3>
       <div class="radio-cards" style="grid-template-columns:1fr">

@@ -960,3 +960,15 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .pw-wrap input { padding-right: 64px; }
 .pw-toggle { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); border: 0; background: transparent; color: var(--brand); font: 600 12.5px/1 var(--font); padding: 8px 10px; border-radius: 6px; cursor: pointer; }
 .pw-toggle:hover { background: var(--brand-50); }
+
+/* Per-service markup (agent settings, quote settings) */
+.kind-markups { margin: 4px 0 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.kind-markups > b { display: block; font-size: 13.5px; color: var(--ink-2); }
+.kind-row { display: grid; grid-template-columns: minmax(0, 1fr) 70px 110px; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line-2); }
+.kind-markups .kind-row:first-of-type { border-top: 0; }
+.kind-name { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500; }
+.kind-name .i { color: var(--muted); }
+.kind-row select, .kind-row input[type=number] { padding: 7px 8px; }
+.kind-default { font-size: 12.5px; white-space: nowrap; margin: 0; }
+.kind-row[data-kind-row] { grid-template-columns: minmax(0, 1fr) 64px 84px; row-gap: 4px; }
+.kind-row[data-kind-row] .kind-name { grid-column: 1 / -1; }
