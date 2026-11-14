@@ -82,7 +82,16 @@
         <dt>Phone</dt><dd><%= agent.phone || '—' %></dd>
         <dt>Email</dt><dd><%= agent.email || '—' %></dd>
         <dt>Address</dt><dd><%= [agent.address, agent.city].filter(Boolean).join(', ') || '—' %></dd>
-        <dt>Users</dt><dd><% users.forEach(u => { %><div><%= u.name %> <small class="muted"><%= u.email %></small></div><% }) %></dd>
+        <dt id="users">Users</dt><dd><% users.forEach(u => { %>
+          <div class="user-row"><%= u.name %> <small class="muted"><%= u.email %><%= u.phone ? ` · ${u.phone}` : '' %></small>
+            <details class="inline-reset"><summary>Set new password</summary>
+              <form method="post" action="/admin/agents/<%= agent.id %>/users/<%= u.id %>/password" data-confirm="Set a new password for <%= u.name %>? Verify the person by phone first.">
+                <label class="sr-only" for="pw-<%= u.id %>">New password for <%= u.name %></label>
+                <input id="pw-<%= u.id %>" type="text" name="password" minlength="8" required autocomplete="off" placeholder="At least 8 characters">
+                <button class="btn btn-sm">Set</button>
+              </form>
+            </details>
+          </div><% }) %></dd>
       </dl>
     </div>
     <form class="card" method="post" action="/admin/agents/<%= agent.id %>/credit">

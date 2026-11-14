@@ -13,6 +13,7 @@
   </div>
   <div class="actions">
     <a class="btn" href="/q/<%= quote.code %>" target="_blank">Preview customer view<%- icon('external') %></a>
+    <form method="post" action="/agent/quotes/<%= quote.id %>/duplicate"><button class="btn" title="Make a new draft with the same services">Duplicate</button></form>
     <% if (quote.status === 'draft') { %><form method="post" action="/agent/quotes/<%= quote.id %>/send"><button class="btn">Mark as sent</button></form><% } %>
     <% if (!locked) { %>
       <form method="post" action="/agent/quotes/<%= quote.id %>/book" data-confirm="Book now? <%= inr(netPayable.total) %> (net + GST) will be paid to VaayuTrip from your wallet/credit.">

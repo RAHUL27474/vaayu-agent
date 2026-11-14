@@ -155,6 +155,46 @@ const png = [PNG, 'image/png', 'me.png'];
   const adminCookie = await c.login(...ROLES.admin);
   check('admin search finds the agency by name', (await (await c.get('/admin/search?q=skyline', adminCookie)).text()).includes('/admin/agents/'));
 
+  // ---------- duplicate quote ----------
+  const srcQ = await one('SELECT q.* FROM quotes q WHERE q.agency_id = (SELECT agency_id FROM users WHERE email = ?) AND EXISTS (SELECT 1 FROM quote_items i WHERE i.quote_id = q.id) ORDER BY q.id LIMIT 1', ROLES.agent[0]);
+  const dupLoc = (await c.post(`/agent/quotes/${srcQ.id}/duplicate`, agent, {})).headers.get('location') || '';
+  const dupId = Number((dupLoc.match(/quotes\/(\d+)/) || [])[1]);
+  const dup = dupId && await one('SELECT * FROM quotes WHERE id = ?', dupId);
+  const cnt = async (id) => (await one('SELECT COUNT(*) AS n FROM quote_items WHERE quote_id = ?', id)).n;
+  check('duplicate quote is a new draft with the same services', dup && dup.status === 'draft' && dup.code !== srcQ.code && !dup.customer_id && await cnt(dupId) === await cnt(srcQ.id));
+  check("another agency's quote can't be duplicated", (await c.post(`/agent/quotes/${srcQ.id}/duplicate`, await c.login(...ROLES.agent2), {})).status === 404);
+
+  // ---------- passwords ----------
+  const pwUser = 'agent@ravitours.com';
+  const devA = await c.login(pwUser, 'agent123');
+  const devB = await c.login(pwUser, 'agent123');
+  check('My account page opens', (await (await c.get('/account', devA)).text()).includes('Change password'));
+  const pwChange = (cookie, fields) => c.post('/account/password', cookie, fields);
+  const canLogin = async (email, password) => (await c.post('/login', '', { email, password })).status === 302;
+  const merge = (cookie, r) => { const jar = Object.fromEntries(cookie.split('; ').filter(Boolean).map((x) => x.split(/=(.*)/s).slice(0, 2))); for (const sc of r.headers.getSetCookie()) { const [k, v] = sc.split(';')[0].split(/=(.*)/s); jar[k] = v; } return Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; '); };
+  await pwChange(devA, { current: 'wrong-one', password: 'newpass123', confirm: 'newpass123' });
+  check('wrong current password is refused', !(await canLogin(pwUser, 'newpass123')));
+  const devA2 = merge(devA, await pwChange(devA, { current: 'agent123', password: 'newpass123', confirm: 'newpass123' }));
+  check('password changes with the current one', await canLogin(pwUser, 'newpass123') && !(await canLogin(pwUser, 'agent123')));
+  check('the device that changed it stays logged in', (await c.get('/agent', devA2)).status === 200);
+  check('other devices are logged out', (await c.get('/agent', devB)).status === 302);
+  await c.post('/forgot-password', '', { email: pwUser });
+  await c.post('/forgot-password', '', { email: pwUser });
+  check('forgot password notifies VaayuTrip support once', (await one("SELECT COUNT(*) AS n FROM notifications WHERE agency_id IS NULL AND title = 'Password reset request' AND body LIKE ?", `%${pwUser}%`)).n === 1);
+  await c.post('/forgot-password', '', { email: 'nobody@nowhere.in' });
+  check('unknown emails create no request', (await one("SELECT COUNT(*) AS n FROM notifications WHERE body LIKE '%nobody@nowhere.in%'")).n === 0);
+  const ru = await one('SELECT id, agency_id FROM users WHERE email = ?', pwUser);
+  await c.post(`/admin/agents/${ru.agency_id}/users/${ru.id}/password`, adminCookie, { password: 'reset12345' });
+  check('admin sets a new password for an agency user', await canLogin(pwUser, 'reset12345'));
+
+  // ---------- health check, structured data ----------
+  const hz = await c.get('/healthz');
+  check('health check answers', hz.status === 200 && (await hz.json()).ok === true);
+  const pkgUrl = (await (await c.get('/sitemap.xml')).text()).match(/\/site\/skyline-holidays\/p\/[^<]+/)[0];
+  const ldm = (await (await c.get(pkgUrl)).text()).match(/<script type="application\/ld\+json">(.*?)<\/script>/);
+  const ld = ldm && JSON.parse(ldm[1]);
+  check('package page has TouristTrip data with an INR price', ld && ld['@type'] === 'TouristTrip' && ld.offers.priceCurrency === 'INR' && ld.offers.price > 0 && ld.provider.name === 'Skyline Holidays');
+
   // ---------- rate card ----------
   const card = 'C:/Users/Dell/Downloads/VaayuTrip-RateCard-Template.xlsx';
   if (fs.existsSync(card)) {

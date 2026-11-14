@@ -252,6 +252,18 @@ router.post('/team/:id/toggle', h(async (req, res, next) => {
   res.redirect('/admin/team');
 }));
 
+router.post('/agents/:id/users/:userId/password', h(async (req, res, next) => {
+  const u = await one("SELECT * FROM users WHERE id = ? AND agency_id = ? AND role = 'agent'", num(req.params.userId), num(req.params.id));
+  if (!u) return next();
+  const password = String(req.body.password || '');
+  if (password.length < 8) throw new svc.AppError('The password must be at least 8 characters.');
+  await run('UPDATE users SET password_hash = ? WHERE id = ?', hashPassword(password), u.id);
+  await run('DELETE FROM login_failures WHERE email = ?', u.email);
+  await audit(req.user, 'user.password_reset', { entity: 'user', id: u.id, summary: `${u.name} (agency user)`, link: `/admin/agents/${req.params.id}` });
+  req.flash('success', `New password set for ${u.name}. Ask them to change it in My account after logging in.`);
+  res.redirect(`/admin/agents/${req.params.id}`);
+}));
+
 router.post('/team/:id/password', h(async (req, res, next) => {
   const u = await one("SELECT * FROM users WHERE id = ? AND role IN ('admin', 'backend')", num(req.params.id));
   if (!u) return next();

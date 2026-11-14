@@ -82,10 +82,58 @@ router.post('/login', h(async (req, res) => {
   }
   await run('DELETE FROM login_failures WHERE email = ?', email);
   req.session.userId = user.id;
+  req.session.pw = user.password_hash.slice(-12);
   await audit(user, 'user.login', { entity: 'user', id: user.id, summary: `${user.name} logged in` });
   const next = String(req.body.next || '');
   const home = homeFor(user.role);
   res.redirect(next.startsWith(home) ? next : home);
+}));
+
+// ---------- your own account (any role) ----------
+
+const requireLogin = (req, res, next) => (req.user ? next() : res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`));
+
+router.get('/account', requireLogin, h(async (req, res) => {
+  const me = await one('SELECT name, email, phone, created_at FROM users WHERE id = ?', req.user.id);
+  const lastLogin = await one("SELECT created_at FROM audit_log WHERE user_id = ? AND action = 'user.login' ORDER BY id DESC LIMIT 1 OFFSET 1", req.user.id);
+  res.page('account', { title: 'My account', me, lastLogin });
+}));
+
+router.post('/account/password', requireLogin, h(async (req, res) => {
+  const u = await one('SELECT * FROM users WHERE id = ?', req.user.id);
+  const password = String(req.body.password || '');
+  const fail = (m) => { req.flash('error', m); res.redirect('/account'); };
+  if (!verifyPassword(String(req.body.current || ''), u.password_hash)) return fail('Your current password is not right.');
+  if (password.length < 8) return fail('The new password must be at least 8 characters.');
+  if (password !== String(req.body.confirm || '')) return fail("The new passwords don't match.");
+  if (verifyPassword(password, u.password_hash)) return fail('Choose a password different from your current one.');
+  const hash = hashPassword(password);
+  await run('UPDATE users SET password_hash = ? WHERE id = ?', hash, u.id);
+  req.session.pw = hash.slice(-12); // this session stays; others are logged out
+  await audit(req.user, 'user.password_changed', { entity: 'user', id: u.id, summary: `${u.name} changed their password` });
+  req.flash('success', 'Password updated. Other devices using your account have been logged out.');
+  res.redirect('/account');
+}));
+
+// No email service: a reset request goes to VaayuTrip support, who verify the person by phone and set a new password.
+router.get('/forgot-password', (req, res) => {
+  res.page('public/forgot', { title: 'Forgot password', email: '', sent: false, noindex: true }, 'public');
+});
+
+router.post('/forgot-password', h(async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase().slice(0, 120);
+  // At most 5 requests an hour from one address, so this can't be used to flood support.
+  const recent = await one("SELECT COUNT(*) AS n FROM login_failures WHERE ip = ? AND email LIKE 'reset:%' AND created_at > datetime('now', '-1 hour')", req.ip);
+  if (recent.n < 5) {
+    await run('INSERT INTO login_failures (email, ip) VALUES (?, ?)', `reset:${email}`, req.ip);
+    const u = email && await one('SELECT u.id, u.name, u.phone, u.agency_id, a.name AS agency, a.phone AS agency_phone FROM users u LEFT JOIN agencies a ON a.id = u.agency_id WHERE u.email = ? AND u.is_active = 1', email);
+    const already = u && await one("SELECT 1 FROM notifications WHERE agency_id IS NULL AND title = 'Password reset request' AND body LIKE ? AND created_at > datetime('now', '-1 day')", `%(${email}%`);
+    if (u && !already) {
+      await notify(null, 'Password reset request', `${u.name} (${email}${u.agency ? `, ${u.agency}` : ''}) asked for a new password. Call ${u.phone || u.agency_phone || 'them'} to verify before resetting.`,
+        u.agency_id ? `/admin/agents/${u.agency_id}#users` : '/admin/team');
+    }
+  }
+  res.page('public/forgot', { title: 'Forgot password', email, sent: true, noindex: true }, 'public');
 }));
 
 router.post('/logout', (req, res) => {
@@ -156,7 +204,7 @@ router.get('/site/:slug/p/:pkg', h(async (req, res, next) => {
   const price = (await packageSellPrice(agency, pkg)).sell;
   res.page('public/site-package', {
     title: `${pkg.title} · ${agency.name}`, site: agency, pkg, view, price, bare: true,
-    meta: { description: `${pkg.nights} nights in ${pkg.destination}${pkg.summary ? `: ${pkg.summary.trim().replace(/\.+$/, '')}` : ''}. From ₹${Math.round(price).toLocaleString('en-IN')} per person.`, image: pkg.image_url, type: 'article' },
+    meta: { description: `${pkg.nights} nights in ${pkg.destination}${pkg.summary ? `: ${pkg.summary.trim().replace(/\.+$/, '')}` : ''}. From ₹${Math.round(price).toLocaleString('en-IN')} per person.`, image: pkg.image_url, type: 'article', ld: { pkg, price } },
   }, 'public');
 }));
 

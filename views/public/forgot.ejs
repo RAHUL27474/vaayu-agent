@@ -1,0 +1,30 @@
+<div class="auth" style="min-height:calc(100vh - 70px)">
+  <div class="art">
+    <div>
+      <h2>Locked out?</h2>
+      <ul>
+        <li>Tell us the email you log in with</li>
+        <li>VaayuTrip support verifies it's you by phone</li>
+        <li>You get a new password, then change it in My account</li>
+      </ul>
+    </div>
+    <img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip DMC" class="footer-logo" width="189" height="64">
+  </div>
+  <div class="form">
+    <div>
+      <h1>Forgot password</h1>
+      <% if (sent) { %>
+        <div class="alert success">If <b><%= email %></b> has an account, our support team has your request and will call the registered phone number to reset it, usually within a few working hours.</div>
+        <p class="muted">Urgent? Call <a href="tel:<%= settings.phone %>"><%= settings.phone %></a> or write to <a href="mailto:<%= settings.email %>"><%= settings.email %></a>.</p>
+        <p><a href="/login"><%- icon('arrowLeft') %>Back to log in</a></p>
+      <% } else { %>
+        <p class="muted">Enter the email you log in with and we'll help you reset your password.</p>
+        <form method="post" action="/forgot-password">
+          <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= email %>" required autofocus autocomplete="username"></div>
+          <button class="btn btn-primary btn-lg" style="width:100%">Request a password reset</button>
+        </form>
+        <p style="margin-top:18px" class="muted">Remembered it? <a href="/login">Log in</a></p>
+      <% } %>
+    </div>
+  </div>
+</div>

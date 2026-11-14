@@ -1011,3 +1011,9 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 @media (max-width: 1100px) { .topbar .balance { display: none; } }
 @media (max-width: 760px) { .top-search { display: none; } .search-btn { display: inline-flex; } }
 .top-search input:not(:placeholder-shown) + kbd { display: none; }
+
+/* Admin: set a new password for an agency user */
+.user-row { margin-bottom: 6px; }
+.inline-reset summary { font-size: 12.5px; color: var(--brand); cursor: pointer; }
+.inline-reset form { display: flex; gap: 6px; margin-top: 6px; }
+.inline-reset input { flex: 1; min-width: 0; height: 32px; }

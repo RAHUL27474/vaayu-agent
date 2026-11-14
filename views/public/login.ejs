@@ -21,7 +21,9 @@
         <div class="field"><label for="password">Password</label><input id="password" type="password" name="password" required autocomplete="current-password"></div>
         <button class="btn btn-primary btn-lg" style="width:100%">Log in</button>
       </form>
+      <p style="margin:12px 0 0;text-align:right;font-size:14px"><a href="/forgot-password">Forgot password?</a></p>
       <p style="margin-top:18px" class="muted">New agent? <a href="/signup">Create a partner account</a></p>
+      <% if (process.env.VERCEL_ENV !== 'production') { %>
       <details class="more" style="margin-top:24px">
         <summary>Demo accounts</summary>
         <table class="table" style="margin-top:8px;font-size:13px">
@@ -32,6 +34,7 @@
           <tr><td>Agent awaiting approval</td><td><code>agent@wanderlust.in</code> / <code>agent123</code></td></tr>
         </table>
       </details>
+      <% } %>
     </div>
   </div>
 </div>

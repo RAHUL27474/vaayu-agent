@@ -544,6 +544,29 @@ router.post('/quotes/:id/items/:itemId/delete', h(async (req, res) => {
   res.redirect(`/agent/quotes/${quote.id}#items`);
 }));
 
+// A fresh draft with the same services, markup and itinerary: for the next customer on the same trip.
+router.post('/quotes/:id/duplicate', h(async (req, res, next) => {
+  const q = await one('SELECT * FROM quotes WHERE id = ? AND agency_id = ?', num(req.params.id), req.agency.id);
+  if (!q) return next();
+  const id = await tx(async () => {
+    const newId = (await run(
+      `INSERT INTO quotes (agency_id, package_id, code, title, adults, children, infants, markup_type, markup_value, markup_by_kind, invoice_mode,
+         show_service_fee, notes, emi_enabled, is_international, package_snapshot)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      req.agency.id, q.package_id, code('Q'), `${q.title} (copy)`.slice(0, 200), q.adults, q.children, q.infants, q.markup_type, q.markup_value, q.markup_by_kind,
+      q.invoice_mode, q.show_service_fee, q.notes, q.emi_enabled, q.is_international, q.package_snapshot,
+    )).lastInsertRowid;
+    await run(
+      `INSERT INTO quote_items (quote_id, type, title, description, supplier, net_price, sell_price, qty, sort, product_id, cost)
+       SELECT ?, type, title, description, supplier, net_price, sell_price, qty, sort, product_id, cost FROM quote_items WHERE quote_id = ? ORDER BY sort, id`,
+      newId, q.id,
+    );
+    return newId;
+  });
+  req.flash('success', 'Quote copied as a new draft. Pick the customer and travel date, then send it.');
+  res.redirect(`/agent/quotes/${id}`);
+}));
+
 router.post('/quotes/:id/send', h(async (req, res) => {
   const { quote, items } = await ownQuote(req);
   if (!items.length) throw new svc.AppError('Add items before sharing the quote.');
