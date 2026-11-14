@@ -471,8 +471,8 @@ async function liteDriver() {
 
 const txContext = new AsyncLocalStorage();
 let driver;
-const ready = (async () => {
-  driver = DATABASE_URL ? pgDriver() : await liteDriver();
+async function init() {
+  driver ||= DATABASE_URL ? pgDriver() : await liteDriver();
   let current = null;
   try {
     current = (await driver.query("SELECT value FROM settings WHERE key = 'schema_version'")).rows[0]?.value;
@@ -483,14 +483,19 @@ SELECT pg_advisory_xact_lock(731001);
 ${SCHEMA_SQL}
 INSERT INTO settings (key, value) VALUES ('schema_version', '${SCHEMA_VERSION}') ON CONFLICT (key) DO UPDATE SET value = excluded.value;
 COMMIT;`);
-})();
+}
+// If the database is unreachable (e.g. the Supabase project is paused), start-up is retried on the next
+// query instead of the failure being remembered until the server instance is recycled.
+let starting = null;
+const whenReady = () => (starting ||= init().catch((e) => { starting = null; throw e; }));
+const ready = whenReady();
 // Don't crash on an unhandled rejection before the first query awaits it; the first query reports it.
 ready.catch(() => {});
 
 // ---------- query helpers ----------
 
 async function query(sql, params = []) {
-  await ready;
+  await whenReady();
   const target = txContext.getStore() || driver;
   return target.query(toPg(sql), params);
 }
@@ -507,11 +512,11 @@ async function run(sql, ...params) {
   const r = await query(wantsId ? `${sql} RETURNING id` : sql, params);
   return { changes: r.rowCount, lastInsertRowid: wantsId && r.rows[0] ? r.rows[0].id : undefined };
 }
-const exec = async (sql) => { await ready; return driver.exec(sql); };
+const exec = async (sql) => { await whenReady(); return driver.exec(sql); };
 
 /** Runs fn in a transaction; nested tx() calls join the outer one. */
 async function tx(fn) {
-  await ready;
+  await whenReady();
   if (txContext.getStore()) return fn();
   return driver.transaction((client) => txContext.run(client, fn));
 }

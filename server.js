@@ -12,12 +12,15 @@ const { icon } = require('./src/icons');
 const { AppError } = require('./src/services');
 
 // Database start-up (schema check, demo data on an empty database) runs once; requests wait for it.
-const started = (async () => {
+// Retried on the next request if it fails (e.g. the database was briefly unreachable).
+let started = null;
+const start = () => (started ||= (async () => {
   if (await seed()) console.log('First run: demo data created.');
   // Inventory from before VaayuTrip's margin existed: its prices become costs (runs once).
   const moved = await ensureProductCosts();
   if (moved) console.log(`Margins applied to ${moved} existing inventory items.`);
-})();
+})().catch((e) => { started = null; throw e; }));
+start().catch((e) => console.error('Start-up failed; retrying on the next request:', e.message));
 
 const app = express();
 app.set('view engine', 'ejs');
@@ -27,7 +30,7 @@ app.disable('x-powered-by');
 if (process.env.VERCEL) app.set('trust proxy', true);
 
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
-app.use((req, res, next) => started.then(() => next(), next));
+app.use((req, res, next) => start().then(() => next(), next));
 // Uploaded files live in the database; after a restart the disk cache is refilled on first request.
 app.use('/uploads', async (req, res, next) => {
   let abs;
@@ -112,6 +115,8 @@ app.use((err, req, res, next) => {
   }
   console.error(err);
   res.status(500);
+  // Failures before the page helpers exist (e.g. the database is down) get a plain page.
+  if (!res.page) return res.send('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>VaayuTrip</title><div style="font:16px system-ui;max-width:520px;margin:15vh auto;padding:0 20px;text-align:center"><h1 style="font-size:22px">We’ll be right back</h1><p style="color:#555">VaayuTrip is briefly unavailable. Please try again in a few minutes.</p></div>');
   res.page('public/message', { title: 'Something went wrong', heading: 'Something went wrong', message: 'Please try again. If it keeps happening, contact support.' }, 'public');
 });
 
