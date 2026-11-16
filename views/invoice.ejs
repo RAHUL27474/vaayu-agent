@@ -4,7 +4,7 @@
   Locals: inv, doc, gst, words, booking, payment, bank, terms (src/invoice-view.js), back, shareUrl
 %>
 <%
-  const title = gst.registered ? (inv.kind === 'b2b' ? 'Tax Invoice (B2B)' : 'Tax Invoice') : 'Invoice';
+  const title = gst.registered && gst.charged ? (inv.kind === 'b2b' ? 'Tax Invoice (B2B)' : 'Tax Invoice') : inv.kind === 'b2b' ? 'Invoice (B2B)' : 'Invoice';
   const money = (v) => inr(v, { decimals: 2 });
   const stateLine = (s) => (s ? `${s.name} (${s.code})` : '');
   const t = doc.totals;
@@ -40,7 +40,7 @@
       <div><span>Invoice no.</span><b><%= inv.number %></b></div>
       <div><span>Invoice date</span><b><%= fmtDate(inv.created_at) %></b></div>
       <div><span>Place of supply</span><b><%= gst.pos ? stateLine(gst.pos) : '—' %></b></div>
-      <div><span>Reverse charge</span><b>No</b></div>
+      <% if (gst.charged) { %><div><span>Reverse charge</span><b>No</b></div><% } %>
       <div><span><%= booking ? 'Booking ref.' : 'Quote ref.' %></span><b><%= booking ? booking.code : doc.meta.quoteCode %></b></div>
       <% if (doc.meta.travelDate) { %><div><span>Travel date</span><b><%= fmtDate(doc.meta.travelDate) %></b></div><% } %>
     </section>
@@ -65,7 +65,7 @@
     </section>
 
     <table class="lines">
-      <thead><tr><th style="width:32px">#</th><th>Description of service</th><th style="width:72px">SAC</th><th class="num" style="width:48px">Qty</th><th class="num" style="width:110px">Rate</th><th class="num" style="width:120px">Taxable value</th></tr></thead>
+      <thead><tr><th style="width:32px">#</th><th>Description of service</th><th style="width:72px">SAC</th><th class="num" style="width:48px">Qty</th><th class="num" style="width:110px">Rate</th><th class="num" style="width:120px"><%= gst.charged ? 'Taxable value' : 'Amount' %></th></tr></thead>
       <tbody>
         <% doc.lines.forEach((l, i) => { %>
           <tr>
@@ -97,7 +97,7 @@
         <% if (payment) { %><div class="inv-words"><span>Payment</span><b><%= payment.detail %></b></div><% } %>
       </div>
       <table class="doc-totals">
-        <tr><td>Taxable value</td><td class="num"><%= money(t.subtotal) %></td></tr>
+        <tr><td><%= gst.charged ? 'Taxable value' : 'Subtotal' %></td><td class="num"><%= money(t.subtotal) %></td></tr>
         <% gst.rows.forEach(r => { %><tr><td><%= r.label %> @ <%= r.rate %>%</td><td class="num"><%= money(r.amount) %></td></tr><% }) %>
         <% if (t.tcs) { %><tr><td>TCS @ <%= t.tcsRate %>% <small class="muted">(sec. 206C(1G))</small></td><td class="num"><%= money(t.tcs) %></td></tr><% } %>
         <tr class="grand"><td>Total amount</td><td class="num"><%= money(t.total) %></td></tr>

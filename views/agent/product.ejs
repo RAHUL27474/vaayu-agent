@@ -89,7 +89,7 @@
         <tr><td class="muted">Net to VaayuTrip</td><td class="num"><b><%= inr(priced.net) %></b></td></tr>
         <tr><td class="muted">Your markup <%= own ? (own.markup_type === 'flat' ? '' : `(${own.markup_value}%)`) : `(${defLabel})` %></td><td class="num profit">+ <%= inr(priced.sell - priced.net) %></td></tr>
         <tr class="grand"><td>Selling price</td><td class="num"><%= inr(priced.sell) %></td></tr>
-        <tr><td class="pp" colspan="2">≈ <%= inr(pax ? priced.sell / pax : 0) %> per person · + GST + TCS</td></tr>
+        <tr><td class="pp" colspan="2">≈ <%= inr(pax ? priced.sell / pax : 0) %> per person · <%= gstOn ? '+ GST ' : '' %>+ TCS</td></tr>
       </table>
     </form>
 

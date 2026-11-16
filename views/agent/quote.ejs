@@ -16,7 +16,7 @@
     <form method="post" action="/agent/quotes/<%= quote.id %>/duplicate"><button class="btn" title="Make a new draft with the same services">Duplicate</button></form>
     <% if (quote.status === 'draft') { %><form method="post" action="/agent/quotes/<%= quote.id %>/send"><button class="btn">Mark as sent</button></form><% } %>
     <% if (!locked) { %>
-      <form method="post" action="/agent/quotes/<%= quote.id %>/book" data-confirm="Book now? <%= inr(netPayable.total) %> (net + GST) will be paid to VaayuTrip from your wallet/credit.">
+      <form method="post" action="/agent/quotes/<%= quote.id %>/book" data-confirm="Book now? <%= inr(netPayable.total) %> <%= netPayable.tax ? '(net + GST) ' : '' %>will be paid to VaayuTrip from your wallet/credit.">
         <button class="btn btn-accent" <%= agency.status !== 'active' || !items.length ? 'disabled' : '' %>>Book now · pay <%= inr(netPayable.total) %></button>
       </form>
     <% } else if (booking) { %>
@@ -139,14 +139,14 @@
         <tr><td class="muted">Your commission</td><td class="num profit">+ <%= inr(priced.vaayuCommission) %></td></tr>
         <% if (priced.agentItemsTotal) { %><tr><td class="muted">Your own services<%= priced.agentCost ? ` (cost ${inr(priced.agentCost)})` : '' %></td><td class="num">+ <%= inr(priced.agentItemsTotal) %></td></tr><% } %>
         <tr><td>Customer subtotal</td><td class="num"><%= inr(customerTotal.subtotal) %></td></tr>
-        <tr><td class="muted">GST <%= customerTotal.taxRate %>%</td><td class="num"><%= inr(customerTotal.tax) %></td></tr>
+        <% if (customerTotal.tax) { %><tr><td class="muted">GST <%= customerTotal.taxRate %>%</td><td class="num"><%= inr(customerTotal.tax) %></td></tr><% } %>
         <% if (customerTotal.tcs) { %><tr><td class="muted">TCS <%= customerTotal.tcsRate %>% (international)</td><td class="num"><%= inr(customerTotal.tcs) %></td></tr><% } %>
         <tr class="grand"><td>Customer pays</td><td class="num"><%= inr(customerTotal.total) %></td></tr>
       </table>
       <hr>
       <table class="totals">
         <tr><td>You pay VaayuTrip</td><td class="num"><b><%= inr(netPayable.total) %></b></td></tr>
-        <tr><td class="muted" colspan="2" style="font-size:12px">Net <%= inr(netPayable.subtotal) %> + GST <%= inr(netPayable.tax) %></td></tr>
+        <% if (netPayable.tax) { %><tr><td class="muted" colspan="2" style="font-size:12px">Net <%= inr(netPayable.subtotal) %> + GST <%= inr(netPayable.tax) %></td></tr><% } %>
         <% if (priced.agentCost) { %><tr><td>You pay your suppliers</td><td class="num"><%= inr(priced.agentCost) %></td></tr><% } %>
         <tr><td><b>Your earning</b></td><td class="num profit" style="font-size:18px"><%= inr(priced.commission) %></td></tr>
       </table>

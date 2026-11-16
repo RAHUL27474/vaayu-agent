@@ -442,7 +442,7 @@ router.post('/tickets/:id/reply', h(async (req, res, next) => {
 }));
 
 const MARGIN_KEYS = Object.keys(KINDS).map((k) => `margin_${k}`);
-const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'bank_details', 'sac_code', ...MARGIN_KEYS];
+const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'gst_enabled', 'tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'bank_details', 'sac_code', ...MARGIN_KEYS];
 
 router.get('/settings', async (req, res) => {
   const values = await getSettings();
@@ -451,6 +451,8 @@ router.get('/settings', async (req, res) => {
 
 router.post('/settings', h(async (req, res) => {
   const before = await getSettings();
+  // The form sends a hidden 0 and, when ticked, a 1.
+  if (req.body.gst_enabled !== undefined) req.body.gst_enabled = [].concat(req.body.gst_enabled).includes('1') ? '1' : '0';
   for (const k of MARGIN_KEYS) {
     if (req.body[k] === undefined) continue;
     const v = parseFloat(req.body[k]);

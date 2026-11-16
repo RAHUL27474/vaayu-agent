@@ -67,7 +67,8 @@ async function invoiceView(inv) {
   const gst = {
     sac, supplierState, buyerState, pos, interState,
     registered: Boolean(supplierState),
-    rows: interState
+    charged: t.tax > 0,
+    rows: !t.tax ? [] : interState
       ? [{ label: 'IGST', rate: t.taxRate, amount: t.tax }]
       : [{ label: 'CGST', rate: t.taxRate / 2, amount: half }, { label: 'SGST/UTGST', rate: t.taxRate / 2, amount: round2(t.tax - half) }],
   };

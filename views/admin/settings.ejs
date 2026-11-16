@@ -6,8 +6,9 @@
     address: ['Registered address', ''],
     phone: ['Support phone', ''],
     email: ['Support email', ''],
-    tax_rate: ['GST rate (%)', 'Applied to customer and B2B invoices. Tour operator services: 5%.'],
-    tcs_rate: ['TCS on overseas tour packages (%)', 'Collected on customer invoices for international packages. 2% from 1 April 2026 (Budget 2026); confirm with your CA.'],
+    gst_enabled: ['Charge GST', 'When off, no GST is added to quotes, bookings or invoices. Invoices already issued keep theirs.'],
+    tax_rate: ['GST rate (%)', 'Used when GST is switched on. Tour operator services: 5%.'],
+    tcs_rate: ['TCS on overseas tour packages (%)', 'Collected on customer invoices for international packages. Confirm the current rate with your CA.'],
     emi_rate: ['EMI interest rate (% p.a.)', 'Used for the EMI options shown to customers'],
     pg_fee_pct: ['Gateway fee on customer payments (%)', 'Deducted when a customer pays an agency online through PhonePe, before the agency wallet is credited. 0 = VaayuTrip absorbs the fee.'],
     sac_code: ['SAC code on invoices', 'Services Accounting Code printed on every invoice line. 998552 = tour operator services.'],
@@ -23,8 +24,12 @@
 <form class="card" method="post" action="/admin/settings" style="max-width:720px">
   <% keys.filter(k => labels[k]).forEach(k => { %>
     <div class="field">
-      <label for="<%= k %>"><%= labels[k][0] %></label>
-      <% if (k === 'bank_details') { %><textarea id="<%= k %>" name="<%= k %>" rows="4"><%= values[k] || '' %></textarea><% } else { %>
+      <% if (k === 'gst_enabled') { %>
+      <input type="hidden" name="gst_enabled" value="0">
+      <label class="check"><input type="checkbox" name="gst_enabled" value="1" <%= values.gst_enabled === '1' ? 'checked' : '' %>> <b>Charge GST</b></label>
+      <% } else { %><label for="<%= k %>"><%= labels[k][0] %></label><% } %>
+      <% if (k === 'gst_enabled') { %>
+      <% } else if (k === 'bank_details') { %><textarea id="<%= k %>" name="<%= k %>" rows="4"><%= values[k] || '' %></textarea><% } else { %>
       <input id="<%= k %>" name="<%= k %>" value="<%= values[k] || '' %>" <%= ['tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct'].includes(k) ? 'type=number step=0.01 min=0' : '' %>><% } %>
       <% if (labels[k][1]) { %><div class="hint"><%= labels[k][1] %></div><% } %>
     </div>

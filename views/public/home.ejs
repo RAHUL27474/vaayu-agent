@@ -100,7 +100,7 @@
         <tr><td>Dubai hotel, 4 nights</td><td class="num">₹24,800 <small class="muted">net</small></td></tr>
         <tr><td>Desert safari + Burj Khalifa, 2 adults</td><td class="num">₹14,600 <small class="muted">net</small></td></tr>
         <tr><td>Your markup (12%)</td><td class="num profit">+ ₹10,488</td></tr>
-        <tr><td><b>Customer pays</b></td><td class="num"><b>₹97,888</b> <small class="muted">+ GST + TCS</small></td></tr>
+        <tr><td><b>Customer pays</b></td><td class="num"><b>₹97,888</b> <small class="muted"><%= gstOn ? '+ GST ' : '' %>+ TCS</small></td></tr>
       </table>
       <p class="muted" style="margin:12px 0 0;font-size:13px">Day-wise itinerary · Shareable link · Payment link · EMI</p>
     </div>

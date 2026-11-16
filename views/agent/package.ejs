@@ -78,7 +78,7 @@
           <tr><td class="muted">Your markup (<%= agency.markup_type === 'flat' ? inr(agency.markup_value) : agency.markup_value + '%' %>)</td><td class="num profit">+ <%= inr(markup) %></td></tr>
           <% if (ownLines.length) { %><tr><td class="muted">Your hotels &amp; services</td><td class="num">+ <%= inr(priced.agentItemsTotal) %></td></tr><% } %>
           <tr class="grand"><td>Selling price</td><td class="num"><%= inr(priced.sell) %></td></tr>
-          <tr><td class="pp" colspan="2">≈ <%= inr(calc.pax ? priced.sell / calc.pax : 0) %> per person · + GST<%= pkg.is_international ? ' + TCS' : '' %></td></tr>
+          <tr><td class="pp" colspan="2">≈ <%= inr(calc.pax ? priced.sell / calc.pax : 0) %> per person<%= gstOn ? ' · + GST' : '' %><%= pkg.is_international ? ' · + TCS' : '' %></td></tr>
           <% if (priced.agentCost) { %><tr><td class="muted">Your hotel &amp; service costs</td><td class="num">− <%= inr(priced.agentCost) %></td></tr><% } %>
           <tr><td><b>Your earning</b></td><td class="num profit"><b><%= inr(priced.commission) %></b></td></tr>
         </table>

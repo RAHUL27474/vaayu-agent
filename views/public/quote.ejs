@@ -36,7 +36,7 @@
     </table>
     <table class="doc-totals">
       <tr><td>Subtotal</td><td class="num"><%= inr(doc.totals.subtotal) %></td></tr>
-      <tr><td>GST (<%= doc.totals.taxRate %>%)</td><td class="num"><%= inr(doc.totals.tax) %></td></tr>
+      <% if (doc.totals.tax) { %><tr><td>GST (<%= doc.totals.taxRate %>%)</td><td class="num"><%= inr(doc.totals.tax) %></td></tr><% } %>
       <% if (doc.totals.tcs) { %><tr><td>TCS (<%= doc.totals.tcsRate %>%)</td><td class="num"><%= inr(doc.totals.tcs) %></td></tr><% } %>
       <tr class="grand"><td><%= agentItems.length ? 'Total (VaayuTrip)' : 'Total' %></td><td class="num"><%= inr(doc.totals.total) %></td></tr>
     </table>

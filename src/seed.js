@@ -147,7 +147,8 @@ async function seedAll() {
     await setSetting('email', 'support@vaayutrip.com');
     await setSetting('tax_rate', '5');
     await setSetting('emi_rate', '14');
-    await setSetting('tcs_rate', '2');
+    await setSetting('tcs_rate', '5');
+    await setSetting('gst_enabled', '0');
 
     await run('INSERT INTO users (role, name, email, password_hash) VALUES (?, ?, ?, ?)', 'admin', 'VaayuTrip Admin', 'admin@vaayutrip.com', hashPassword('admin123'));
     const backendUser = (await run('INSERT INTO users (role, name, email, password_hash) VALUES (?, ?, ?, ?)', 'backend', 'Meera Iyer (Backend team)', 'backend@vaayutrip.com', hashPassword('backend123'))).lastInsertRowid;

@@ -33,7 +33,7 @@
         <dt>Booked on</dt><dd><%= fmtDate(booking.created_at) %></dd>
         <dt>From wallet</dt><dd><%= inr(booking.paid_wallet) %></dd>
         <dt>From credit</dt><dd><%= inr(booking.paid_credit) %></dd>
-        <dt>Sold for</dt><dd><%= inr(booking.total_sell) %> + GST</dd>
+        <dt>Sold for</dt><dd><%= inr(booking.total_sell) %><%= gstOn ? ' + GST' : '' %></dd>
         <dt>Your earning</dt><dd class="profit"><%= inr(booking.total_sell - booking.total_net) %></dd>
         <% if (booking.refund_amount != null) { %><dt>Refunded</dt><dd><%= inr(booking.refund_amount) %></dd><% } %>
         <% if (booking.cancel_reason) { %><dt>Cancel reason</dt><dd><%= booking.cancel_reason %></dd><% } %>

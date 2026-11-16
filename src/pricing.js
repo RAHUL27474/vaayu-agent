@@ -43,8 +43,10 @@ function markupRule(holder, kind) {
   return { type: holder.markup_type === 'flat' ? 'flat' : 'percent', value: Number(holder.markup_value) || 0, overall: true };
 }
 
+// GST applies only when an admin switches it on (Admin → Settings); until then quotes, bookings and invoices carry none.
+const gstOn = (settings) => settings.gst_enabled === '1';
 function taxRate(settings) {
-  return Number(settings.tax_rate ?? 5);
+  return gstOn(settings) ? Number(settings.tax_rate ?? 5) : 0;
 }
 
 function priceQuote(quote, items) {
@@ -124,7 +126,7 @@ function priceQuote(quote, items) {
 function withTax(subtotal, settings, { international = false } = {}) {
   const rate = taxRate(settings);
   const tax = round2((subtotal * rate) / 100);
-  const tcsRate = international ? Number(settings.tcs_rate ?? 2) : 0;
+  const tcsRate = international ? Number(settings.tcs_rate ?? 5) : 0;
   const tcs = round2(((subtotal + tax) * tcsRate) / 100);
   return { subtotal: round2(subtotal), taxRate: rate, tax, tcsRate, tcs, total: round2(subtotal + tax + tcs) };
 }
@@ -222,4 +224,4 @@ function buildInvoice(kind, { quote, items, agency, customer, settings }) {
   return { kind, seller, buyer, meta, lines, totals, notes };
 }
 
-module.exports = { kindRates, markupRule, priceQuote, withTax, emiPlans, buildInvoice, agencyHasBranding, vaayuParty, taxRate };
+module.exports = { kindRates, markupRule, priceQuote, withTax, emiPlans, buildInvoice, agencyHasBranding, vaayuParty, taxRate, gstOn };

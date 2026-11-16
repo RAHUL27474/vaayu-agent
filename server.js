@@ -5,6 +5,7 @@ const cookieSession = require('cookie-session');
 
 const { one, getSettings, sessionSecret, UPLOADS_DIR } = require('./src/db');
 const phonepe = require('./src/phonepe');
+const { gstOn } = require('./src/pricing');
 const payments = require('./src/payments');
 const { restoreFile } = require('./src/files');
 const { homeFor } = require('./src/auth');
@@ -114,6 +115,7 @@ app.use(async (req, res, next) => {
   res.locals.origin = `${req.protocol}://${req.get('host')}`;
   res.locals.query = req.query;
   res.locals.settings = await getSettings();
+  res.locals.gstOn = gstOn(res.locals.settings);
   res.locals.flash = req.session.flash || [];
   req.session.flash = [];
   req.flash = (type, message) => req.session.flash.push({ type, message });

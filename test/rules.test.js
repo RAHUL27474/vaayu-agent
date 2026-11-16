@@ -155,17 +155,26 @@ const png = [PNG, 'image/png', 'me.png'];
   const adminCookie = await c.login(...ROLES.admin);
   check('admin search finds the agency by name', (await (await c.get('/admin/search?q=skyline', adminCookie)).text()).includes('/admin/agents/'));
 
-  // ---------- tax invoice details ----------
+  // ---------- invoices: GST off by default (optional), TCS 5% ----------
   const b2bInv = await one("SELECT i.id FROM invoices i JOIN users u ON u.agency_id = i.agency_id WHERE u.email = ? AND i.kind = 'b2b' ORDER BY i.id LIMIT 1", ROLES.agent[0]);
   const b2bPage = await (await c.get(`/agent/invoices/${b2bInv.id}`, agent)).text();
-  check('B2B invoice to another state charges IGST, with SAC, place of supply and words', /IGST @ 5%/.test(b2bPage) && !b2bPage.includes('CGST') && b2bPage.includes('998552') && b2bPage.includes('Maharashtra (27)') && /Rupees [A-Za-z ]+ Only/.test(b2bPage));
+  check('with GST off, B2B invoice has no GST, with SAC, place of supply and words', b2bPage.includes('INVOICE (B2B)') && !/[CI]GST @/.test(b2bPage) && b2bPage.includes('998552') && b2bPage.includes('Maharashtra (27)') && /Rupees [A-Za-z ]+ Only/.test(b2bPage));
   check('B2B invoice shows PANs and that it was paid', b2bPage.includes('AABCV1234F') && b2bPage.includes('AAKFS5678K') && b2bPage.includes('inv-stamp paid'));
-  const custQ = await one("SELECT q.id FROM quotes q JOIN users u ON u.agency_id = q.agency_id WHERE u.email = ? AND EXISTS (SELECT 1 FROM quote_items i WHERE i.quote_id = q.id) ORDER BY q.id LIMIT 1", ROLES.agent[0]);
+  const custQ = await one("SELECT q.id FROM quotes q JOIN users u ON u.agency_id = q.agency_id WHERE u.email = ? AND q.is_international = 1 AND EXISTS (SELECT 1 FROM quote_items i WHERE i.quote_id = q.id) ORDER BY q.id LIMIT 1", ROLES.agent[0]);
   await db.prepare("UPDATE quotes SET invoice_mode = 'agent' WHERE id = ?").run(custQ.id);
-  const custLoc = (await c.post(`/agent/quotes/${custQ.id}/invoice`, agent, {})).headers.get('location') || '';
-  const custPage = await (await c.get(custLoc, agent)).text();
-  check('customer invoice within the agency\'s state splits CGST and SGST', /CGST @ 2.5%/.test(custPage) && /SGST\/UTGST @ 2.5%/.test(custPage) && !custPage.includes('IGST @'), custLoc);
-  const { rupeesInWords } = require('../src/invoice-view');
+  const issue = async () => (await c.get((await c.post(`/agent/quotes/${custQ.id}/invoice`, agent, {})).headers.get('location') || '/', agent)).text();
+  const noGst = await issue();
+  check('with GST off, customer invoice adds only TCS 5%', /TCS @ 5%/.test(noGst) && !/GST @/.test(noGst) && !noGst.includes('TAX INVOICE'));
+  const quoteNoGst = await (await c.get(`/agent/quotes/${custQ.id}`, agent)).text();
+  check('quote summary shows no GST line when GST is off', !/GST 5%/.test(quoteNoGst) && /TCS 5%/.test(quoteNoGst));
+  await c.post('/admin/settings', adminCookie, { gst_enabled: '1' });
+  const withGst = await issue();
+  check('GST switched on: customer invoice within the state splits CGST and SGST', /CGST @ 2.5%/.test(withGst) && /SGST\/UTGST @ 2.5%/.test(withGst) && !withGst.includes('IGST @') && withGst.includes('TAX INVOICE'));
+  const { invoiceView, rupeesInWords } = require('../src/invoice-view');
+  const iv = await invoiceView({ kind: 'b2b', data: JSON.stringify({ seller: { gstin: '07AABCV1234F1Z5' }, buyer: { gstin: '27AAKFS5678K1Z2' }, totals: { subtotal: 1000, taxRate: 5, tax: 50, tcs: 0, total: 1050 }, notes: [] }) });
+  check('GST on: Delhi to Maharashtra is IGST', iv.gst.interState && iv.gst.rows.length === 1 && iv.gst.rows[0].label === 'IGST' && iv.gst.rows[0].amount === 50);
+  await c.post('/admin/settings', adminCookie, { gst_enabled: '0' });
+  check('GST switched off again', !/GST 5%/.test(await (await c.get(`/agent/quotes/${custQ.id}`, agent)).text()));
   check('amount in words uses lakh and crore', rupeesInWords(12345678.5) === 'Rupees One Crore Twenty Three Lakh Forty Five Thousand Six Hundred Seventy Eight and Fifty Paise Only');
 
   // ---------- duplicate quote ----------
