@@ -158,7 +158,16 @@ async function calcPackage(pkg, d, rawParty, products) {
       warnings.push(`${entry.title} is no longer offered by VaayuTrip; replace it in the package.`);
       continue;
     }
-    for (const l of productLines(p, { ...o, nights: entry.nights }, `Day ${entry.day}: `)) lines.push({ ...l, supplier: 'vaayu', sell: null });
+    // The date this item happens: the travel date plus its day in the itinerary.
+    let day = '';
+    if (o.date) {
+      const t = new Date(`${o.date}T00:00:00Z`);
+      t.setUTCDate(t.getUTCDate() + (entry.day || 1) - 1);
+      day = t.toISOString().slice(0, 10);
+    }
+    const itemLines = productLines(p, { ...o, nights: entry.nights, date: day }, `Day ${entry.day}: `);
+    if (itemLines.some((l) => l.soldOut)) errors.push(`${p.title} is sold out on ${day} (${itemLines[0].soldOut.label}). Pick another date or replace it.`);
+    for (const l of itemLines) lines.push({ ...l, supplier: 'vaayu', sell: null });
   }
   for (const s of d.stays) {
     if (s.source === 'client' || !(s.price > 0)) continue;

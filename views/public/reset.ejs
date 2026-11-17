@@ -1,0 +1,30 @@
+<div class="auth" style="min-height:calc(100vh - 70px)">
+  <div class="art">
+    <div>
+      <h2>Choose a new password</h2>
+      <ul>
+        <li>At least 8 characters</li>
+        <li>Not one you use on other sites</li>
+        <li>Every other device using your account is logged out</li>
+      </ul>
+    </div>
+    <img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip DMC" class="footer-logo" width="189" height="64">
+  </div>
+  <div class="form">
+    <div>
+      <h1>Reset password</h1>
+      <% if (!valid) { %>
+        <div class="alert error">This reset link has expired or was already used. Links work once, for 1 hour.</div>
+        <p><a href="/forgot-password">Request a new link</a></p>
+      <% } else { %>
+        <p class="muted">For <b><%= email %></b></p>
+        <form method="post">
+          <input type="hidden" name="username" value="<%= email %>" autocomplete="username">
+          <div class="field"><label for="password">New password</label><input id="password" type="password" name="password" minlength="8" required autofocus autocomplete="new-password"></div>
+          <div class="field"><label for="confirm">Confirm new password</label><input id="confirm" type="password" name="confirm" minlength="8" required autocomplete="new-password"></div>
+          <button class="btn btn-primary btn-lg" style="width:100%">Set new password</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</div>

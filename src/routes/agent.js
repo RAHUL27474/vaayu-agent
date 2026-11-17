@@ -4,7 +4,8 @@ const express = require('express');
 const multer = require('multer');
 const { one, all, run, tx, getSettings, notify, audit, UPLOADS_DIR } = require('../db');
 const { num, code, round2, uniqueSlug, fmtDate } = require('../util');
-const { requireAgent, requireActiveAgency, limitPendingAgency, h, idParam, MAX_AMOUNT } = require('../auth');
+const { requireAgent, requireActiveAgency, limitPendingAgency, limitStaffRole, staffCan, STAFF_ROLES, h, idParam, MAX_AMOUNT } = require('../auth');
+const { hashPassword } = require('../util');
 const svc = require('../services');
 const { searchAgency } = require('../search');
 const phonepe = require('../phonepe');
@@ -16,7 +17,7 @@ const {
 } = require('../packages');
 const {
   KINDS, KIND_BY_PATH, DESTINATIONS, ALL_DESTINATIONS, MEAL_PLANS: PRODUCT_MEAL_PLANS, productLines, productMap, cardPrice, describe, parseProductDetails, publishedProduct,
-  kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups,
+  kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups, seasonOn, soldOutOn, listOf
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
 const { persistFile } = require('../files');
@@ -28,6 +29,8 @@ router.param('id', idParam);
 router.param('itemId', idParam);
 router.use(requireAgent);
 router.use(limitPendingAgency);
+router.use(limitStaffRole);
+router.use((req, res, next) => { res.locals.agentCan = (href) => staffCan(req.user.agency_role, href.replace(/^\/agent/, '') || '/'); next(); });
 
 const LOGO_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
 
@@ -106,7 +109,9 @@ router.get('/', h(async (req, res) => {
   const a = req.agency.id;
   const month = new Date().toISOString().slice(0, 7);
   // Independent lookups run in parallel.
-  const [stats, openLeads, quotes, bookings, leads, upcoming, featuredRows, hasPackage, months, offers] = await Promise.all([
+  const [followUps, viewedQuotes, stats, openLeads, quotes, bookings, leads, upcoming, featuredRows, hasPackage, months, offers] = await Promise.all([
+    all(`SELECT l.*, u.name AS assignee FROM leads l LEFT JOIN users u ON u.id = l.assigned_to WHERE ${DUE_FOLLOW_UPS} ORDER BY l.follow_up_on, l.id LIMIT 8`, a, indiaToday()),
+    all("SELECT q.id, q.title, q.status, q.view_count, q.last_viewed_at, c.name AS customer FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id WHERE q.agency_id = ? AND q.last_viewed_at > datetime('now', '-2 days') AND q.status IN ('sent', 'draft', 'accepted') ORDER BY q.last_viewed_at DESC LIMIT 5", a),
     one(
       `SELECT COUNT(*) AS bookings, COALESCE(SUM(total_sell), 0) AS sales, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS earnings
        FROM bookings WHERE agency_id = ? AND status != 'cancelled' AND substr(created_at, 1, 7) = ?`, a, month,
@@ -146,7 +151,9 @@ router.get('/', h(async (req, res) => {
     { done: hasBooking, label: 'Make your first booking', href: '/agent/quotes' },
   ];
   const services = Object.entries(KIND_BY_PATH).map(([path, kind]) => ({ path, kind, label: KINDS[kind].plural, icon: KINDS[kind].icon }));
-  res.page('agent/dashboard', { title: 'Dashboard', stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers, services, destinations: Object.keys(DESTINATIONS) });
+  const credit = svc.creditStatus(req.agency);
+  const lowWallet = req.agency.low_balance_alert > 0 && req.agency.wallet_balance < req.agency.low_balance_alert;
+  res.page('agent/dashboard', { title: 'Dashboard', followUps, viewedQuotes, credit, lowWallet, today: indiaToday(), stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers, services, destinations: Object.keys(DESTINATIONS) });
 }));
 
 // ---------- VaayuTrip inventory: activities, hotels, airfares, transfers, visas, insurance ----------
@@ -160,6 +167,7 @@ function partyOf(src) {
     infants: Math.max(0, Math.round(num(src.infants, 0))),
     rooms: Math.max(1, Math.round(num(src.rooms, Math.ceil(adults / 2)))),
     nights: Math.max(1, Math.min(60, Math.round(num(src.nights, 1)))),
+    date: /^\d{4}-\d{2}-\d{2}$/.test(src.date || '') ? src.date : '',
   };
 }
 const ownPackages = async (agencyId) => await all('SELECT id, title, nights, destination FROM packages WHERE agency_id = ? ORDER BY updated_at DESC', agencyId);
@@ -212,7 +220,7 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
       .map(withPrices(req.agency));
     res.page('agent/product', {
       title: p.title, kind, cfg, p: withPrices(req.agency)(p), d: parseProductDetails(p.details), party, lines, priced: priceLines(own || req.agency, lines), more,
-      own, defaultRule: markupRule(req.agency, kind),
+      own, defaultRule: markupRule(req.agency, kind), season: seasonOn(p, party.date), soldOut: soldOutOn(p, party.date), seasons: listOf(p.seasons), blackouts: listOf(p.blackouts),
       quotes: await openQuotes(req.agency.id), packages: await ownPackages(req.agency.id), customers: await customersOf(req.agency.id), mealPlans: PRODUCT_MEAL_PLANS,
     });
   }));
@@ -223,9 +231,10 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
     const party = partyOf(req.body);
     let quoteId = num(req.body.quote_id, 0);
     if (quoteId) {
-      const q = await one('SELECT status FROM quotes WHERE id = ? AND agency_id = ?', quoteId, req.agency.id);
+      const q = await one('SELECT status, travel_date FROM quotes WHERE id = ? AND agency_id = ?', quoteId, req.agency.id);
       if (!q) throw new svc.AppError('Quote not found');
       assertEditable(q);
+      if (!party.date && q.travel_date) party.date = q.travel_date;
     } else {
       const customerId = num(req.body.customer_id, 0);
       quoteId = await svc.createQuote(req.agency, {
@@ -237,7 +246,9 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
     const own = ownMarkup(req.body);
     if (own) {
       // The agent's own markup for this item: its lines go on the quote at the price shown on the product page.
-      const priced = priceLines(own, productLines(p, party).map((l) => ({ ...l, supplier: 'vaayu', sell: null })));
+      const ownLines = productLines(p, party);
+      if (ownLines.some((l) => l.soldOut)) throw new svc.AppError(`${p.title} is sold out on ${party.date}. Choose another date.`);
+      const priced = priceLines(own, ownLines.map((l) => ({ ...l, supplier: 'vaayu', sell: null })));
       await tx(async () => {
         for (const l of priced.lines) await svc.addQuoteItem(quoteId, { type: l.type, title: l.title, description: l.description, net: l.net_price, sell: l.unitSell, qty: l.qty, productId: l.productId });
         await run('UPDATE quotes SET is_international = 1 WHERE id = ?', quoteId);
@@ -699,21 +710,40 @@ router.post('/customers/:id', h(async (req, res) => {
 
 const LEAD_STATUSES = ['new', 'contacted', 'quoted', 'won', 'lost'];
 
+// Open leads whose follow-up date has come (today in India, or earlier).
+const DUE_FOLLOW_UPS = "l.agency_id = ? AND l.follow_up_on IS NOT NULL AND l.follow_up_on <= ? AND l.status NOT IN ('won', 'lost')";
+const indiaToday = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+
 router.get('/leads', h(async (req, res) => {
-  const status = LEAD_STATUSES.includes(req.query.status) ? req.query.status : '';
+  const due = req.query.due === '1';
+  const status = !due && LEAD_STATUSES.includes(req.query.status) ? req.query.status : '';
   const leads = await all(
-    `SELECT l.*, p.title AS package_title FROM leads l LEFT JOIN packages p ON p.id = l.package_id
-     WHERE l.agency_id = ? ${status ? 'AND l.status = ?' : ''} ORDER BY l.id DESC`, req.agency.id, ...(status ? [status] : []),
+    `SELECT l.*, p.title AS package_title, u.name AS assignee FROM leads l LEFT JOIN packages p ON p.id = l.package_id LEFT JOIN users u ON u.id = l.assigned_to
+     WHERE ${due ? DUE_FOLLOW_UPS : `l.agency_id = ? ${status ? 'AND l.status = ?' : ''}`} ORDER BY ${due ? 'l.follow_up_on, l.id' : 'l.id DESC'}`,
+    req.agency.id, ...(due ? [indiaToday()] : status ? [status] : []),
   );
   const counts = Object.fromEntries((await all('SELECT status, COUNT(*) AS n FROM leads WHERE agency_id = ? GROUP BY status', req.agency.id)).map((r) => [r.status, r.n]));
-  res.page('agent/leads', { title: 'Leads', leads, status, counts, statuses: LEAD_STATUSES, packages: await ownPackages(req.agency.id) });
+  const dueCount = (await one(`SELECT COUNT(*) AS n FROM leads l WHERE ${DUE_FOLLOW_UPS}`, req.agency.id, indiaToday())).n;
+  const staff = await all("SELECT id, name FROM users WHERE agency_id = ? AND is_active = 1 AND agency_role IN ('owner', 'sales') ORDER BY name", req.agency.id);
+  res.page('agent/leads', { title: 'Leads', leads, status, due, dueCount, counts, statuses: LEAD_STATUSES, staff, packages: await ownPackages(req.agency.id) });
+}));
+
+router.post('/leads/:id/follow-up', h(async (req, res, next) => {
+  const lead = await one('SELECT id FROM leads WHERE id = ? AND agency_id = ?', num(req.params.id), req.agency.id);
+  if (!lead) return next();
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(req.body.follow_up_on || '') ? req.body.follow_up_on : null;
+  const assignee = num(req.body.assigned_to, 0) && await one('SELECT id FROM users WHERE id = ? AND agency_id = ?', num(req.body.assigned_to, 0), req.agency.id);
+  await run('UPDATE leads SET follow_up_on = ?, follow_up_note = ?, assigned_to = ? WHERE id = ?', date, date ? str(req.body.follow_up_note).slice(0, 200) || null : null, assignee ? assignee.id : null, lead.id);
+  req.flash('success', date ? `Follow-up set for ${fmtDate(date)}.` : 'Follow-up cleared.');
+  res.redirect(req.get('referer') || '/agent/leads');
 }));
 
 router.post('/leads', h(async (req, res) => {
   const name = str(req.body.name);
   if (!name) throw new svc.AppError('Lead name is required.');
-  await run('INSERT INTO leads (agency_id, name, phone, email, destination, travel_date, pax, budget, package_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    req.agency.id, name, str(req.body.phone) || null, str(req.body.email) || null, str(req.body.destination) || null, str(req.body.travel_date) || null,
+  const followUp = /^\d{4}-\d{2}-\d{2}$/.test(req.body.follow_up_on || '') ? req.body.follow_up_on : null;
+  await run('INSERT INTO leads (agency_id, follow_up_on, assigned_to, name, phone, email, destination, travel_date, pax, budget, package_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    req.agency.id, followUp, followUp ? req.user.id : null, name, str(req.body.phone) || null, str(req.body.email) || null, str(req.body.destination) || null, str(req.body.travel_date) || null,
     num(req.body.pax, 0) || null, num(req.body.budget, 0) || null, (await ownPackage(req, num(req.body.package_id, 0)))?.id || null, str(req.body.notes) || null);
   req.flash('success', 'Lead added.');
   res.redirect('/agent/leads');
@@ -759,7 +789,21 @@ router.get('/wallet', h(async (req, res) => {
   await payments.settlePending({ agencyId: req.agency.id, olderThanMinutes: 1 }).catch(() => 0);
   const txns = await all('SELECT * FROM wallet_txns WHERE agency_id = ? ORDER BY id DESC LIMIT 100', req.agency.id);
   const requests = await all('SELECT * FROM topup_requests WHERE agency_id = ? ORDER BY id DESC LIMIT 10', req.agency.id);
-  res.page('agent/wallet', { title: 'Wallet & credit', txns, requests, phonepeOn: phonepe.enabled() });
+  res.page('agent/wallet', { title: 'Wallet & credit', txns, requests, phonepeOn: phonepe.enabled(), credit: svc.creditStatus(req.agency) });
+}));
+
+router.post('/wallet/repay', requireActiveAgency, h(async (req, res) => {
+  const paid = await svc.repayCredit(req.agency.id, round2(num(req.body.amount, 0)) || req.agency.credit_used);
+  await audit(req.user, 'credit.repaid', { entity: 'agency', id: req.agency.id, summary: `₹${paid.toLocaleString('en-IN')}`, link: '/agent/wallet' });
+  req.flash('success', `₹${paid.toLocaleString('en-IN')} of credit repaid from your wallet.`);
+  res.redirect('/agent/wallet');
+}));
+
+router.post('/wallet/alert', h(async (req, res) => {
+  const v = round2(Math.min(MAX_AMOUNT, Math.max(0, num(req.body.low_balance_alert, 0))));
+  await run('UPDATE agencies SET low_balance_alert = ? WHERE id = ?', v, req.agency.id);
+  req.flash('success', v ? `We'll alert you when your wallet drops below ₹${v.toLocaleString('en-IN')}.` : 'Low-balance alert switched off.');
+  res.redirect('/agent/wallet');
 }));
 
 router.post('/wallet/topup', requireActiveAgency, h(async (req, res) => {
@@ -848,6 +892,68 @@ router.post('/api/regenerate', requireActiveAgency, h(async (req, res) => {
   await run('UPDATE agencies SET api_key = ? WHERE id = ?', `vt_live_${crypto.randomBytes(18).toString('hex')}`, req.agency.id);
   req.flash('success', 'New API key generated. The old key stopped working.');
   res.redirect('/agent/api');
+}));
+
+// ---------- team (agency staff logins; owners only, see limitStaffRole) ----------
+
+router.get('/team', h(async (req, res) => {
+  const team = await all(
+    `SELECT u.id, u.name, u.email, u.phone, u.agency_role, u.is_active,
+       (SELECT MAX(l.created_at) FROM audit_log l WHERE l.user_id = u.id AND l.action = 'user.login') AS last_seen
+     FROM users u WHERE u.agency_id = ? ORDER BY u.agency_role = 'owner' DESC, u.name`, req.agency.id,
+  );
+  res.page('agent/team', { title: 'Team', team, roles: STAFF_ROLES });
+}));
+
+const teamMember = (req) => one("SELECT * FROM users WHERE id = ? AND agency_id = ? AND role = 'agent'", num(req.params.id), req.agency.id);
+const roleOf = (v) => (STAFF_ROLES[v] ? v : 'sales');
+
+router.post('/team', h(async (req, res) => {
+  const name = str(req.body.name).slice(0, 80);
+  const email = str(req.body.email).toLowerCase();
+  const password = String(req.body.password || '');
+  if (!name || !/^\S+@\S+\.\S+$/.test(email)) throw new svc.AppError('Enter a name and a valid email.');
+  if (password.length < 8) throw new svc.AppError('The temporary password must be at least 8 characters.');
+  if (await one('SELECT 1 FROM users WHERE email = ?', email)) throw new svc.AppError('Someone already logs in with that email.');
+  const role = roleOf(req.body.role);
+  const id = (await run("INSERT INTO users (role, agency_id, agency_role, name, email, phone, password_hash) VALUES ('agent', ?, ?, ?, ?, ?, ?)",
+    req.agency.id, role, name, email, str(req.body.phone) || null, hashPassword(password))).lastInsertRowid;
+  await audit(req.user, 'team.added', { entity: 'user', id, summary: `${name} (${STAFF_ROLES[role].label})`, link: '/agent/team' });
+  req.flash('success', `${name} can now log in as ${STAFF_ROLES[role].label}.`);
+  res.redirect('/agent/team');
+}));
+
+router.post('/team/:id/role', h(async (req, res, next) => {
+  const u = await teamMember(req);
+  if (!u) return next();
+  const role = roleOf(req.body.role);
+  if (u.agency_role === 'owner' && role !== 'owner' && (await one("SELECT COUNT(*) AS n FROM users WHERE agency_id = ? AND agency_role = 'owner' AND is_active = 1", req.agency.id)).n < 2) {
+    throw new svc.AppError('Keep at least one active owner.');
+  }
+  await run('UPDATE users SET agency_role = ? WHERE id = ?', role, u.id);
+  await audit(req.user, 'team.role', { entity: 'user', id: u.id, summary: `${u.name} → ${STAFF_ROLES[role].label}`, link: '/agent/team' });
+  req.flash('success', `${u.name} is now ${STAFF_ROLES[role].label}.`);
+  res.redirect('/agent/team');
+}));
+
+router.post('/team/:id/password', h(async (req, res, next) => {
+  const u = await teamMember(req);
+  if (!u) return next();
+  const password = String(req.body.password || '');
+  if (password.length < 8) throw new svc.AppError('The password must be at least 8 characters.');
+  await run('UPDATE users SET password_hash = ? WHERE id = ?', hashPassword(password), u.id);
+  await audit(req.user, 'team.password_reset', { entity: 'user', id: u.id, summary: u.name, link: '/agent/team' });
+  req.flash('success', `New password set for ${u.name}.`);
+  res.redirect('/agent/team');
+}));
+
+router.post('/team/:id/toggle', h(async (req, res, next) => {
+  const u = await teamMember(req);
+  if (!u || u.id === req.user.id) return next();
+  await run('UPDATE users SET is_active = ? WHERE id = ?', u.is_active ? 0 : 1, u.id);
+  await audit(req.user, u.is_active ? 'team.deactivated' : 'team.reactivated', { entity: 'user', id: u.id, summary: u.name, link: '/agent/team' });
+  req.flash('success', u.is_active ? `${u.name} can no longer log in.` : `${u.name} can log in again.`);
+  res.redirect('/agent/team');
 }));
 
 router.get('/search', h(async (req, res) => {

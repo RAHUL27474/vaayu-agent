@@ -1,0 +1,61 @@
+<%# Agency staff logins (owner only). Locals: team, roles %>
+<div class="page-head">
+  <div><h1>Team</h1><p>Give your staff their own logins. Everything each person does is recorded under their name.</p></div>
+</div>
+<div class="split">
+  <div class="card flush">
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Name</th><th>Role</th><th>Last login</th><th>Status</th><th></th></tr></thead>
+      <% team.forEach(u => { %>
+        <tr>
+          <td><b><%= u.name %></b><br><small><%= u.email %><%= u.phone ? ` · ${u.phone}` : '' %></small></td>
+          <td><span class="badge <%= u.agency_role === 'owner' ? 'info' : 'ok' %>"><%= roles[u.agency_role].label %></span></td>
+          <td><small><%= u.last_seen ? fmtDate(u.last_seen) : 'Never' %></small></td>
+          <td><span class="badge <%= u.is_active ? 'active' : 'suspended' %>"><%= u.is_active ? 'active' : 'switched off' %></span></td>
+          <td class="num" style="white-space:nowrap">
+            <% if (u.id !== user.id) { %>
+              <details class="inline-details"><summary class="btn btn-sm">Manage</summary>
+                <div style="min-width:240px;text-align:left;margin-top:8px">
+                  <form method="post" action="/agent/team/<%= u.id %>/role">
+                    <div class="field"><label for="role-<%= u.id %>">Role</label>
+                      <select id="role-<%= u.id %>" name="role"><% Object.entries(roles).forEach(([k, r]) => { %><option value="<%= k %>" <%= u.agency_role === k ? 'selected' : '' %>><%= r.label %></option><% }) %></select>
+                    </div>
+                    <button class="btn btn-sm">Change role</button>
+                  </form>
+                  <hr>
+                  <form method="post" action="/agent/team/<%= u.id %>/password">
+                    <div class="field"><label for="pw-<%= u.id %>">New password</label><input id="pw-<%= u.id %>" type="password" name="password" minlength="8" required autocomplete="new-password"></div>
+                    <button class="btn btn-sm">Set password</button>
+                  </form>
+                  <hr>
+                  <form method="post" action="/agent/team/<%= u.id %>/toggle" data-confirm="<%= u.is_active ? `Switch off ${u.name}? They won't be able to log in.` : `Let ${u.name} log in again?` %>">
+                    <button class="btn btn-sm <%= u.is_active ? 'btn-danger' : '' %>"><%= u.is_active ? 'Switch off login' : 'Reactivate' %></button>
+                  </form>
+                </div>
+              </details>
+            <% } else { %><small class="muted">You</small><% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </table></div>
+  </div>
+  <div>
+    <form class="card" method="post" action="/agent/team">
+      <h3>Add a staff member</h3>
+      <div class="field"><label for="t-name">Name</label><input id="t-name" name="name" required maxlength="80"></div>
+      <div class="field"><label for="t-email">Work email</label><input id="t-email" type="email" name="email" required autocomplete="off"></div>
+      <div class="field"><label for="t-phone">Mobile <span class="muted">(optional)</span></label><input id="t-phone" name="phone" inputmode="tel"></div>
+      <div class="field"><label for="t-role">Role</label>
+        <select id="t-role" name="role"><% Object.entries(roles).filter(([k]) => k !== 'owner').concat([['owner', roles.owner]]).forEach(([k, r]) => { %><option value="<%= k %>"><%= r.label %>: <%= r.hint %></option><% }) %></select>
+      </div>
+      <div class="field"><label for="t-pw">Temporary password</label><input id="t-pw" type="password" name="password" minlength="8" required autocomplete="new-password"><div class="hint">At least 8 characters. Share it privately; they can change it in My account.</div></div>
+      <button class="btn btn-primary">Add staff member</button>
+    </form>
+    <div class="card">
+      <h3>What each role can do</h3>
+      <dl class="kv">
+        <% Object.values(roles).forEach(r => { %><dt><%= r.label %></dt><dd><%= r.hint %></dd><% }) %>
+      </dl>
+    </div>
+  </div>
+</div>

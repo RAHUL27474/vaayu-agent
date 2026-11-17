@@ -10,7 +10,7 @@ const { searchAll } = require('../search');
 const phonepe = require('../phonepe');
 const payments = require('../payments');
 const { invoiceView } = require('../invoice-view');
-const { KINDS, marginPct, repriceProducts } = require('../products');
+const { KINDS, marginPct, repriceProducts, destinationOf } = require('../products');
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 const { restoreFile } = require('../files');
 const { paging, pageOf } = require('../paging');
@@ -32,6 +32,62 @@ const LOG_SQL = `SELECT l.*, u.name AS user_name, a.name AS agency_name FROM aud
   LEFT JOIN users u ON u.id = l.user_id LEFT JOIN agencies a ON a.id = l.agency_id`;
 
 // ---------- dashboard ----------
+
+/**
+ * Business figures for the dashboard over the last 12 months: revenue (agents' net paid to VaayuTrip) and
+ * VaayuTrip's margin by month, this month against last, and the top agencies, destinations and services.
+ * Margin is estimated from each service's current margin % (net = cost × (1 + margin)).
+ */
+async function businessFigures() {
+  const settings = await getSettings();
+  const lines = await all(`
+    SELECT substr(b.created_at, 1, 7) AS month, qi.type, p.country, SUM(qi.net_price * qi.qty) AS net
+    FROM bookings b JOIN quote_items qi ON qi.quote_id = b.quote_id AND qi.supplier = 'vaayu' LEFT JOIN products p ON p.id = qi.product_id
+    WHERE b.status != 'cancelled' AND b.created_at >= sqldate('now', 'start of month', '-11 months')
+    GROUP BY 1, 2, 3`);
+  const months = [...Array(12)].map((_, i) => {
+    const d = new Date();
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() - 11 + i);
+    return { key: d.toISOString().slice(0, 7), label: d.toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' }), revenue: 0, margin: 0 };
+  });
+  const byMonth = Object.fromEntries(months.map((m) => [m.key, m]));
+  const byKind = {};
+  const byDest = {};
+  for (const l of lines) {
+    const pct = marginPct(l.type, settings);
+    const margin = l.net * pct / (100 + pct);
+    const m = byMonth[l.month];
+    if (m) { m.revenue += l.net; m.margin += margin; }
+    byKind[l.type] = (byKind[l.type] || 0) + l.net;
+    const dest = destinationOf(l.country) || (l.country ? l.country : 'Other');
+    byDest[dest] = (byDest[dest] || 0) + l.net;
+  }
+  const [counts, agencies] = await Promise.all([
+    all(`SELECT substr(created_at, 1, 7) AS month, COUNT(*) FILTER (WHERE status != 'cancelled') AS n, COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled
+         FROM bookings WHERE created_at >= sqldate('now', 'start of month', '-11 months') GROUP BY 1`),
+    all(`SELECT a.id, a.name, a.city, COUNT(b.id) AS n, SUM(b.total_net) AS revenue FROM bookings b JOIN agencies a ON a.id = b.agency_id
+         WHERE b.status != 'cancelled' AND b.created_at >= sqldate('now', 'start of month', '-11 months') GROUP BY a.id ORDER BY revenue DESC LIMIT 6`),
+  ]);
+  for (const c of counts) if (byMonth[c.month]) Object.assign(byMonth[c.month], { bookings: c.n, cancelled: c.cancelled });
+  const cur = months[11];
+  const prev = months[10];
+  const yearRevenue = months.reduce((s, m) => s + m.revenue, 0);
+  const yearBookings = months.reduce((s, m) => s + (m.bookings || 0), 0);
+  const yearCancelled = months.reduce((s, m) => s + (m.cancelled || 0), 0);
+  const top = (obj, n) => Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, n);
+  return {
+    months,
+    cur, prev,
+    change: prev.revenue ? Math.round(((cur.revenue - prev.revenue) / prev.revenue) * 100) : null,
+    yearRevenue, yearMargin: months.reduce((s, m) => s + m.margin, 0),
+    avgBooking: yearBookings ? yearRevenue / yearBookings : 0,
+    cancelRate: yearBookings + yearCancelled ? Math.round((yearCancelled / (yearBookings + yearCancelled)) * 100) : 0,
+    agencies: agencies.map((a) => ({ label: a.name, value: a.revenue, sub: `${a.city || ''} · ${a.n} booking${a.n === 1 ? '' : 's'}`, href: `/admin/agents/${a.id}` })),
+    destinations: top(byDest, 6).map(([label, value]) => ({ label, value })),
+    services: top(byKind, 6).map(([k, value]) => ({ label: KINDS[k] ? KINDS[k].plural : k, value })),
+  };
+}
 
 router.get('/', h(async (req, res) => {
   const month = new Date().toISOString().slice(0, 7);
@@ -63,7 +119,7 @@ router.get('/', h(async (req, res) => {
     ),
     all(`${LOG_SQL} WHERE l.action != 'user.login' ORDER BY l.id DESC LIMIT 8`),
   ]);
-  res.page('admin/dashboard', { title: 'Admin dashboard', stats, bookings, pending, topAgents, topProducts, recentLog, kinds: KINDS });
+  res.page('admin/dashboard', { title: 'Admin dashboard', stats, bookings, pending, topAgents, topProducts, recentLog, kinds: KINDS, biz: await businessFigures() });
 }));
 
 // ---------- agents ----------
@@ -165,8 +221,9 @@ router.post('/agents/:id/credit', h(async (req, res) => {
   const id = num(req.params.id);
   const limit = round2(num(req.body.credit_limit, NaN));
   if (!(limit >= 0 && limit <= MAX_AMOUNT)) throw new svc.AppError('Enter a credit limit between ₹0 and ₹1 crore.');
-  await run('UPDATE agencies SET credit_limit = ? WHERE id = ?', limit, id);
-  await notify(id, 'Credit limit updated', `Your credit limit is now ₹${Math.max(0, num(req.body.credit_limit, 0)).toLocaleString('en-IN')}.`, '/agent/wallet');
+  const days = Math.min(180, Math.max(1, Math.round(num(req.body.credit_days, 15)) || 15));
+  await run('UPDATE agencies SET credit_limit = ?, credit_days = ? WHERE id = ?', limit, days, id);
+  await notify(id, 'Credit limit updated', `Your credit limit is now ₹${Math.max(0, num(req.body.credit_limit, 0)).toLocaleString('en-IN')}, to be repaid within ${days} days of use.`, '/agent/wallet');
   await audit(req.user, 'agency.credit_limit', { entity: 'agency', id, agencyId: id, link: `/admin/agents/${id}`, summary: `Credit limit set to ₹${Math.max(0, num(req.body.credit_limit, 0)).toLocaleString('en-IN')}` });
   req.flash('success', 'Credit limit updated.');
   res.redirect(`/admin/agents/${id}`);

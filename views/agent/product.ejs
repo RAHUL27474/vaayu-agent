@@ -64,6 +64,8 @@
         <div class="field"><label for="children">Children 2–11</label><input id="children" type="number" min="0" name="children" value="<%= party.children %>"></div>
         <% if (kind === 'flight') { %><div class="field"><label for="infants">Infants</label><input id="infants" type="number" min="0" name="infants" value="<%= party.infants %>"></div><% } %>
       </div>
+      <div class="field"><label for="calc-date">Travel date <span class="muted">(for season prices)</span></label><input id="calc-date" type="date" min="<%= today %>" name="date" value="<%= party.date %>"></div>
+      <% if (soldOut) { %><div class="alert error" style="font-size:13px">Sold out on <%= fmtDate(party.date) %><%= soldOut.label ? ` (${soldOut.label})` : '' %>. Choose another date.</div><% } else if (season) { %><div class="alert info" style="font-size:13px"><b><%= season.label %></b>: prices <%= season.pct > 0 ? 'up' : 'down' %> <%= Math.abs(season.pct) %>% for this date.</div><% } %>
       <% if (isHotel) { %>
         <div class="row">
           <div class="field"><label for="rooms">Rooms</label><input id="rooms" type="number" min="1" name="rooms" value="<%= party.rooms %>"></div>
@@ -92,6 +94,15 @@
         <tr><td class="pp" colspan="2">≈ <%= inr(pax ? priced.sell / pax : 0) %> per person · <%= gstOn ? '+ GST ' : '' %>+ TCS</td></tr>
       </table>
     </form>
+    <% if (seasons.length || blackouts.length) { %>
+      <div class="card season-card">
+        <h3>Seasonal prices</h3>
+        <ul>
+          <% seasons.forEach(s => { %><li><span class="badge <%= s.pct > 0 ? 'pending' : 'ok' %>"><%= s.pct > 0 ? '+' : '' %><%= s.pct %>%</span> <%= s.label %> · <%= fmtDate(s.from) %> – <%= fmtDate(s.to) %></li><% }) %>
+          <% blackouts.forEach(s => { %><li><span class="badge cancelled">Sold out</span> <%= s.label %> · <%= fmtDate(s.from) %> – <%= fmtDate(s.to) %></li><% }) %>
+        </ul>
+      </div>
+    <% } %>
 
     <form class="card" method="post" action="/agent/<%= cfg.path %>/<%= p.id %>/add-to-package">
       <h3>Add to a package</h3>
@@ -120,7 +131,7 @@
       </div>
       <div id="q-new">
         <div class="field"><label for="q-cust">Customer</label><select id="q-cust" name="customer_id"><option value="">Choose later</option><% customers.forEach(c => { %><option value="<%= c.id %>"><%= c.name %></option><% }) %></select></div>
-        <div class="field"><label for="q-date">Travel date</label><input id="q-date" type="date" min="<%= today %>" name="date"></div>
+        <div class="field"><label for="q-date">Travel date</label><input id="q-date" type="date" min="<%= today %>" name="date" value="<%= party.date %>"></div>
       </div>
       <button class="btn btn-accent" style="width:100%">Add · <%= inr(priced.sell) %></button>
     </form>

@@ -154,11 +154,47 @@ function describe(p) {
  * Quote lines (at VaayuTrip net) for a party { adults, children, infants, rooms, nights }.
  * Each line: { type, title, description, net, qty, productId }. prefix goes before the title, e.g. "Day 2: ".
  */
+// ---------- seasons and sold-out dates ----------
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const listOf = (json) => { try { const v = JSON.parse(json || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+const covers = (r, date) => r.from <= date && date <= r.to;
+/** The season (with its surcharge %) a travel date falls in, if any. */
+const seasonOn = (p, date) => (date ? listOf(p.seasons).find((s) => covers(s, date)) || null : null);
+/** The sold-out range a travel date falls in, if any. */
+const soldOutOn = (p, date) => (date ? listOf(p.blackouts).find((s) => covers(s, date)) || null : null);
+/** Season and sold-out rows from the backend form (up to 6 of each); bad rows are dropped. */
+function seasonsFromForm(b) {
+  const seasons = [];
+  const blackouts = [];
+  for (let i = 0; i < 6; i++) {
+    const [from, to] = [str(b[`s_from_${i}`]), str(b[`s_to_${i}`])];
+    const pct = Math.round(parseFloat(b[`s_pct_${i}`]) * 10) / 10;
+    if (ISO_DAY.test(from) && ISO_DAY.test(to) && from <= to && Number.isFinite(pct) && pct !== 0 && pct >= -50 && pct <= 300) {
+      seasons.push({ from, to, pct, label: str(b[`s_label_${i}`]).slice(0, 40) || (pct > 0 ? 'Peak season' : 'Offer') });
+    }
+    const [bf, bt] = [str(b[`b_from_${i}`]), str(b[`b_to_${i}`])];
+    if (ISO_DAY.test(bf) && ISO_DAY.test(bt) && bf <= bt) blackouts.push({ from: bf, to: bt, label: str(b[`b_label_${i}`]).slice(0, 40) || 'Sold out' });
+  }
+  const byFrom = (a, c) => a.from.localeCompare(c.from);
+  return { seasons: seasons.length ? JSON.stringify(seasons.sort(byFrom)) : null, blackouts: blackouts.length ? JSON.stringify(blackouts.sort(byFrom)) : null };
+}
+
+/**
+ * Lines for a product and party. With party.date (travel date, YYYY-MM-DD) the season surcharge applies and lines
+ * on a sold-out date carry soldOut: { from, to, label }.
+ */
 function productLines(p, party = {}, prefix = '') {
   const adults = party.adults ?? 2;
   const children = party.children || 0;
   const infants = party.infants || 0;
-  const base = { type: p.kind, productId: p.id, description: describe(p) };
+  const date = ISO_DAY.test(party.date || '') ? party.date : null;
+  const season = seasonOn(p, date);
+  const closed = soldOutOn(p, date);
+  const f = season ? 1 + season.pct / 100 : 1;
+  const adj = (n) => (n == null ? n : Math.round(n * f));
+  const note = season ? ` · ${season.label} ${season.pct > 0 ? '+' : ''}${season.pct}%` : '';
+  const base = { type: p.kind, productId: p.id, description: describe(p) + note, ...(closed ? { soldOut: closed } : {}) };
+  p = season ? { ...p, net_adult: adj(p.net_adult), net_child: adj(p.net_child), net_infant: adj(p.net_infant) } : p;
   if (p.price_basis === 'per_room_night') {
     const rooms = Math.max(1, party.rooms || Math.ceil(adults / 2));
     const nights = Math.max(1, party.nights || 1);
@@ -283,6 +319,7 @@ async function ensureProductCosts() {
 module.exports = {
   DEFAULT_MARGINS, marginPct, kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups, priceForAgents, repriceProducts, ensureProductCosts,
   DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, MEAL_PLANS, KINDS, KIND_BY_PATH, BASIS_LABELS,
+  seasonOn, soldOutOn, seasonsFromForm, listOf,
   destinationOf, parseProductDetails, productFromForm, publishProblems, describe, productLines, cardPrice, presentProduct,
   publishedProduct, productMap, childNet, lines,
 };

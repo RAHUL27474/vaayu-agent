@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const express = require('express');
 const { one, all, run, tx, notify, audit, getSettings } = require('../db');
 const { hashPassword, verifyPassword, uniqueSlug, num, code, round2 } = require('../util');
@@ -8,6 +9,7 @@ const { parseDetails, present } = require('../packages');
 const { COUNTRIES, withKycDocs, checkTax, checkKycFiles, removeUploaded } = require('../kyc');
 const { DESTINATIONS, destinationOf } = require('../products');
 const phonepe = require('../phonepe');
+const mailer = require('../mailer');
 const payments = require('../payments');
 const { invoiceView } = require('../invoice-view');
 
@@ -60,7 +62,7 @@ router.get('/cover/:name.svg', (req, res) => {
 
 router.get('/login', (req, res) => {
   if (req.user) return res.redirect(homeFor(req.user.role));
-  res.page('public/login', { title: 'Log in', next: req.query.next || '', email: '' }, 'public');
+  res.page('public/login', { title: 'Log in', next: req.query.next || '', email: String(req.query.email || '').slice(0, 120) }, 'public');
 });
 
 // Password guessing: 8 failures for one email, or 30 from one address, in 15 minutes pause logins there.
@@ -130,13 +132,51 @@ router.post('/forgot-password', h(async (req, res) => {
   if (recent.n < 5) {
     await run('INSERT INTO login_failures (email, ip) VALUES (?, ?)', `reset:${email}`, req.ip);
     const u = email && await one('SELECT u.id, u.name, u.phone, u.agency_id, a.name AS agency, a.phone AS agency_phone FROM users u LEFT JOIN agencies a ON a.id = u.agency_id WHERE u.email = ? AND u.is_active = 1', email);
+    // With email set up, the person gets a one-time link; otherwise support resets it after a phone check.
+    if (u && mailer.enabled()) {
+      const token = crypto.randomBytes(32).toString('hex');
+      await run("INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, datetime('now', '+1 hour'))", u.id, sha256(token));
+      await mailer.send({
+        to: email, subject: 'Reset your VaayuTrip password', heading: 'Reset your password',
+        text: `Hi ${u.name},\n\nSomeone (hopefully you) asked to reset the password for ${email}. The link works once, for the next hour. If it wasn't you, ignore this email; your password stays the same.`,
+        button: { href: `${res.locals.origin}/reset-password/${token}`, label: 'Choose a new password' },
+      });
+      return res.page('public/forgot', { title: 'Forgot password', email, sent: true, emailed: true, noindex: true }, 'public');
+    }
     const already = u && await one("SELECT 1 FROM notifications WHERE agency_id IS NULL AND title = 'Password reset request' AND body LIKE ? AND created_at > datetime('now', '-1 day')", `%(${email}%`);
     if (u && !already) {
       await notify(null, 'Password reset request', `${u.name} (${email}${u.agency ? `, ${u.agency}` : ''}) asked for a new password. Call ${u.phone || u.agency_phone || 'them'} to verify before resetting.`,
         u.agency_id ? `/admin/agents/${u.agency_id}#users` : '/admin/team');
     }
   }
-  res.page('public/forgot', { title: 'Forgot password', email, sent: true, noindex: true }, 'public');
+  res.page('public/forgot', { title: 'Forgot password', email, sent: true, emailed: mailer.enabled(), noindex: true }, 'public');
+}));
+
+const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
+const resetFor = async (token) => (/^[a-f0-9]{64}$/.test(token || '')
+  ? one("SELECT r.id, r.user_id, u.email, u.role, u.agency_id FROM password_resets r JOIN users u ON u.id = r.user_id WHERE r.token_hash = ? AND r.used_at IS NULL AND r.expires_at > datetime('now') AND u.is_active = 1", sha256(token))
+  : null);
+
+router.get('/reset-password/:token', h(async (req, res) => {
+  const r = await resetFor(req.params.token);
+  res.page('public/reset', { title: 'Reset password', valid: Boolean(r), email: r ? r.email : '', noindex: true }, 'public');
+}));
+
+router.post('/reset-password/:token', h(async (req, res) => {
+  const r = await resetFor(req.params.token);
+  if (!r) return res.redirect(`/reset-password/${encodeURIComponent(req.params.token)}`);
+  const password = String(req.body.password || '');
+  const fail = (m) => res.page('public/reset', { title: 'Reset password', valid: true, email: r.email, noindex: true, flash: [{ type: 'error', message: m }] }, 'public');
+  if (password.length < 8) return fail('The new password must be at least 8 characters.');
+  if (password !== String(req.body.confirm || '')) return fail("The passwords don't match.");
+  await tx(async () => {
+    await run('UPDATE users SET password_hash = ? WHERE id = ?', hashPassword(password), r.user_id);
+    await run("UPDATE password_resets SET used_at = datetime('now') WHERE user_id = ? AND used_at IS NULL", r.user_id);
+    await run('DELETE FROM login_failures WHERE email = ?', r.email);
+  });
+  await audit({ id: r.user_id, role: r.role, agency_id: r.agency_id }, 'user.password_reset_by_email', { entity: 'user', id: r.user_id, summary: r.email });
+  req.flash('success', 'Password changed. Log in with your new password.');
+  res.redirect(`/login?email=${encodeURIComponent(r.email)}`);
 }));
 
 router.post('/logout', (req, res) => {
@@ -246,9 +286,23 @@ async function sharedQuote(codeParam) {
   return { ...full, agency, settings, kind, doc, agentItems, pkgView };
 }
 
+// Link-preview fetchers (WhatsApp, Facebook, Slack …) and crawlers open shared links too; they aren't the customer.
+const BOT = /bot|crawl|spider|preview|facebookexternalhit|whatsapp|telegram|slack|skype|discord|linkedin|google|bing|curl|wget|python|headless/i;
+
 router.get('/q/:code', h(async (req, res, next) => {
   const s = await sharedQuote(req.params.code);
   if (!s) return next();
+  const own = req.user && (req.user.role !== 'agent' || req.user.agency_id === s.quote.agency_id);
+  if (!own && !BOT.test(req.get('user-agent') || '')) {
+    const q = s.quote;
+    const hoursSince = q.last_viewed_at ? (Date.now() - Date.parse(`${q.last_viewed_at.replace(' ', 'T')}Z`)) / 36e5 : Infinity;
+    await run("UPDATE quotes SET view_count = view_count + 1, first_viewed_at = COALESCE(first_viewed_at, datetime('now')), last_viewed_at = datetime('now') WHERE id = ?", q.id);
+    // Tell the agent the first time, and again when the customer comes back after a day.
+    if (hoursSince >= 24) {
+      await notify(q.agency_id, q.first_viewed_at ? 'Customer looked at a quote again' : 'Customer opened your quote',
+        `${s.customer ? s.customer.name : 'Your customer'} ${q.first_viewed_at ? 'came back to' : 'opened'} "${q.title}". A good moment to follow up.`, `/agent/quotes/${q.id}`);
+    }
+  }
   const payLink = await one("SELECT * FROM payment_links WHERE quote_id = ? AND status = 'pending' ORDER BY id DESC", s.quote.id);
   const total = s.doc.totals.total + s.agentItems.reduce((t, l) => t + l.lineSell, 0);
   res.page('public/quote', {

@@ -1,0 +1,13 @@
+<%# Horizontal bars for rankings. Locals: rows = [{ label, value, sub, href }], format(value) -> string %>
+<% const top = Math.max(1, ...rows.map(r => r.value)); %>
+<% if (!rows.length) { %><div class="empty">No bookings in this period yet.</div><% } else { %>
+<ul class="hbars">
+  <% rows.forEach(r => { %>
+    <li>
+      <div class="hb-head"><% if (r.href) { %><a href="<%= r.href %>"><%= r.label %></a><% } else { %><%= r.label %><% } %><b><%= format(r.value) %></b></div>
+      <div class="hb-track"><div class="hb-fill" style="width:<%= Math.max(2, Math.round(r.value / top * 100)) %>%"></div></div>
+      <% if (r.sub) { %><small class="muted"><%= r.sub %></small><% } %>
+    </li>
+  <% }) %>
+</ul>
+<% } %>

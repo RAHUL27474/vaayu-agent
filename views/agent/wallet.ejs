@@ -1,9 +1,22 @@
 <div class="page-head"><div><h1>Wallet &amp; credit</h1><p>Bookings are paid from your wallet first, then your credit line.</p></div></div>
 <div class="grid grid-3" style="margin-bottom:20px">
   <div class="stat"><div class="label">Wallet balance</div><div class="value"><%= inr(agency.wallet_balance, { decimals: 2 }) %></div></div>
-  <div class="stat"><div class="label">Credit used</div><div class="value"><%= inr(agency.credit_used, { decimals: 2 }) %></div><div class="sub">of <%= inr(agency.credit_limit) %> limit</div></div>
+  <div class="stat"><div class="label">Credit used</div><div class="value"><%= inr(agency.credit_used, { decimals: 2 }) %></div><div class="sub">of <%= inr(agency.credit_limit) %> limit<% if (credit.dueOn) { %> · <span class="<%= credit.overdue ? 'bad' : credit.daysLeft <= 3 ? 'warn-text' : '' %>"><%= credit.overdue ? 'overdue since' : 'due' %> <%= fmtDate(credit.dueOn) %></span><% } %></div></div>
   <div class="stat"><div class="label">Available to book</div><div class="value"><%= inr(agency.wallet_balance + agency.credit_limit - agency.credit_used) %></div></div>
 </div>
+<% if (credit.dueOn) { %>
+  <form class="card credit-due <%= credit.overdue ? 'overdue' : '' %>" method="post" action="/agent/wallet/repay" data-confirm="Repay credit from your wallet?">
+    <div>
+      <h3><%= credit.overdue ? 'Credit overdue' : 'Credit due' %>: <%= inr(agency.credit_used, { decimals: 2 }) %></h3>
+      <p class="muted" style="margin:4px 0 0;font-size:13px"><%= credit.overdue ? `Was due on ${fmtDate(credit.dueOn)}. New bookings can't use credit until it's repaid.` : `Due on ${fmtDate(credit.dueOn)} (${credit.daysLeft ? `${credit.daysLeft} day${credit.daysLeft === 1 ? '' : 's'} left` : 'today'}). Credit is repaid from your wallet.` %></p>
+    </div>
+    <div class="credit-pay">
+      <label class="sr-only" for="repay-amt">Amount to repay</label>
+      <input id="repay-amt" type="number" min="1" step="0.01" name="amount" value="<%= Math.min(agency.credit_used, Math.max(agency.wallet_balance, 0)).toFixed(2) %>">
+      <button class="btn <%= credit.overdue ? 'btn-danger' : 'btn-primary' %>" <%= agency.wallet_balance <= 0 ? 'disabled title="Add money to your wallet first"' : '' %>>Repay from wallet</button>
+    </div>
+  </form>
+<% } %>
 <div class="split">
   <div class="card flush">
     <div class="card-head"><h3>Transactions</h3></div>
@@ -35,6 +48,11 @@
       <div class="field"><label for="amount">Amount (₹)</label><input id="amount" type="number" min="100" name="amount" required></div>
       <div class="field"><label for="utr">UTR / reference no.</label><input id="utr" name="utr" required></div>
       <button class="btn btn-primary" <%= agency.status !== 'active' ? 'disabled' : '' %>>Submit top-up</button>
+    </form>
+    <form class="card" method="post" action="/agent/wallet/alert">
+      <h3>Low-balance alert</h3>
+      <p class="muted" style="font-size:13px">We notify you when your wallet drops below this amount. 0 switches it off.</p>
+      <div style="display:flex;gap:8px"><label class="sr-only" for="lba">Alert below (₹)</label><input id="lba" type="number" min="0" step="500" name="low_balance_alert" value="<%= agency.low_balance_alert %>"><button class="btn">Save</button></div>
     </form>
     <% if (requests.length) { %>
       <div class="card flush"><div class="card-head"><h3>Top-up requests</h3></div>

@@ -1,13 +1,14 @@
 <div class="page-head"><div><h1>Leads</h1><p>Enquiries from your website, the API, and ones you add yourself.</p></div></div>
 <div class="tabs">
-  <a href="/agent/leads" class="<%= !status ? 'active' : '' %>">All</a>
+  <a href="/agent/leads" class="<%= !status && !due ? 'active' : '' %>">All</a>
+  <a href="/agent/leads?due=1" class="<%= due ? 'active' : '' %>">Follow-ups due <small class="<%= dueCount ? 'count-due' : 'muted' %>"><%= dueCount %></small></a>
   <% statuses.forEach(s => { %><a href="/agent/leads?status=<%= s %>" class="<%= status === s ? 'active' : '' %>" style="text-transform:capitalize"><%= s %> <small class="muted"><%= counts[s] || 0 %></small></a><% }) %>
 </div>
 <div class="split">
   <div class="card flush">
     <% if (!leads.length) { %><div class="empty"><span class="big"><%- icon('target') %></span>No leads here. Share <a href="/agent/website">your website</a> to start receiving enquiries.</div><% } else { %>
     <div class="table-wrap"><table class="table">
-      <thead><tr><th>Lead</th><th>Trip</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Lead</th><th>Trip</th><th>Status &amp; follow-up</th><th></th></tr></thead>
       <% leads.forEach(l => { %>
         <tr>
           <td><b><%= l.name %></b><br><small><%= l.phone || '' %> <%= l.email || '' %></small><br><span class="badge"><%= l.source %></span> <small class="muted"><%= fmtDate(l.created_at) %></small></td>
@@ -16,6 +17,19 @@
             <form method="post" action="/agent/leads/<%= l.id %>/status">
               <select name="status" onchange="this.form.submit()" aria-label="Status"><% statuses.forEach(s => { %><option value="<%= s %>" <%= l.status === s ? 'selected' : '' %>><%= s %></option><% }) %></select>
             </form>
+            <% const overdue = l.follow_up_on && l.follow_up_on < today && !['won', 'lost'].includes(l.status); const isToday = l.follow_up_on === today; %>
+            <details class="follow-up">
+              <summary class="<%= overdue ? 'fu-overdue' : isToday ? 'fu-today' : '' %>"><%- icon('bell') %><%= l.follow_up_on ? `${overdue ? 'Overdue · ' : isToday ? 'Today · ' : ''}${fmtDate(l.follow_up_on)}` : 'Set follow-up' %></summary>
+              <form method="post" action="/agent/leads/<%= l.id %>/follow-up">
+                <label class="sr-only" for="fu-<%= l.id %>">Follow-up date</label>
+                <input id="fu-<%= l.id %>" type="date" name="follow_up_on" value="<%= l.follow_up_on || '' %>">
+                <label class="sr-only" for="fn-<%= l.id %>">What to discuss</label>
+                <input id="fn-<%= l.id %>" name="follow_up_note" maxlength="200" placeholder="e.g. Send revised Bali quote" value="<%= l.follow_up_note || '' %>">
+                <% if (staff.length > 1) { %><label class="sr-only" for="fa-<%= l.id %>">Assign to</label><select id="fa-<%= l.id %>" name="assigned_to"><option value="">Anyone</option><% staff.forEach(s => { %><option value="<%= s.id %>" <%= l.assigned_to === s.id ? 'selected' : '' %>><%= s.name %></option><% }) %></select><% } %>
+                <button class="btn btn-sm">Save</button>
+              </form>
+            </details>
+            <% if (l.follow_up_note) { %><small class="muted"><%= l.follow_up_note %><%= l.assignee ? ` · ${l.assignee}` : '' %></small><% } %>
           </td>
           <td class="num">
             <form method="post" action="/agent/leads/<%= l.id %>/quote"><button class="btn btn-sm btn-primary">Create quote</button></form>
@@ -41,6 +55,7 @@
     </div>
     <div class="field"><label for="l-budget">Budget (₹)</label><input id="l-budget" type="number" min="0" name="budget"></div>
     <div class="field"><label for="l-notes">Notes</label><textarea id="l-notes" name="notes"></textarea></div>
+    <div class="field"><label for="l-fu">Follow up on <span class="muted">(optional)</span></label><input id="l-fu" type="date" min="<%= today %>" name="follow_up_on"></div>
     <button class="btn btn-primary">Add lead</button>
   </form>
 </div>

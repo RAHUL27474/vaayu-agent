@@ -1,0 +1,142 @@
+// Agency staff roles, lead follow-ups, quote views, wallet and credit alerts, the admin business dashboard,
+// seasonal prices and sold-out dates, and email (against a stand-in Resend).
+const http = require('http');
+
+const mails = [];
+const resend = http.createServer((req, res) => {
+  let body = '';
+  req.on('data', (c) => { body += c; });
+  req.on('end', () => {
+    if (req.headers.authorization === 'Bearer re_test') mails.push(JSON.parse(body));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end('{"id":"x"}');
+  });
+});
+
+(async () => {
+  await new Promise((r) => resend.listen(0, r));
+  Object.assign(process.env, { RESEND_API_KEY: 're_test', MAIL_FROM: 'VaayuTrip <noreply@test.in>', RESEND_API_URL: `http://localhost:${resend.address().port}` });
+  const { start, finish, check, db, ROLES } = require('./helpers');
+  const one = (sql, ...p) => db.prepare(sql).get(...p);
+  const c = await start();
+  const owner = await c.login(...ROLES.agent);
+  const admin = await c.login(...ROLES.admin);
+  const agencyId = (await one('SELECT agency_id FROM users WHERE email = ?', ROLES.agent[0])).agency_id;
+  const page = async (p, cookie) => (await c.get(p, cookie)).text();
+  const loginOk = async (email, password) => (await c.post('/login', '', { email, password })).status === 302;
+
+  // ---------- staff roles ----------
+  check('owner sees Team', (await page('/agent/team', owner)).includes('Add a staff member'));
+  await c.post('/agent/team', owner, { name: 'Sunil Sales', email: 'sunil@skyline.com', role: 'sales', password: 'sales1234' });
+  await c.post('/agent/team', owner, { name: 'Anita Accounts', email: 'anita@skyline.com', role: 'accounts', password: 'accts1234' });
+  const sales = await c.login('sunil@skyline.com', 'sales1234');
+  const accounts = await c.login('anita@skyline.com', 'accts1234');
+  check('staff can log in with their own logins', Boolean(sales) && Boolean(accounts) && (await c.get('/agent', sales)).status === 200);
+  check('sales can open quotes and inventory', (await c.get('/agent/quotes', sales)).status === 200 && (await c.get('/agent/hotels', sales)).status === 200);
+  check('sales cannot open wallet, settings or team', (await c.get('/agent/wallet', sales)).status === 302 && (await c.get('/agent/settings', sales)).status === 302 && (await c.get('/agent/team', sales)).status === 302);
+  check('sales cannot top up', (await c.post('/agent/wallet/topup', sales, { amount: '500', utr: 'X1' })).headers.get('location') === '/agent' && !(await one("SELECT 1 FROM topup_requests WHERE utr = 'X1'")));
+  check('accounts can open wallet and invoices, not inventory or leads', (await c.get('/agent/wallet', accounts)).status === 200 && (await c.get('/agent/invoices', accounts)).status === 200
+    && (await c.get('/agent/hotels', accounts)).status === 302 && (await c.get('/agent/leads', accounts)).status === 302);
+  const salesNav = await page('/agent', sales);
+  check('menu hides what the role cannot open', !salesNav.includes('href="/agent/wallet" class') && !salesNav.includes('href="/agent/team"') && salesNav.includes('Agent · Sales'));
+  const ownerCount = () => one("SELECT COUNT(*) AS n FROM users WHERE agency_id = ? AND agency_role = 'owner'", agencyId).then((r) => r.n);
+  const ownerId = (await one('SELECT id FROM users WHERE email = ?', ROLES.agent[0])).id;
+  const sunil = await one("SELECT id FROM users WHERE email = 'sunil@skyline.com'");
+  await c.post(`/agent/team/${sunil.id}/toggle`, owner, {});
+  check('owner can switch a staff login off', !(await loginOk('sunil@skyline.com', 'sales1234')));
+  await c.post(`/agent/team/${sunil.id}/toggle`, owner, {});
+  await c.post(`/agent/team/${ownerId}/role`, owner, { role: 'sales' });
+  check('the last owner cannot be demoted', await ownerCount() === 1);
+  const other = await c.login(...ROLES.agent2);
+  check("another agency can't manage this agency's staff", (await c.post(`/agent/team/${sunil.id}/toggle`, other, {})).status === 404);
+
+  // ---------- lead follow-ups ----------
+  const today = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() + 330 * 60000 - 864e5).toISOString().slice(0, 10);
+  await c.post('/agent/leads', sales, { name: 'Follow Me', phone: '+91 90000 11111', destination: 'Bali', follow_up_on: today });
+  const lead = await one("SELECT * FROM leads WHERE name = 'Follow Me'");
+  check('a lead can be added with a follow-up date', lead.follow_up_on === today && lead.assigned_to === sunil.id);
+  await c.post(`/agent/leads/${lead.id}/follow-up`, owner, { follow_up_on: yesterday, follow_up_note: 'Send Bali quote', assigned_to: String(sunil.id) });
+  const dash = await page('/agent', owner);
+  check('dashboard lists follow-ups due, overdue first', dash.includes('Follow-ups due') && dash.includes('Follow Me') && dash.includes('overdue'));
+  check('leads page has a due tab', (await page('/agent/leads?due=1', owner)).includes('Send Bali quote'));
+
+  // ---------- quote viewed ----------
+  const q = await one("SELECT * FROM quotes WHERE agency_id = ? AND status IN ('sent', 'draft') ORDER BY id LIMIT 1", agencyId);
+  await db.prepare('UPDATE quotes SET view_count = 0, first_viewed_at = NULL, last_viewed_at = NULL WHERE id = ?').run(q.id);
+  const n0 = (await one("SELECT COUNT(*) AS n FROM notifications WHERE agency_id = ? AND title = 'Customer opened your quote'", agencyId)).n;
+  await fetch(`${c.B}/q/${q.code}`, { headers: { 'user-agent': 'WhatsApp/2.23.20.0' } });
+  await c.get(`/q/${q.code}`, owner);
+  check("WhatsApp's link preview and the agent's own preview don't count", (await one('SELECT view_count FROM quotes WHERE id = ?', q.id)).view_count === 0);
+  await fetch(`${c.B}/q/${q.code}`, { headers: { 'user-agent': 'Mozilla/5.0 (iPhone)' } });
+  await fetch(`${c.B}/q/${q.code}`, { headers: { 'user-agent': 'Mozilla/5.0 (iPhone)' } });
+  const viewed = await one('SELECT view_count, first_viewed_at FROM quotes WHERE id = ?', q.id);
+  check('customer views are counted', viewed.view_count === 2 && viewed.first_viewed_at);
+  check('agent is told once when the customer first opens it', (await one("SELECT COUNT(*) AS n FROM notifications WHERE agency_id = ? AND title = 'Customer opened your quote'", agencyId)).n === n0 + 1);
+  check('quote page shows the views', (await page(`/agent/quotes/${q.id}`, owner)).includes('Viewed 2×'));
+
+  // ---------- wallet alert, credit due and repayment ----------
+  await db.prepare('UPDATE agencies SET wallet_balance = 12000, low_balance_alert = 10000, credit_used = 0, credit_since = NULL WHERE id = ?').run(agencyId);
+  await c.post(`/admin/agents/${agencyId}/wallet`, admin, { amount: '-3000', note: 'test debit' });
+  check('crossing the low-balance level notifies the agency', Boolean(await one("SELECT 1 FROM notifications WHERE agency_id = ? AND title = 'Low wallet balance'", agencyId)));
+  check('dashboard warns about the low wallet', (await page('/agent', owner)).includes('Low wallet balance'));
+  await db.prepare("UPDATE agencies SET credit_used = 5000, credit_days = 15, credit_since = to_char(CURRENT_DATE - 20, 'YYYY-MM-DD') WHERE id = ?").run(agencyId);
+  const wallet = await page('/agent/wallet', owner);
+  check('wallet shows overdue credit with a repay button', wallet.includes('Credit overdue') && wallet.includes('Repay from wallet'));
+  const { creditReminders } = require('../src/services');
+  await db.prepare("UPDATE agencies SET credit_since = to_char(CURRENT_DATE - 16, 'YYYY-MM-DD'), credit_reminded_on = NULL WHERE id = ?").run(agencyId);
+  await creditReminders();
+  await creditReminders();
+  check('overdue reminder sent once a day', (await one("SELECT COUNT(*) AS n FROM notifications WHERE agency_id = ? AND title = 'Credit overdue'", agencyId)).n === 1);
+  const bookable = await one("SELECT q.id FROM quotes q WHERE q.agency_id = ? AND q.status IN ('draft', 'sent', 'accepted') AND EXISTS (SELECT 1 FROM quote_items i WHERE i.quote_id = q.id AND i.supplier = 'vaayu') ORDER BY q.id LIMIT 1", agencyId);
+  await db.prepare('UPDATE agencies SET wallet_balance = 1 WHERE id = ?').run(agencyId);
+  const blocked = await c.follow(await c.post(`/agent/quotes/${bookable.id}/book`, owner, {}), owner);
+  check('overdue credit cannot be drawn for new bookings', blocked.includes('overdue') && !(await one("SELECT 1 FROM bookings WHERE quote_id = ? AND status = 'confirmed'", bookable.id)));
+  await db.prepare('UPDATE agencies SET wallet_balance = 8000 WHERE id = ?').run(agencyId);
+  await c.post('/agent/wallet/repay', owner, { amount: '5000' });
+  const after = await one('SELECT wallet_balance, credit_used, credit_since FROM agencies WHERE id = ?', agencyId);
+  check('repaying from the wallet clears the credit', after.wallet_balance === 3000 && after.credit_used === 0 && after.credit_since === null);
+  check('accounts staff can repay; sales cannot', (await c.post('/agent/wallet/repay', sales, { amount: '1' })).headers.get('location') === '/agent');
+
+  // ---------- admin business dashboard ----------
+  const adminDash = await page('/admin', admin);
+  check('admin dashboard shows revenue, margin and top lists', ['Business, last 12 months', 'Revenue by month', 'Estimated VaayuTrip margin', 'Top destinations', 'Sales by service'].every((t) => adminDash.includes(t)) && /class="hbars"/.test(adminDash));
+
+  // ---------- seasons and sold-out dates ----------
+  const backend = await c.login(...ROLES.backend);
+  const act = await one("SELECT * FROM products WHERE kind = 'activity' AND status = 'published' AND price_basis = 'per_person' ORDER BY id LIMIT 1");
+  const form = Object.fromEntries(['title', 'city', 'country', 'category', 'duration', 'summary', 'price_basis'].map((k) => [k, act[k] ?? '']));
+  Object.assign(form, { net_adult: String(act.cost_adult), net_child: act.cost_child == null ? '' : String(act.cost_child), net_infant: '', s_from_0: '2027-12-20', s_to_0: '2028-01-05', s_pct_0: '25', s_label_0: 'New Year', b_from_0: '2027-12-31', b_to_0: '2027-12-31', b_label_0: 'Fully booked' });
+  await c.post(`/backend/products/${act.id}`, backend, form);
+  const saved = await one('SELECT seasons, blackouts, net_adult FROM products WHERE id = ?', act.id);
+  check('backend saves seasons and sold-out dates', JSON.parse(saved.seasons)[0].pct === 25 && JSON.parse(saved.blackouts)[0].from === '2027-12-31');
+  const peak = await page(`/agent/activities/${act.id}?adults=2&date=2027-12-24`, owner);
+  check('product page shows the season price for the date', peak.includes('New Year') && peak.includes(`₹${(2 * Math.round(saved.net_adult * 1.25)).toLocaleString('en-IN')}`));
+  check('product page warns on a sold-out date', (await page(`/agent/activities/${act.id}?adults=2&date=2027-12-31`, owner)).includes('Sold out on'));
+  const addPeak = await c.post(`/agent/activities/${act.id}/quote`, owner, { quote_id: 'new', new_title: 'Peak test', adults: '2', children: '0', date: '2027-12-24', use_default: '1' });
+  const peakQ = Number((addPeak.headers.get('location') || '').match(/quotes\/(\d+)/)?.[1]);
+  const peakItem = peakQ && await one('SELECT net_price FROM quote_items WHERE quote_id = ?', peakQ);
+  check('adding on a peak date prices at the season rate', peakItem && peakItem.net_price === Math.round(saved.net_adult * 1.25));
+  const addClosed = await c.post(`/agent/activities/${act.id}/quote`, owner, { quote_id: 'new', new_title: 'Closed test', adults: '2', children: '0', date: '2027-12-31', use_default: '1' });
+  check('a sold-out date cannot be added to a quote', !(await one("SELECT 1 FROM quote_items qi JOIN quotes q ON q.id = qi.quote_id WHERE q.title = 'Closed test'")), addClosed.status);
+
+  // ---------- email ----------
+  const ownerMails = mails.filter((m) => m.to.includes(ROLES.agent[0]));
+  check('notifications are emailed to the agency owner', ownerMails.some((m) => m.subject === 'Customer opened your quote') && ownerMails[0].html.includes('Open in VaayuTrip'));
+  check('staff (non-owners) are not emailed agency notifications', !mails.some((m) => m.to.includes('sunil@skyline.com')));
+  mails.length = 0;
+  await c.post('/forgot-password', '', { email: 'anita@skyline.com' });
+  const resetMail = mails.find((m) => m.to.includes('anita@skyline.com'));
+  const link = resetMail && resetMail.text.match(/\/reset-password\/([a-f0-9]{64})/);
+  check('forgot password emails a one-time link', Boolean(link));
+  if (link) {
+    check('reset page opens for a valid link', (await page(`/reset-password/${link[1]}`)).includes('Set new password'));
+    await c.post(`/reset-password/${link[1]}`, '', { password: 'brandnew99', confirm: 'brandnew99' });
+    check('reset link sets the new password', await loginOk('anita@skyline.com', 'brandnew99') && !(await loginOk('anita@skyline.com', 'accts1234')));
+    check('reset link works only once', (await page(`/reset-password/${link[1]}`)).includes('expired or was already used'));
+  }
+  check('a made-up reset link is refused', (await page(`/reset-password/${'a'.repeat(64)}`)).includes('expired or was already used'));
+
+  resend.close();
+  finish(c);
+})().catch((e) => { console.error(e); process.exit(1); });

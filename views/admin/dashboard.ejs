@@ -21,6 +21,28 @@
   <div class="stat"><div class="label">Agent wallets / credit out</div><div class="value"><%= inr(stats.walletFloat) %></div><div class="sub"><%= inr(stats.creditOut) %> credit used</div></div>
 </div>
 
+<%
+  const short = (v) => v >= 1e7 ? `₹${(v / 1e7).toFixed(1)}Cr` : v >= 1e5 ? `₹${(v / 1e5).toFixed(1)}L` : v >= 1e3 ? `₹${Math.round(v / 1e3)}k` : inr(v);
+%>
+<div class="biz">
+  <div class="card-head" style="padding:0 0 12px"><h2 style="margin:0;font-size:18px">Business, last 12 months</h2></div>
+  <div class="grid grid-4" style="margin-bottom:16px">
+    <div class="stat"><div class="label">This month's revenue</div><div class="value"><%= inr(biz.cur.revenue) %></div><div class="sub"><% if (biz.change !== null) { %><span class="<%= biz.change >= 0 ? 'up' : 'down' %>"><%= biz.change >= 0 ? '▲' : '▼' %> <%= Math.abs(biz.change) %>%</span> vs <%= biz.prev.label %><% } else { %>no bookings last month<% } %></div></div>
+    <div class="stat"><div class="label">12-month revenue</div><div class="value"><%= short(biz.yearRevenue) %></div><div class="sub">Est. margin <%= short(biz.yearMargin) %></div></div>
+    <div class="stat"><div class="label">Average booking</div><div class="value"><%= inr(biz.avgBooking) %></div><div class="sub">net to VaayuTrip</div></div>
+    <div class="stat"><div class="label">Cancellation rate</div><div class="value"><%= biz.cancelRate %>%</div><div class="sub">of bookings in 12 months</div></div>
+  </div>
+  <div class="grid grid-2">
+    <div class="card"><h3>Revenue by month</h3><%- include('../partials/bar-chart', { bars: biz.months.map(m => ({ label: m.label, value: Math.round(m.revenue), note: `${m.bookings || 0} bookings` })), format: short }) %></div>
+    <div class="card"><h3>Estimated VaayuTrip margin</h3><%- include('../partials/bar-chart', { bars: biz.months.map(m => ({ label: m.label, value: Math.round(m.margin) })), format: short }) %><p class="muted" style="font-size:12px;margin:8px 0 0">From each service's margin % in Settings.</p></div>
+  </div>
+  <div class="grid grid-3">
+    <div class="card"><h3>Top agencies</h3><%- include('../partials/hbars', { rows: biz.agencies, format: short }) %></div>
+    <div class="card"><h3>Top destinations</h3><%- include('../partials/hbars', { rows: biz.destinations, format: short }) %></div>
+    <div class="card"><h3>Sales by service</h3><%- include('../partials/hbars', { rows: biz.services, format: short }) %></div>
+  </div>
+</div>
+
 <div class="card flush">
   <div class="card-head"><h3>Latest bookings</h3><a href="/admin/bookings">All bookings</a></div>
   <% if (!bookings.length) { %><div class="empty">No bookings yet.</div><% } else { %>

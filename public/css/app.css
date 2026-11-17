@@ -1049,3 +1049,50 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
   .invoice .lines tr, .inv-bottom, .inv-foot { break-inside: avoid; }
 }
 .doc table.lines th.num { text-align: right; }
+
+/* Lead follow-ups */
+.follow-up { margin-top: 6px; }
+.follow-up summary { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--brand); cursor: pointer; list-style: none; }
+.follow-up summary::-webkit-details-marker { display: none; }
+.follow-up summary svg { width: 13px; height: 13px; }
+.follow-up summary.fu-overdue { color: var(--bad); font-weight: 600; }
+.follow-up summary.fu-today { color: #b45309; font-weight: 600; }
+.follow-up form { display: grid; gap: 6px; margin-top: 6px; min-width: 200px; }
+.follow-up input, .follow-up select { height: 32px; font-size: 13px; }
+.count-due { background: var(--bad); color: #fff; border-radius: 99px; padding: 0 6px; font-size: 11px; }
+
+/* Wallet: credit due, alerts; quote views */
+.credit-due { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border-left: 4px solid #d97706; }
+.credit-due.overdue { border-left-color: var(--bad); background: #fef2f2; }
+.credit-due h3 { margin: 0; }
+.credit-pay { display: flex; gap: 8px; }
+.credit-pay input { width: 150px; }
+.warn-text { color: #b45309; font-weight: 600; }
+.stat .sub .bad { color: var(--bad); font-weight: 600; }
+.quote-views { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.quote-views svg { width: 13px; height: 13px; }
+
+/* Agent dashboard: today */
+.today-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.today-grid .card { margin: 0; }
+
+/* Admin business dashboard */
+.biz { margin-bottom: 8px; }
+.biz .card h3 { margin-bottom: 12px; }
+.biz .bars { height: 180px; gap: 6px; }
+.stat .sub .up { color: var(--ok); font-weight: 600; }
+.stat .sub .down { color: var(--bad); font-weight: 600; }
+.hbars { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.hb-head { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; margin-bottom: 4px; }
+.hb-head a { color: inherit; }
+.hb-track { height: 8px; background: var(--line-2); border-radius: 99px; overflow: hidden; }
+.hb-fill { height: 100%; background: linear-gradient(90deg, #38b2ee, var(--brand-600)); border-radius: 99px; }
+.hbars small { font-size: 11.5px; }
+
+/* Seasons and sold-out dates */
+.season-table { width: 100%; border-collapse: collapse; }
+.season-table th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 0 6px 6px 0; }
+.season-table td { padding: 0 6px 6px 0; }
+.season-table input { width: 100%; height: 36px; }
+.season-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
+@media (max-width: 700px) { .season-table thead { display: none; } .season-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; } .season-table td { padding: 0; } .season-table td[colspan] { grid-column: span 2; } }

@@ -73,6 +73,7 @@ app.get('/healthz', async (req, res) => {
   try {
     await one('SELECT 1 AS ok');
     await payments.settlePending({ olderThanMinutes: 5, limit: 50 }).catch(() => 0);
+    await require('./src/services').creditReminders().catch((e) => console.error('credit reminders', e.message));
     res.set('Cache-Control', 'no-store').json({ ok: true, time: new Date().toISOString() });
   } catch {
     res.status(503).set('Cache-Control', 'no-store').json({ ok: false });
@@ -123,7 +124,7 @@ app.use(async (req, res, next) => {
   res.locals.user = null;
   res.locals.agency = null;
   if (req.session.userId) {
-    const user = await one('SELECT id, role, agency_id, name, email, RIGHT(password_hash, 12) AS pw_tag FROM users WHERE id = ? AND is_active = 1', req.session.userId);
+    const user = await one('SELECT id, role, agency_id, agency_role, name, email, RIGHT(password_hash, 12) AS pw_tag FROM users WHERE id = ? AND is_active = 1', req.session.userId);
     // Logged in before the password last changed: log out (sessions from before this check get the tag now).
     if (user && req.session.pw && req.session.pw !== user.pw_tag) {
       req.session.userId = null;

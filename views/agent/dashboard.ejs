@@ -5,6 +5,7 @@
   </div>
 </div>
 
+<% if (agentCan('/agent/find')) { %>
 <form class="book-panel" method="get" action="/agent/find">
   <div class="book-head">
     <h2>What are you booking today?</h2>
@@ -23,13 +24,51 @@
     <button class="btn btn-accent btn-lg"><%- icon('search') %>Search net rates</button>
   </div>
 </form>
+<% } %>
 
 <div class="quick-grid">
   <a class="quick" href="/agent/packages/new"><span class="q-ico"><%- icon('briefcase') %></span><b>Build a package</b><small>Day-wise trip from our inventory</small></a>
   <a class="quick" href="/agent/quotes"><span class="q-ico"><%- icon('file') %></span><b>Quotes</b><small><%= quotes.length ? `${quotes.length} recent` : 'Share prices on WhatsApp' %></small></a>
   <a class="quick" href="/agent/leads"><span class="q-ico"><%- icon('target') %></span><b>Leads</b><small><%= openLeads %> open lead<%= openLeads === 1 ? '' : 's' %></small></a>
-  <a class="quick" href="/agent/wallet"><span class="q-ico"><%- icon('wallet') %></span><b>Top up wallet</b><small>Balance <%= inr(agency.wallet_balance) %></small></a>
+  <% if (agentCan('/agent/wallet')) { %><a class="quick" href="/agent/wallet"><span class="q-ico"><%- icon('wallet') %></span><b>Top up wallet</b><small>Balance <%= inr(agency.wallet_balance) %></small></a><% } %>
 </div>
+
+<% if (credit.dueOn && (credit.overdue || credit.daysLeft <= 3)) { %>
+  <div class="alert <%= credit.overdue ? 'error' : 'warn' %>"><b><%= credit.overdue ? 'Credit overdue' : 'Credit due soon' %>:</b> <%= inr(credit.used) %> <%= credit.overdue ? `was due on ${fmtDate(credit.dueOn)}. Bookings can't use credit until it's repaid.` : `is due on ${fmtDate(credit.dueOn)}.` %> <% if (agentCan('/agent/wallet')) { %><a href="/agent/wallet">Repay from wallet</a><% } %></div>
+<% } %>
+<% if (lowWallet) { %>
+  <div class="alert warn"><b>Low wallet balance:</b> <%= inr(agency.wallet_balance) %>, below your alert of <%= inr(agency.low_balance_alert) %>. <% if (agentCan('/agent/wallet')) { %><a href="/agent/wallet">Top up</a><% } %></div>
+<% } %>
+<% if (followUps.length || viewedQuotes.length) { %>
+  <div class="today-grid">
+    <% if (followUps.length) { %>
+    <div class="card flush">
+      <div class="card-head"><h3>Follow-ups due</h3><a href="/agent/leads?due=1">All</a></div>
+      <table class="table">
+        <% followUps.forEach(l => { const overdue = l.follow_up_on < today; %>
+          <tr class="click" data-href="/agent/leads?due=1">
+            <td><b><%= l.name %></b><br><small class="muted"><%= l.follow_up_note || l.destination || '' %><%= l.assignee ? ` · ${l.assignee}` : '' %></small></td>
+            <td class="num"><span class="badge <%= overdue ? 'cancelled' : 'pending' %>"><%= overdue ? `overdue · ${fmtDate(l.follow_up_on)}` : 'today' %></span><% if (l.phone) { %><br><a href="tel:<%= l.phone.replace(/\s/g, '') %>"><small><%= l.phone %></small></a><% } %></td>
+          </tr>
+        <% }) %>
+      </table>
+    </div>
+    <% } %>
+    <% if (viewedQuotes.length) { %>
+    <div class="card flush">
+      <div class="card-head"><h3>Customers looking at quotes</h3></div>
+      <table class="table">
+        <% viewedQuotes.forEach(q => { %>
+          <tr class="click" data-href="/agent/quotes/<%= q.id %>">
+            <td><b><%= q.customer || q.title %></b><br><small class="muted"><%= q.title %></small></td>
+            <td class="num"><small>viewed <%= q.view_count %>×<br><%= fmtDate(q.last_viewed_at) %></small></td>
+          </tr>
+        <% }) %>
+      </table>
+    </div>
+    <% } %>
+  </div>
+<% } %>
 
 <% if (agency.status !== 'active') { %>
   <div class="alert warn">Your account is <b><%= agency.status %></b>. VaayuTrip is reviewing your details; you can explore, build quotes and set up your branding meanwhile. Booking unlocks after approval.</div>

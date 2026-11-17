@@ -61,7 +61,9 @@ async function createQuoteFromPackage(agency, packageId, opts = {}) {
 
 /** Adds a VaayuTrip product to a quote for a party ({ adults, children, infants, rooms, nights }). Every destination is abroad, so TCS applies. */
 async function addProductToQuote(quoteId, product, party) {
-  for (const l of productLines(product, party)) await addQuoteItem(quoteId, l);
+  const lines = productLines(product, party);
+  if (lines.some((l) => l.soldOut)) throw new AppError(`${product.title} is sold out on ${party.date} (${lines[0].soldOut.label}). Choose another date.`);
+  for (const l of lines) await addQuoteItem(quoteId, l);
   await run('UPDATE quotes SET is_international = 1 WHERE id = ?', quoteId);
 }
 
@@ -76,12 +78,60 @@ async function addQuoteItem(quoteId, { type, title, description = '', supplier =
 
 // One atomic UPDATE, so two wallet movements at the same moment can't overwrite each other.
 async function moveWallet(agencyId, type, amount, ref, note) {
-  const { balance } = await one(
-    'UPDATE agencies SET wallet_balance = ROUND((wallet_balance + ?)::numeric, 2)::double precision WHERE id = ? RETURNING wallet_balance AS balance',
+  const { balance, alert } = await one(
+    'UPDATE agencies SET wallet_balance = ROUND((wallet_balance + ?)::numeric, 2)::double precision WHERE id = ? RETURNING wallet_balance AS balance, low_balance_alert AS alert',
     round2(amount), agencyId,
   );
   await run('INSERT INTO wallet_txns (agency_id, type, amount, balance_after, ref, note) VALUES (?, ?, ?, ?, ?, ?)', agencyId, type, round2(amount), balance, ref || null, note || null);
+  // Just dropped below the agency's alert level.
+  if (alert > 0 && amount < 0 && balance < alert && balance - round2(amount) >= alert) {
+    await notify(agencyId, 'Low wallet balance', `Your wallet is down to ₹${balance.toLocaleString('en-IN')} (alert set at ₹${alert.toLocaleString('en-IN')}). Top up to keep booking without delays.`, '/agent/wallet');
+  }
   return balance;
+}
+
+const isoDay = (d) => d.toISOString().slice(0, 10);
+const indiaToday = () => isoDay(new Date(Date.now() + 330 * 60000));
+
+/** Where an agency's credit stands: { used, dueOn, daysLeft, overdue } (dueOn null when nothing is owed). */
+function creditStatus(agency) {
+  if (!(agency.credit_used > 0) || !agency.credit_since) return { used: agency.credit_used || 0, dueOn: null, daysLeft: null, overdue: false };
+  const due = new Date(`${agency.credit_since}T00:00:00Z`);
+  due.setUTCDate(due.getUTCDate() + (agency.credit_days || 0));
+  const daysLeft = Math.round((due - new Date(`${indiaToday()}T00:00:00Z`)) / 864e5);
+  return { used: agency.credit_used, dueOn: isoDay(due), daysLeft, overdue: daysLeft < 0 };
+}
+
+/** Pays back credit from the wallet (up to what's owed and what's in the wallet). Returns the amount repaid. */
+async function repayCredit(agencyId, amount) {
+  return await tx(async () => {
+    const a = await one('SELECT * FROM agencies WHERE id = ? FOR UPDATE', agencyId);
+    const pay = round2(Math.min(amount, a.credit_used, Math.max(a.wallet_balance, 0)));
+    if (pay <= 0) throw new AppError(a.credit_used > 0 ? 'Add money to your wallet first, then repay your credit from it.' : 'You have no credit to repay.');
+    await moveWallet(agencyId, 'credit_repay', -pay, null, 'Credit repaid');
+    await run(`UPDATE agencies SET credit_used = GREATEST(credit_used - ?, 0),
+      credit_since = CASE WHEN credit_used - ? <= 0.005 THEN NULL ELSE credit_since END, credit_reminded_on = NULL WHERE id = ?`, pay, pay, agencyId);
+    await notify(null, 'Credit repaid', `${a.name} repaid ₹${pay.toLocaleString('en-IN')} of credit.`, `/admin/agents/${agencyId}`);
+    return pay;
+  });
+}
+
+/** Daily (from the cron): reminders 3 days and 1 day before credit falls due, on the day, then every 3 days overdue. */
+async function creditReminders() {
+  const today = indiaToday();
+  const owing = await all("SELECT * FROM agencies WHERE credit_used > 0 AND credit_since IS NOT NULL AND status = 'active' AND (credit_reminded_on IS NULL OR credit_reminded_on <> ?)", today);
+  let sent = 0;
+  for (const a of owing) {
+    const s = creditStatus(a);
+    if (!([3, 1, 0].includes(s.daysLeft) || (s.overdue && -s.daysLeft % 3 === 1))) continue;
+    const amount = `₹${a.credit_used.toLocaleString('en-IN')}`;
+    await notify(a.id, s.overdue ? 'Credit overdue' : 'Credit due soon',
+      s.overdue ? `${amount} of credit was due on ${s.dueOn}. Repay it from your wallet to keep booking on credit.` : `${amount} of credit is due ${s.daysLeft ? `in ${s.daysLeft} day${s.daysLeft === 1 ? '' : 's'}` : 'today'} (${s.dueOn}).`, '/agent/wallet');
+    if (s.overdue && s.daysLeft === -1) await notify(null, 'Agency credit overdue', `${a.name} owes ${amount}, due ${s.dueOn}.`, `/admin/agents/${a.id}`);
+    await run('UPDATE agencies SET credit_reminded_on = ? WHERE id = ?', today, a.id);
+    sent += 1;
+  }
+  return sent;
 }
 
 function financialYear(d = new Date()) {
@@ -138,6 +188,9 @@ async function bookQuote(agencyId, quoteId) {
     const payable = round2(full.priced.net * (1 + taxRate(settings) / 100));
     const fromWallet = Math.min(Math.max(agency.wallet_balance, 0), payable);
     const fromCredit = round2(payable - fromWallet);
+    if (fromCredit && creditStatus(agency).overdue) {
+      throw new AppError(`Your credit of ₹${agency.credit_used.toLocaleString('en-IN')} is overdue. Repay it from your wallet (Wallet & credit) or top up enough to pay this booking from your wallet.`);
+    }
     if (fromCredit > round2(agency.credit_limit - agency.credit_used)) {
       throw new AppError(`Insufficient funds: ₹${payable.toLocaleString('en-IN')} needed, wallet ₹${agency.wallet_balance.toLocaleString('en-IN')} + available credit ₹${(agency.credit_limit - agency.credit_used).toLocaleString('en-IN')}`);
     }
@@ -149,7 +202,7 @@ async function bookQuote(agencyId, quoteId) {
       agencyId, quoteId, full.quote.customer_id, bookingCode, full.quote.title, full.quote.travel_date, full.priced.net, full.priced.sell, full.priced.agentCost, fromWallet, fromCredit,
     )).lastInsertRowid;
     if (fromWallet) await moveWallet(agencyId, 'booking', -fromWallet, bookingCode, full.quote.title);
-    if (fromCredit) await run('UPDATE agencies SET credit_used = credit_used + ? WHERE id = ?', fromCredit, agencyId);
+    if (fromCredit) await run("UPDATE agencies SET credit_used = credit_used + ?, credit_since = COALESCE(credit_since, to_char(CURRENT_DATE, 'YYYY-MM-DD')) WHERE id = ?", fromCredit, agencyId);
     await run("UPDATE quotes SET status = 'booked', updated_at = datetime('now') WHERE id = ?", quoteId);
     if (full.quote.lead_id) await run("UPDATE leads SET status = 'won' WHERE id = ?", full.quote.lead_id);
 
@@ -168,7 +221,7 @@ async function approveCancellation(bookingId, refund) {
     refund = Math.min(round2(refund), round2(b.paid_wallet + b.paid_credit));
     const toCredit = Math.min(refund, b.paid_credit);
     const toWallet = round2(refund - toCredit);
-    if (toCredit) await run('UPDATE agencies SET credit_used = GREATEST(credit_used - ?, 0) WHERE id = ?', toCredit, b.agency_id);
+    if (toCredit) await run('UPDATE agencies SET credit_used = GREATEST(credit_used - ?, 0), credit_since = CASE WHEN credit_used - ? <= 0.005 THEN NULL ELSE credit_since END WHERE id = ?', toCredit, toCredit, b.agency_id);
     if (toWallet) await moveWallet(b.agency_id, 'refund', toWallet, b.code, `Refund for ${b.title}`);
     await run("UPDATE bookings SET status = 'cancelled', refund_amount = ? WHERE id = ?", refund, bookingId);
     if (b.quote_id) {
@@ -211,6 +264,7 @@ async function voucherFor(booking) {
 }
 
 module.exports = {
+  creditStatus, repayCredit, creditReminders,
   voucherFor,
   AppError, getQuote, createQuote, createQuoteFromPackage, addProductToQuote, addQuoteItem, moveWallet, issueInvoice,
   bookQuote, approveCancellation, approveTopup, packageSellPrice, defaultInvoiceMode,

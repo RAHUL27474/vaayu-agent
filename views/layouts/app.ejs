@@ -26,10 +26,11 @@
     if (active && !crumb) crumb = { section: curSection, label };
     return `<a href="${href}" class="${active ? 'active' : ''}" title="${label}"${active ? ' aria-current="page"' : ''}>${icon(ico)}<span class="lbl">${label}</span>${extra ? `<span class="count">${extra}</span>` : ''}</a>`;
   };
-  const navItem = (href, ico, label, extra) => link(href, ico, label, isActive(href), extra);
+  const canOpen = (href) => typeof agentCan !== 'function' || !href.startsWith('/agent') || agentCan(href);
+  const navItem = (href, ico, label, extra) => (canOpen(href) ? link(href, ico, label, isActive(href), extra) : '');
   const initialsOf = (name) => name.replace(/\(.*\)/, '').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   const initials = initialsOf(user.name);
-  const roleLabel = isAdmin ? 'Administrator' : isBackend ? 'Backend team' : 'Agent';
+  const roleLabel = isAdmin ? 'Administrator' : isBackend ? 'Backend team' : ({ owner: 'Agent · Owner', sales: 'Agent · Sales', accounts: 'Agent · Accounts' }[user.agency_role] || 'Agent');
 %>
 <a class="skip-link" href="#main">Skip to content</a>
 <div class="shell">
@@ -114,6 +115,7 @@
       <%- section('Account') %>
       <%- navItem('/agent/notifications', 'bell', 'Notifications', unread || '') %>
       <%- navItem('/agent/support', 'help', 'Help &amp; support') %>
+      <%- navItem('/agent/team', 'users', 'Team') %>
       <%- navItem('/agent/settings', 'settings', 'Company &amp; branding') %>
     <% } %>
     </nav>
@@ -166,8 +168,9 @@
               <div><span>Wallet</span><b><%= inr(agency.wallet_balance) %></b></div>
               <div><span>Credit available</span><b><%= inr(agency.credit_limit - agency.credit_used) %></b></div>
             </div>
-            <a href="/agent/settings"><%- icon('settings') %>Company &amp; branding</a>
-            <a href="/agent/wallet"><%- icon('wallet') %>Wallet &amp; credit</a>
+            <% if (canOpen('/agent/settings')) { %><a href="/agent/settings"><%- icon('settings') %>Company &amp; branding</a><% } %>
+            <% if (canOpen('/agent/team')) { %><a href="/agent/team"><%- icon('users') %>Team</a><% } %>
+            <% if (canOpen('/agent/wallet')) { %><a href="/agent/wallet"><%- icon('wallet') %>Wallet &amp; credit</a><% } %>
             <a href="/agent/support"><%- icon('help') %>Help &amp; support</a>
           <% } else if (isAdmin) { %>
             <a href="/admin/settings"><%- icon('settings') %>Settings</a>

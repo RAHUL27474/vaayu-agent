@@ -96,7 +96,12 @@
     </div>
     <form class="card" method="post" action="/admin/agents/<%= agent.id %>/credit">
       <h3>Credit limit</h3>
-      <div style="display:flex;gap:8px"><input type="number" min="0" step="1000" name="credit_limit" value="<%= agent.credit_limit %>" aria-label="Credit limit"><button class="btn">Update</button></div>
+      <div class="row">
+        <div class="field"><label for="cl">Limit (₹)</label><input id="cl" type="number" min="0" step="1000" name="credit_limit" value="<%= agent.credit_limit %>"></div>
+        <div class="field"><label for="cd">Repay within (days)</label><input id="cd" type="number" min="1" max="180" name="credit_days" value="<%= agent.credit_days %>"></div>
+      </div>
+      <% if (agent.credit_used > 0) { %><p class="muted" style="font-size:13px;margin:0 0 8px">Owes <b><%= inr(agent.credit_used) %></b><%= agent.credit_since ? ` since ${fmtDate(agent.credit_since)}` : '' %>.</p><% } %>
+      <button class="btn">Update credit</button>
     </form>
     <form class="card" method="post" action="/admin/agents/<%= agent.id %>/wallet">
       <h3>Adjust wallet</h3>

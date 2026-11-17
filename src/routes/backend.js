@@ -10,7 +10,7 @@ const { num, uniqueSlug } = require('../util');
 const { requireBackend, h, idParam } = require('../auth');
 const svc = require('../services');
 const {
-  KINDS, DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, BASIS_LABELS, MEAL_PLANS, productFromForm, publishProblems, parseProductDetails, describe,
+  KINDS, DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, BASIS_LABELS, MEAL_PLANS, productFromForm, publishProblems, parseProductDetails, describe, seasonsFromForm, listOf,
   priceForAgents, marginPct,
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
@@ -24,6 +24,7 @@ router.param('itemId', idParam);
 router.use(requireBackend);
 router.use((req, res, next) => {
   res.locals.kindsNav = KINDS;
+  res.locals.listOf = listOf;
   res.locals.navKind = KINDS[req.query.kind] ? req.query.kind : '';
   next();
 });
@@ -104,6 +105,8 @@ router.post('/products', withCover(svc.AppError), h(async (req, res) => {
   const p = { ...productFromForm(req.body, kind), image_url: coverFrom(req, null) };
   if (!p.title || !p.city) throw new svc.AppError('Title and city are required.');
   const id = await insertProduct(p, req.user);
+  const sb = seasonsFromForm(req.body);
+  await run('UPDATE products SET seasons = ?, blackouts = ? WHERE id = ?', sb.seasons, sb.blackouts, id);
   await audit(req.user, 'product.created', { entity: 'product', id, summary: `${KINDS[kind].label}: ${p.title} (${p.city})`, link: link(id) });
   req.flash('success', `${KINDS[kind].label} saved as a draft. Publish it to make it available to agents.`);
   res.redirect(link(id));
@@ -132,6 +135,11 @@ router.post('/products/:id', withCover(svc.AppError), h(async (req, res, next) =
   if (!p.title || !p.city) throw new svc.AppError('Title and city are required.');
   const keys = FIELDS.filter((k) => k !== 'kind');
   await run(`UPDATE products SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_by = ?, updated_at = datetime('now') WHERE id = ?`, ...keys.map((k) => p[k]), req.user.id, old.id);
+  const sb = seasonsFromForm(req.body);
+  if (sb.seasons !== old.seasons || sb.blackouts !== old.blackouts) {
+    await run('UPDATE products SET seasons = ?, blackouts = ? WHERE id = ?', sb.seasons, sb.blackouts, old.id);
+    await audit(req.user, 'product.seasons', { entity: 'product', id: old.id, summary: `${p.title}: seasons/sold-out dates updated`, link: link(old.id) });
+  }
   const priceChanged = ['cost_adult', 'cost_child', 'cost_infant', 'price_basis', 'group_size'].some((k) => (old[k] ?? null) !== (p[k] ?? null));
   await audit(req.user, priceChanged ? 'product.price_changed' : 'product.updated', {
     entity: 'product', id: old.id, link: link(old.id),

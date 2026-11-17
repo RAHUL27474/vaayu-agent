@@ -96,6 +96,33 @@
     </div>
 
     <div class="card">
+      <h2>Seasons &amp; sold-out dates</h2>
+      <p class="muted" style="font-size:13px;margin:0 0 10px">Peak season adds a % to agents' price for travel dates in that range (use a minus % for an offer). Sold-out dates can't be booked. Applies to new quotes.</p>
+      <% const seasonRows = listOf(p.seasons); const blackoutRows = listOf(p.blackouts); %>
+      <table class="season-table">
+        <thead><tr><th>From</th><th>To</th><th>Price change %</th><th>Name</th></tr></thead>
+        <% for (let i = 0; i < Math.max(2, seasonRows.length + 1) && i < 6; i++) { const s = seasonRows[i] || {}; %>
+          <tr>
+            <td><input type="date" name="s_from_<%= i %>" value="<%= s.from || '' %>" aria-label="Season <%= i + 1 %> from"></td>
+            <td><input type="date" name="s_to_<%= i %>" value="<%= s.to || '' %>" aria-label="Season <%= i + 1 %> to"></td>
+            <td><input type="number" step="0.5" min="-50" max="300" name="s_pct_<%= i %>" value="<%= s.pct ?? '' %>" placeholder="e.g. 25" aria-label="Season <%= i + 1 %> price change"></td>
+            <td><input name="s_label_<%= i %>" value="<%= s.label || '' %>" maxlength="40" placeholder="e.g. Christmas &amp; New Year" aria-label="Season <%= i + 1 %> name"></td>
+          </tr>
+        <% } %>
+      </table>
+      <table class="season-table" style="margin-top:12px">
+        <thead><tr><th>Sold out from</th><th>To</th><th colspan="2">Reason</th></tr></thead>
+        <% for (let i = 0; i < Math.max(1, blackoutRows.length + 1) && i < 6; i++) { const s = blackoutRows[i] || {}; %>
+          <tr>
+            <td><input type="date" name="b_from_<%= i %>" value="<%= s.from || '' %>" aria-label="Sold out <%= i + 1 %> from"></td>
+            <td><input type="date" name="b_to_<%= i %>" value="<%= s.to || '' %>" aria-label="Sold out <%= i + 1 %> to"></td>
+            <td colspan="2"><input name="b_label_<%= i %>" value="<%= s.label || '' %>" maxlength="40" placeholder="e.g. Fully booked, Ramadan closure" aria-label="Sold out <%= i + 1 %> reason"></td>
+          </tr>
+        <% } %>
+      </table>
+    </div>
+
+    <div class="card">
       <h2>Details for travellers</h2>
       <div class="field"><label for="highlights">Highlights <span class="muted">(one per line)</span></label><textarea id="highlights" name="highlights" style="min-height:70px"><%= val(p.highlights) %></textarea></div>
       <div class="row">

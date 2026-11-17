@@ -12,6 +12,7 @@
     <p><%= quote.code %> · <span class="badge <%= quote.status %>"><%= quote.status %></span><%= customer ? ` · ${customer.name}` : '' %><%= quote.travel_date ? ` · ${fmtDate(quote.travel_date)}` : '' %></p>
   </div>
   <div class="actions">
+    <span class="quote-views" title="Times your customer opened the quote link"><%- icon('external') %><%= quote.view_count ? `Viewed ${quote.view_count}× · last ${fmtDate(quote.last_viewed_at)} ${quote.last_viewed_at.slice(11, 16)} UTC` : 'Not opened yet' %></span>
     <a class="btn" href="/q/<%= quote.code %>" target="_blank">Preview customer view<%- icon('external') %></a>
     <form method="post" action="/agent/quotes/<%= quote.id %>/duplicate"><button class="btn" title="Make a new draft with the same services">Duplicate</button></form>
     <% if (quote.status === 'draft') { %><form method="post" action="/agent/quotes/<%= quote.id %>/send"><button class="btn">Mark as sent</button></form><% } %>

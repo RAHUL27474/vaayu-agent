@@ -23,6 +23,26 @@ function limitPendingAgency(req, res, next) {
   return res.redirect('/agent');
 }
 
+// Agency staff roles. Paths are inside /agent; owners can open everything.
+const STAFF_ROLES = {
+  owner: { label: 'Owner', hint: 'Everything, including wallet, company settings, website, API and team.' },
+  sales: { label: 'Sales', hint: 'Inventory, packages, leads, customers, quotes, bookings and payment links. No wallet, settings or team.' },
+  accounts: { label: 'Accounts', hint: 'Wallet, invoices, payment links, bookings, quotes (view), customers and reports. No inventory or settings.' },
+};
+const SALES_DENY = /^\/(wallet|settings|api|team|reports|website)(\/|$)/;
+const ACCOUNTS_ALLOW = /^\/($|wallet|invoices|payment-links|bookings|reports|customers|quotes|notifications|support|search|offers)(\/|$)?/;
+function staffCan(role, p) {
+  if (!role || role === 'owner') return true;
+  if (role === 'sales') return !SALES_DENY.test(p);
+  if (role === 'accounts') return p === '/' || p === '' || ACCOUNTS_ALLOW.test(p);
+  return false;
+}
+function limitStaffRole(req, res, next) {
+  if (staffCan(req.user.agency_role, req.path)) return next();
+  req.flash('warn', `Your role (${(STAFF_ROLES[req.user.agency_role] || {}).label || req.user.agency_role}) can't open that page. Ask your agency owner if you need it.`);
+  return res.redirect('/agent');
+}
+
 // Defence in depth for actions that move money or create bookings.
 function requireActiveAgency(req, res, next) {
   if (req.agency.status !== 'active') {
@@ -61,4 +81,4 @@ const idParam = (req, res, next, value) => (/^\d{1,9}$/.test(value) ? next() : n
 // Upper bound for any single money amount typed into a form (₹1 crore).
 const MAX_AMOUNT = 10000000;
 
-module.exports = { requireAgent, requireActiveAgency, limitPendingAgency, requireAdmin, requireBackend, homeFor, h, idParam, MAX_AMOUNT };
+module.exports = { STAFF_ROLES, staffCan, limitStaffRole, requireAgent, requireActiveAgency, limitPendingAgency, requireAdmin, requireBackend, homeFor, h, idParam, MAX_AMOUNT };
