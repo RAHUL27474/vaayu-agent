@@ -1,9 +1,28 @@
-// Email through Resend (resend.com). Set RESEND_API_KEY and MAIL_FROM (e.g. "VaayuTrip <noreply@vaayutrip.com>", on a
-// domain verified in Resend). Without them nothing is sent and everything else works as before.
+// Email, by either:
+//   SMTP (e.g. the company's Google Workspace mailbox): SMTP_USER, SMTP_PASS (a Google app password), optional
+//     SMTP_HOST (default smtp.gmail.com) and SMTP_PORT (default 465). No DNS changes needed.
+//   Resend (resend.com): RESEND_API_KEY, with the MAIL_FROM domain verified in Resend.
+// MAIL_FROM is the sender, e.g. "VaayuTrip <info@vaayutrip.com>" (defaults to SMTP_USER). SMTP wins when both are set.
+// Without either, nothing is sent and everything else works as before.
 // Every in-app notification is also emailed: an agency's to its active owners, VaayuTrip's to the support email
 // in Admin → Settings.
 const env = process.env;
-const enabled = () => Boolean(env.RESEND_API_KEY && env.MAIL_FROM);
+const smtpOn = () => Boolean(env.SMTP_USER && env.SMTP_PASS);
+const sender = () => env.MAIL_FROM || (smtpOn() ? `VaayuTrip <${env.SMTP_USER}>` : '');
+const enabled = () => smtpOn() || Boolean(env.RESEND_API_KEY && env.MAIL_FROM);
+
+let transport = null;
+function smtp() {
+  if (!transport) {
+    const port = Number(env.SMTP_PORT || 465);
+    transport = require('nodemailer').createTransport({
+      host: env.SMTP_HOST || 'smtp.gmail.com', port, secure: port === 465,
+      auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+      connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 10000,
+    });
+  }
+  return transport;
+}
 
 // Links in emails need the public address of the site.
 const siteUrl = () => (env.PUBLIC_URL || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000')).replace(/\/$/, '');
@@ -25,18 +44,22 @@ ${button ? `<a href="${esc(button.href)}" style="display:inline-block;background
 </table></td></tr></table></body></html>`;
 }
 
-/** Sends one email. Returns true when Resend accepted it; never throws (email must not break the action). */
+/** Sends one email. Returns true when the SMTP server or Resend accepted it; never throws (email must not break the action). */
 async function send({ to, subject, heading, text, button, footer }) {
   const recipients = [].concat(to).filter(Boolean);
   if (!enabled() || !recipients.length) return false;
+  const html = layout({ heading: heading || subject, text, button, footer });
+  const plain = `${heading || subject}\n\n${text}${button ? `\n\n${button.label}: ${button.href}` : ''}`;
   try {
+    if (smtpOn()) {
+      await smtp().sendMail({ from: sender(), to: recipients, subject, html, text: plain });
+      return true;
+    }
     const r = await fetch(`${env.RESEND_API_URL || 'https://api.resend.com'}/emails`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: env.MAIL_FROM, to: recipients, subject,
-        html: layout({ heading: heading || subject, text, button, footer }),
-        text: `${heading || subject}\n\n${text}${button ? `\n\n${button.label}: ${button.href}` : ''}`,
+        from: sender(), to: recipients, subject, html, text: plain,
       }),
       signal: AbortSignal.timeout(8000),
     });

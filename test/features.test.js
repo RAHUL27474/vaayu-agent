@@ -7,7 +7,10 @@ const resend = http.createServer((req, res) => {
   let body = '';
   req.on('data', (c) => { body += c; });
   req.on('end', () => {
-    if (req.headers.authorization === 'Bearer re_test') mails.push(JSON.parse(body));
+    const m = JSON.parse(body);
+    // An unverified recipient domain stands in for Resend refusing the sender.
+    if (m.to.some((t) => t.endsWith('@unverified.test'))) { res.writeHead(403, { 'Content-Type': 'application/json' }); return res.end('{"message":"domain not verified"}'); }
+    if (req.headers.authorization === 'Bearer re_test') mails.push(m);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end('{"id":"x"}');
   });
@@ -135,6 +138,10 @@ const resend = http.createServer((req, res) => {
     check('reset link sets the new password', await loginOk('anita@skyline.com', 'brandnew99') && !(await loginOk('anita@skyline.com', 'accts1234')));
     check('reset link works only once', (await page(`/reset-password/${link[1]}`)).includes('expired or was already used'));
   }
+  await c.post('/agent/team', owner, { name: 'Ravi Bounce', email: 'ravi@unverified.test', role: 'sales', password: 'bounce1234' });
+  const bounced = await (await c.post('/forgot-password', '', { email: 'ravi@unverified.test' })).text();
+  check('if the reset email cannot be sent, the request goes to support instead', bounced.includes('our support team has your request')
+    && Boolean(await one("SELECT 1 FROM notifications WHERE agency_id IS NULL AND title = 'Password reset request' AND body LIKE '%ravi@unverified.test%'")));
   check('a made-up reset link is refused', (await page(`/reset-password/${'a'.repeat(64)}`)).includes('expired or was already used'));
 
   resend.close();

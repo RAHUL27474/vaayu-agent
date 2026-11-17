@@ -136,12 +136,12 @@ router.post('/forgot-password', h(async (req, res) => {
     if (u && mailer.enabled()) {
       const token = crypto.randomBytes(32).toString('hex');
       await run("INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, datetime('now', '+1 hour'))", u.id, sha256(token));
-      await mailer.send({
+      const sent = await mailer.send({
         to: email, subject: 'Reset your VaayuTrip password', heading: 'Reset your password',
         text: `Hi ${u.name},\n\nSomeone (hopefully you) asked to reset the password for ${email}. The link works once, for the next hour. If it wasn't you, ignore this email; your password stays the same.`,
         button: { href: `${res.locals.origin}/reset-password/${token}`, label: 'Choose a new password' },
       });
-      return res.page('public/forgot', { title: 'Forgot password', email, sent: true, emailed: true, noindex: true }, 'public');
+      if (sent) return res.page('public/forgot', { title: 'Forgot password', email, sent: true, emailed: true, noindex: true }, 'public');
     }
     const already = u && await one("SELECT 1 FROM notifications WHERE agency_id IS NULL AND title = 'Password reset request' AND body LIKE ? AND created_at > datetime('now', '-1 day')", `%(${email}%`);
     if (u && !already) {
@@ -149,7 +149,7 @@ router.post('/forgot-password', h(async (req, res) => {
         u.agency_id ? `/admin/agents/${u.agency_id}#users` : '/admin/team');
     }
   }
-  res.page('public/forgot', { title: 'Forgot password', email, sent: true, emailed: mailer.enabled(), noindex: true }, 'public');
+  res.page('public/forgot', { title: 'Forgot password', email, sent: true, emailed: false, noindex: true }, 'public');
 }));
 
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
