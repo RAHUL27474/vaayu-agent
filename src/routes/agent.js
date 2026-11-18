@@ -331,9 +331,6 @@ router.get('/packages/:id', h(async (req, res, next) => {
     title: pkg.title, pkg, details, calc, priced: priceLines(req.agency, calc.lines),
     view: await present(pkg, details, products), from: await fromPrice(req.agency, pkg, details, products),
     problems: publishProblems(pkg, details), customers: await customersOf(req.agency.id),
-    // The agent's own website only serves active agencies with the site switched on.
-    siteUrl: pkg.status === 'published' && req.agency.status === 'active' && req.agency.website_enabled
-      ? `${req.protocol}://${req.get('host')}/site/${req.agency.slug}/p/${pkg.slug}` : null,
   });
 }));
 
@@ -375,7 +372,7 @@ router.post('/packages/:id/status', h(async (req, res, next) => {
   }
   await run("UPDATE packages SET status = ?, updated_at = datetime('now') WHERE id = ?", status, pkg.id);
   await audit(req.user, status === 'published' ? 'package.published' : 'package.unpublished', { entity: 'package', id: pkg.id, summary: pkg.title });
-  req.flash('success', status === 'published' ? 'Published: the package is live on your website and API.' : 'Unpublished: the package is hidden from your website and API.');
+  req.flash('success', status === 'published' ? 'Published: shown on your website (when VaayuTrip has built one for you) and through the API.' : 'Unpublished.');
   res.redirect(`/agent/packages/${pkg.id}`);
 }));
 
@@ -457,7 +454,7 @@ router.post('/vaayutrip-packages/:id/copy', h(async (req, res, next) => {
   await run('UPDATE packages SET copied_from = ? WHERE id = ?', pkg.id, id);
   await audit(req.user, 'package.created', { entity: 'package', id, summary: `Copied VaayuTrip package: ${pkg.title}` });
   if (publish) {
-    req.flash('success', req.agency.website_enabled ? `${pkg.title} is now on your website, priced with your markup.` : `${pkg.title} copied and published. Switch on your website in My website to show it.`);
+    req.flash('success', `${pkg.title} copied and published${req.agency.website_status === 'live' ? ': it shows on your website' : ''}.`);
     return res.redirect(`/agent/packages/${id}`);
   }
   req.flash('success', 'Copied to My packages. Change anything you like and save.');
@@ -495,20 +492,18 @@ router.post('/quotes', h(async (req, res) => {
 }));
 
 router.get('/quotes/:id', h(async (req, res) => {
-  res.locals.phonepeOn = phonepe.enabled();
   const full = await ownQuote(req);
   const settings = await getSettings();
   const invoices = await all('SELECT * FROM invoices WHERE quote_id = ? ORDER BY id DESC', full.quote.id);
-  const links = await all('SELECT * FROM payment_links WHERE quote_id = ? ORDER BY id DESC', full.quote.id);
   const booking = await one('SELECT * FROM bookings WHERE quote_id = ? ORDER BY id DESC', full.quote.id);
   const customerTotal = withTax(full.priced.sell, settings, { international: Boolean(full.quote.is_international) });
   const netPayable = withTax(full.priced.net, settings);
   res.page('agent/quote', {
     kinds: KINDS, kindMarkups, agencyRates: kindMarkups(req.agency),
-    title: full.quote.title, ...full, invoices, links, booking, customerTotal, netPayable,
+    title: full.quote.title, ...full, invoices, booking, customerTotal, netPayable,
     customers: await customersOf(req.agency.id), branded: agencyHasBranding(req.agency),
     pkgView: full.quote.package_snapshot ? JSON.parse(full.quote.package_snapshot) : null,
-    emi: emiPlans(customerTotal.total, settings), shareUrl: `${req.protocol}://${req.get('host')}/q/${full.quote.code}`,
+    shareUrl: `${req.protocol}://${req.get('host')}/q/${full.quote.code}`,
   });
 }));
 
@@ -618,18 +613,6 @@ router.post('/quotes/:id/invoice', requireActiveAgency, h(async (req, res) => {
   res.redirect(`/agent/invoices/${id}`);
 }));
 
-router.post('/quotes/:id/payment-link', requireActiveAgency, h(async (req, res) => {
-  const { quote, customer, priced } = await ownQuote(req);
-  const total = withTax(priced.sell, await getSettings(), { international: Boolean(quote.is_international) }).total;
-  const amount = round2(num(req.body.amount, total));
-  if (amount <= 0) throw new svc.AppError('Enter an amount.');
-  await run(
-    'INSERT INTO payment_links (agency_id, quote_id, code, purpose, amount, customer_name) VALUES (?, ?, ?, ?, ?, ?)',
-    req.agency.id, quote.id, code('PAY'), quote.title, amount, customer?.name || null,
-  );
-  req.flash('success', 'Payment link created.');
-  res.redirect(`/agent/quotes/${quote.id}#share`);
-}));
 
 router.post('/quotes/:id/delete', h(async (req, res) => {
   const { quote } = await ownQuote(req);
@@ -912,41 +895,21 @@ router.get('/invoices/:id', h(async (req, res, next) => {
   res.page('invoice', { title: `Invoice ${inv.number}`, inv, ...await invoiceView(inv), back: '/agent/invoices', shareUrl, noindex: true }, 'doc');
 }));
 
-// ---------- payment links ----------
-
-router.get('/payment-links', h(async (req, res) => {
-  const p = paging(req);
-  const { rows: links, pager } = pageOf(await all(`SELECT * FROM payment_links WHERE agency_id = ? ORDER BY id DESC ${p.sql}`, req.agency.id, ...p.params), p);
-  res.page('agent/payment-links', { title: 'Payment links', links, pager, base: `${req.protocol}://${req.get('host')}` });
-}));
-
-router.post('/payment-links', requireActiveAgency, h(async (req, res) => {
-  const amount = round2(num(req.body.amount, 0));
-  const purpose = str(req.body.purpose);
-  if (amount <= 0 || !purpose) throw new svc.AppError('Enter what the payment is for and the amount.');
-  if (amount > MAX_AMOUNT) throw new svc.AppError('That amount is too large for one payment link.');
-  await run('INSERT INTO payment_links (agency_id, code, purpose, amount, customer_name) VALUES (?, ?, ?, ?, ?)',
-    req.agency.id, code('PAY'), purpose, amount, str(req.body.customer_name) || null);
-  req.flash('success', 'Payment link created.');
-  res.redirect('/agent/payment-links');
-}));
-
-router.post('/payment-links/:id/expire', h(async (req, res) => {
-  await run("UPDATE payment_links SET status = 'expired' WHERE id = ? AND agency_id = ? AND status = 'pending'", num(req.params.id), req.agency.id);
-  res.redirect('/agent/payment-links');
-}));
-
 // ---------- website, API, notifications, settings ----------
 
+// Websites are built by VaayuTrip's team on the agency's own domain and connected to the portal through the API.
 router.get('/website', h(async (req, res) => {
-  const leads = (await one("SELECT COUNT(*) AS n FROM leads WHERE agency_id = ? AND source = 'website'", req.agency.id)).n;
-  res.page('agent/website', { title: 'My website', siteUrl: `${req.protocol}://${req.get('host')}/site/${req.agency.slug}`, leads });
+  res.page('agent/website', { title: 'My website' });
 }));
 
-router.post('/website', h(async (req, res) => {
-  await run('UPDATE agencies SET website_enabled = ?, website_tagline = ?, website_about = ? WHERE id = ?',
-    req.body.website_enabled ? 1 : 0, str(req.body.website_tagline) || null, str(req.body.website_about) || null, req.agency.id);
-  req.flash('success', 'Website updated.');
+router.post('/website/request', h(async (req, res) => {
+  if (['requested', 'in_progress', 'live'].includes(req.agency.website_status)) return res.redirect('/agent/website');
+  const domain = str(req.body.domain).toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').slice(0, 100);
+  const note = [domain && `Domain: ${domain}`, str(req.body.phone) && `Call: ${str(req.body.phone)}`, str(req.body.message)].filter(Boolean).join('\n').slice(0, 1000);
+  await run("UPDATE agencies SET website_status = 'requested', website_domain = ?, website_request = ?, website_requested_at = datetime('now') WHERE id = ?", domain || null, note || null, req.agency.id);
+  await notify(null, 'Website request', `${req.agency.name} wants its own website${domain ? ` on ${domain}` : ''}. Call ${str(req.body.phone) || req.agency.phone || 'them'} with the charges.`, `/admin/agents/${req.agency.id}#website`);
+  await audit(req.user, 'website.requested', { entity: 'agency', id: req.agency.id, summary: domain || 'Website request' });
+  req.flash('success', 'Request sent. Our team will call you with the charges and next steps.');
   res.redirect('/agent/website');
 }));
 

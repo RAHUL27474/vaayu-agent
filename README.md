@@ -157,7 +157,7 @@ public/                 CSS, JS, logos, uploaded agency logos
 
 - **Photos:** upload photos you own or have licensed; items and packages without one show a generated destination cover. Agents' own hotels and services are their responsibility to fulfil.
 - **Inventory:** the demo hotels are made up, and flight numbers, schedules and net rates are illustrative. The backend team should replace them with contracted inventory before agents sell. Airfares are stored as fixed fares; connect a GDS or airline API (e.g. Amadeus, TBO) if you need live availability and ticketing.
-- **Payments (PhonePe):** agents top up their wallet, and customers pay payment links and quotes ("Let the customer pay online" on a quote), through PhonePe's checkout (`src/phonepe.js`, `src/payments.js`). Customer payments are credited to the agency's wallet, less the gateway fee set in Admin → Settings. Set the keys in Vercel → Settings → Environment Variables (Production), then redeploy:
+- **Payments (PhonePe):** agents top up their wallet through PhonePe (`src/phonepe.js`, `src/payments.js`). VaayuTrip takes no customer payments: customers pay their agent directly. Set the keys in Vercel → Settings → Environment Variables (Production), then redeploy:
   - new PhonePe PG (Client ID): `PHONEPE_CLIENT_ID`, `PHONEPE_CLIENT_SECRET`, `PHONEPE_CLIENT_VERSION`
   - older PhonePe PG (Salt Key): `PHONEPE_MERCHANT_ID`, `PHONEPE_SALT_KEY`, `PHONEPE_SALT_INDEX`
   - `PHONEPE_ENV=production` for real money (anything else uses PhonePe's sandbox)
@@ -172,6 +172,8 @@ public/                 CSS, JS, logos, uploaded agency logos
 - **Rate tiers:** admins put agencies on Standard, Silver or Gold; Silver/Gold pay fewer percentage points of VaayuTrip's margin (Settings → tier discounts).
 - **Travellers' documents:** agents keep passports, visas and photos per customer (private files in the database, shown only to that agency); passports expiring within 6 months of the next trip are flagged.
 - **TCS reports:** Admin → Invoices (VaayuTrip's customer invoices) and agents' Reports (their own) download TCS per invoice with customer PAN, for the TCS return.
+- **B2B only:** VaayuTrip sells only to agents. Customer quotes, invoices and vouchers are always the agency's own (name, logo, details), and an agency must complete its profile and KYC before it can book. Agents share a quote, invoice or voucher link (no login); payment is between agent and customer.
+- **Agency websites:** built by VaayuTrip's team on request (My website → request; Admin → agent → Website status and domain), on the agency's own domain, connected through the API.
 - **Agency staff:** owners add staff logins in Team as Owner, Sales or Accounts (`src/auth.js` lists what each can open).
 - **Credit:** credit drawn is due `credit_days` (set per agency by the admin, default 15) after it was first used; agents repay it from their wallet. Overdue credit can't be drawn for new bookings. The daily cron sends due/overdue reminders.
 - **Seasons:** inventory can carry peak-season % changes and sold-out dates (backend product form); they apply when a travel date is known (product page, adding to a quote, package quotes).

@@ -102,7 +102,8 @@ router.get('/', h(async (req, res) => {
       (SELECT COALESCE(SUM(total_net), 0) FROM bookings WHERE status != 'cancelled' AND substr(created_at, 1, 7) = ?) AS revenue,
       (SELECT COALESCE(SUM(wallet_balance), 0) FROM agencies) AS "walletFloat",
       (SELECT COALESCE(SUM(credit_used), 0) FROM agencies) AS "creditOut",
-      (SELECT COUNT(*) FROM bookings WHERE status = 'cancel_requested') AS "cancelRequests"`, month, month);
+      (SELECT COUNT(*) FROM bookings WHERE status = 'cancel_requested') AS "cancelRequests",
+      (SELECT COUNT(*) FROM agencies WHERE website_status = 'requested') AS "websiteRequests"`, month, month);
   const [stats, bookings, pending, topAgents, topProducts, recentLog] = await Promise.all([
     statsQuery,
     all('SELECT b.*, a.name AS agency_name FROM bookings b JOIN agencies a ON a.id = b.agency_id ORDER BY b.id DESC LIMIT 8'),
@@ -215,6 +216,20 @@ router.post('/agents/:id/status', h(async (req, res) => {
   await audit(req.user, 'agency.updated', { entity: 'agency', id, agencyId: id, link: `/admin/agents/${id}`, summary: [name, status && `status ${status}`, kyc && `KYC ${kyc}`].filter(Boolean).join(': ') });
   req.flash('success', 'Agent updated.');
   res.redirect(`/admin/agents/${id}`);
+}));
+
+router.post('/agents/:id/website', h(async (req, res, next) => {
+  const a = await one('SELECT id, name, website_status FROM agencies WHERE id = ?', num(req.params.id));
+  if (!a) return next();
+  const status = ['none', 'requested', 'in_progress', 'live'].includes(req.body.website_status) ? req.body.website_status : a.website_status;
+  const domain = String(req.body.website_domain || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').slice(0, 100) || null;
+  if (status === 'live' && !domain) throw new svc.AppError('Enter the domain the website is live on.');
+  await run('UPDATE agencies SET website_status = ?, website_domain = ? WHERE id = ?', status, domain, a.id);
+  await audit(req.user, 'agency.website', { entity: 'agency', id: a.id, agencyId: a.id, link: `/admin/agents/${a.id}#website`, summary: `${a.name}: website ${status}${domain ? ` (${domain})` : ''}` });
+  if (status !== a.website_status && status === 'in_progress') await notify(a.id, 'Your website is being built', 'Our team has started on your website.', '/agent/website');
+  if (status !== a.website_status && status === 'live') await notify(a.id, 'Your website is live', `Your website is live on ${domain}. Packages you publish show there.`, '/agent/website');
+  req.flash('success', 'Website status saved.');
+  res.redirect(`/admin/agents/${a.id}#website`);
 }));
 
 router.post('/agents/:id/tier', h(async (req, res, next) => {
@@ -510,7 +525,7 @@ router.post('/tickets/:id/reply', h(async (req, res, next) => {
 }));
 
 const MARGIN_KEYS = Object.keys(KINDS).map((k) => `margin_${k}`);
-const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'gst_enabled', 'tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'bank_details', 'sac_code', 'tier_silver_pct', 'tier_gold_pct', ...MARGIN_KEYS];
+const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'gst_enabled', 'tax_rate', 'tcs_rate', 'emi_rate', 'bank_details', 'sac_code', 'tier_silver_pct', 'tier_gold_pct', ...MARGIN_KEYS];
 
 router.get('/settings', async (req, res) => {
   const values = await getSettings();

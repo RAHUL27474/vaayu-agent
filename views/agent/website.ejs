@@ -1,21 +1,37 @@
+<%# Agency website: built by VaayuTrip's team on request. %>
 <div class="page-head">
-  <div><h1>My website</h1><p>A ready-made travel website with your brand, the packages you publish at your prices, and an enquiry form that feeds your leads.</p></div>
-  <% if (agency.status === 'active' && agency.website_enabled) { %><a class="btn btn-primary" href="<%= siteUrl %>" target="_blank">Open my website<%- icon('external') %></a><% } %>
+  <div><h1>My website</h1><p>Want your own travel website with your brand and these packages? Our team designs it, puts it live on your own domain, and connects it to this portal so your packages, prices and enquiries stay in sync.</p></div>
 </div>
-<% if (agency.status !== 'active') { %><div class="alert warn">Your website goes live once VaayuTrip approves your account.</div><% } %>
+<% const st = agency.website_status || 'none'; %>
+<% if (st === 'live') { %>
+  <div class="card">
+    <h3>Your website is live</h3>
+    <p><a href="https://<%= agency.website_domain %>" target="_blank" rel="noopener"><b><%= agency.website_domain %></b><%- icon('external') %></a></p>
+    <p class="muted" style="font-size:13px">It shows the packages you publish (My packages → Publish), priced with your markup, and enquiries arrive in <a href="/agent/leads">Leads</a>. Changes? <a href="/agent/support">Write to support</a>.</p>
+  </div>
+<% } else if (st === 'requested' || st === 'in_progress') { %>
+  <div class="card">
+    <h3><%= st === 'requested' ? 'Request received' : 'Your website is being built' %></h3>
+    <p class="muted"><%= st === 'requested' ? 'Our team will call you with the charges and next steps.' : 'Our team is working on it. We will let you know when it is live.' %><%= agency.website_requested_at ? ` Requested on ${fmtDate(agency.website_requested_at)}.` : '' %></p>
+    <% if (agency.website_domain) { %><p>Domain: <b><%= agency.website_domain %></b></p><% } %>
+  </div>
+<% } else { %>
 <div class="split">
-  <form class="card" method="post" action="/agent/website">
-    <label class="check" style="margin-bottom:16px"><input type="checkbox" name="website_enabled" value="1" <%= agency.website_enabled ? 'checked' : '' %>> Website is live</label>
-    <div class="field"><label for="tagline">Headline</label><input id="tagline" name="website_tagline" value="<%= agency.website_tagline || '' %>" placeholder="Holidays by <%= agency.name %>"></div>
-    <div class="field"><label for="about">About your agency</label><textarea id="about" name="website_about" placeholder="Tell travellers why they should book with you."><%= agency.website_about || '' %></textarea></div>
-    <p class="muted" style="font-size:13px">Logo, colours, phone and address come from <a href="/agent/settings">Company &amp; branding</a>. Package prices use your default markup (<%= agency.markup_type === 'flat' ? inr(agency.markup_value) : agency.markup_value + '%' %>).</p>
-    <button class="btn btn-primary">Save website</button>
+  <form class="card" method="post" action="/agent/website/request">
+    <h3>Request your website</h3>
+    <div class="field"><label for="w-domain">Your domain <span class="muted">(if you have one)</span></label><input id="w-domain" name="domain" placeholder="e.g. skylineholidays.in"></div>
+    <div class="field"><label for="w-phone">Best number to call you</label><input id="w-phone" name="phone" value="<%= agency.phone || '' %>" inputmode="tel"></div>
+    <div class="field"><label for="w-msg">What would you like? <span class="muted">(optional)</span></label><textarea id="w-msg" name="message" maxlength="800" placeholder="Pages, languages, anything you have in mind"></textarea></div>
+    <button class="btn btn-primary">Send request</button>
   </form>
   <div class="card">
-    <h3>Your link</h3>
-    <div style="display:flex;gap:8px"><input type="text" readonly value="<%= siteUrl %>" aria-label="Your website address"><button class="btn" data-copy="<%= siteUrl %>">Copy</button></div>
-    <p class="muted" style="margin-top:10px;font-size:13px">Put it in your Instagram bio, WhatsApp Business profile and Google Business listing.</p>
-    <hr>
-    <div class="stat" style="box-shadow:none"><div class="label">Website enquiries so far</div><div class="value"><%= leads %></div><div class="sub"><a href="/agent/leads">View leads →</a></div></div>
+    <h3>How it works</h3>
+    <ol class="steps" style="margin:0;padding-left:18px;line-height:1.7">
+      <li>Send this request.</li>
+      <li>Our team calls you with the charges and agrees the design.</li>
+      <li>We build the website and put it live on your domain.</li>
+      <li>We connect it to this portal: your published packages and prices show there, and enquiries come to your Leads.</li>
+    </ol>
   </div>
 </div>
+<% } %>

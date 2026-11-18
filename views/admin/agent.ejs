@@ -9,9 +9,8 @@
       <form method="post" action="/admin/agents/<%= agent.id %>/status"><input type="hidden" name="status" value="active"><input type="hidden" name="kyc_status" value="verified"><button class="btn btn-primary" <%= missing.length ? 'disabled title="KYC documents incomplete"' : '' %>>Approve as agent</button></form>
     <% } %>
     <% if (agent.status === 'active') { %>
-      <form method="post" action="/admin/agents/<%= agent.id %>/status" data-confirm="Suspend this agency? Its users will be logged out and its website taken offline."><input type="hidden" name="status" value="suspended"><button class="btn btn-danger">Suspend</button></form>
+      <form method="post" action="/admin/agents/<%= agent.id %>/status" data-confirm="Suspend this agency? Its users will be logged out and its API key stops working."><input type="hidden" name="status" value="suspended"><button class="btn btn-danger">Suspend</button></form>
     <% } %>
-    <% if (agent.status === 'active' && agent.website_enabled) { %><a class="btn" href="/site/<%= agent.slug %>" target="_blank">Agent website<%- icon('external') %></a><% } %>
   </div>
 </div>
 
@@ -94,6 +93,15 @@
           </div><% }) %></dd>
       </dl>
     </div>
+    <form class="card" method="post" action="/admin/agents/<%= agent.id %>/website" id="website">
+      <h3>Website</h3>
+      <% if (agent.website_request) { %><p class="muted" style="font-size:13px;white-space:pre-line;margin:0 0 8px"><%= agent.website_request %></p><% } %>
+      <div class="row">
+        <div class="field"><label for="ws">Status</label><select id="ws" name="website_status"><% [['none', 'No website'], ['requested', 'Requested'], ['in_progress', 'Being built'], ['live', 'Live']].forEach(([k, l]) => { %><option value="<%= k %>" <%= agent.website_status === k ? 'selected' : '' %>><%= l %></option><% }) %></select></div>
+        <div class="field"><label for="wd">Domain</label><input id="wd" name="website_domain" value="<%= agent.website_domain || '' %>" placeholder="agency.in"></div>
+      </div>
+      <button class="btn">Save</button>
+    </form>
     <form class="card" method="post" action="/admin/agents/<%= agent.id %>/tier">
       <h3>Rate tier</h3>
       <p class="muted" style="font-size:13px;margin:0 0 8px">Silver and Gold partners get lower net rates (Settings → tier discounts: Silver <%= settings.tier_silver_pct || 0 %>, Gold <%= settings.tier_gold_pct || 0 %> points off VaayuTrip's margin).</p>

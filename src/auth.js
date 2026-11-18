@@ -26,11 +26,11 @@ function limitPendingAgency(req, res, next) {
 // Agency staff roles. Paths are inside /agent; owners can open everything.
 const STAFF_ROLES = {
   owner: { label: 'Owner', hint: 'Everything, including wallet, company settings, website, API and team.' },
-  sales: { label: 'Sales', hint: 'Inventory, packages, leads, customers, quotes, bookings and payment links. No wallet, settings or team.' },
-  accounts: { label: 'Accounts', hint: 'Wallet, invoices, payment links, bookings, quotes (view), customers and reports. No inventory or settings.' },
+  sales: { label: 'Sales', hint: 'Inventory, packages, leads, customers, quotes and bookings. No wallet, settings or team.' },
+  accounts: { label: 'Accounts', hint: 'Wallet, invoices, bookings, quotes (view), customers and reports. No inventory or settings.' },
 };
 const SALES_DENY = /^\/(wallet|settings|api|team|reports|website)(\/|$)/;
-const ACCOUNTS_ALLOW = /^\/($|wallet|invoices|payment-links|bookings|reports|customers|quotes|notifications|support|search|offers)(\/|$)?/;
+const ACCOUNTS_ALLOW = /^\/($|wallet|invoices|bookings|reports|customers|quotes|notifications|support|search|offers)(\/|$)?/;
 function staffCan(role, p) {
   if (!role || role === 'owner') return true;
   if (role === 'sales') return !SALES_DENY.test(p);

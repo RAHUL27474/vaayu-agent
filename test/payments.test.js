@@ -1,5 +1,5 @@
-// Online payments through PhonePe (v2 API), against a stand-in PhonePe server: wallet top-ups, customer payment
-// links and quotes, credited exactly once and only for the amount asked; webhooks must carry PhonePe's signature.
+// Agents' wallet top-ups through PhonePe (v2 API), against a stand-in PhonePe server: credited exactly once and only
+// for the amount asked; webhooks must carry PhonePe's signature. Customers pay their agent directly, not VaayuTrip.
 const http = require('http');
 const crypto = require('crypto');
 
@@ -80,31 +80,7 @@ const fake = http.createServer((req, res) => {
   const sig = crypto.createHash('sha256').update('hook:hookpass').digest('hex');
   check('signed webhook settles the payment', (await hook(sig)).status === 200 && await balance() === b0 + 3200);
 
-  // ---------- customer payment link, with gateway fee ----------
-  await c.post('/admin/settings', admin, { pg_fee_pct: '2' });
-  await c.post('/agent/payment-links', agent, { purpose: 'Bali deposit', amount: '10000', customer_name: 'Asha' });
-  const link = await one('SELECT * FROM payment_links WHERE agency_id = ? ORDER BY id DESC LIMIT 1', agencyId);
-  check('payment page offers secure PhonePe checkout', (await (await c.get(`/pay/${link.code}`)).text()).includes('securely'));
-  r = await c.post(`/pay/${link.code}`, '', {});
-  check('customer is sent to PhonePe', r.status === 303);
-  orders.get(lastOrder()).state = 'COMPLETED';
-  const b1 = await balance();
-  r = await c.get(`/payments/return/${lastOrder()}`);
-  check('customer returns to the payment page', r.headers.get('location') === `/pay/${link.code}`);
-  check('link paid; agency credited less 2% fee', (await one('SELECT status FROM payment_links WHERE id = ?', link.id)).status === 'paid' && await balance() === b1 + 9800, `${b1} → ${await balance()}`);
-  check('customer can not pay a paid link again', (await c.post(`/pay/${link.code}`, '', {})).headers.get('location') === `/pay/${link.code}` && (await one("SELECT COUNT(*) AS n FROM payments WHERE purpose = 'link' AND ref_id = ?", link.id)).n === 1);
-
-  // ---------- quote "Pay now" ----------
-  const q = await one("SELECT * FROM quotes WHERE agency_id = ? AND status IN ('sent', 'accepted', 'draft') AND EXISTS (SELECT 1 FROM quote_items WHERE quote_id = quotes.id) ORDER BY id LIMIT 1", agencyId);
-  await db.prepare("UPDATE quotes SET status = 'sent', pay_online = 0 WHERE id = ?").run(q.id);
-  check('no Pay button until the agent allows it', !(await (await c.get(`/q/${q.code}`)).text()).includes(`/q/${q.code}/pay`));
-  await db.prepare('UPDATE quotes SET pay_online = 1 WHERE id = ?').run(q.id);
-  check('quote shows "Pay online" when allowed', (await (await c.get(`/q/${q.code}`)).text()).includes(`/q/${q.code}/pay`));
-  r = await c.post(`/q/${q.code}/pay`, '', {});
-  const ql = await one("SELECT * FROM payment_links WHERE quote_id = ? AND status = 'pending'", q.id);
-  check('Pay now makes a payment link for the trip total', ql && r.headers.get('location') === `/pay/${ql.code}` && ql.amount > 0);
-  await c.post(`/q/${q.code}/pay`, '', {});
-  check('pressing again reuses the same link', (await one("SELECT COUNT(*) AS n FROM payment_links WHERE quote_id = ? AND status = 'pending'", q.id)).n === 1);
+  check('customers can not pay through VaayuTrip', (await c.get('/pay/anything')).status === 404 && (await c.post('/q/anything/pay', '', {})).status === 404);
 
   fake.close();
   finish(c);

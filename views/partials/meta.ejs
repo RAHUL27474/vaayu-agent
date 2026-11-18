@@ -1,7 +1,7 @@
 <%#
   Page description and link previews (WhatsApp, Facebook, LinkedIn, X) for public pages.
-  Optional locals: meta = { description, image, type }, site (an agency's own website: no VaayuTrip
-  branding), noindex (private pages such as shared quotes and payment links).
+  Optional locals: meta = { description, image, type }, site (the agency whose
+  quote, invoice or voucher this is: its brand, not VaayuTrip's), noindex (everything an agent shares).
 %>
 <%
   const ownSite = typeof site !== 'undefined' && site;
@@ -25,18 +25,9 @@
   <meta property="og:description" content="<%= description %>">
   <meta property="og:url" content="<%= origin %><%= path %>">
   <%
-    const agencyLd = (a) => ({ '@type': 'TravelAgency', name: a.name, url: `${origin}/site/${a.slug}`, telephone: a.phone || undefined, email: a.email || undefined, logo: raster(a.logo_path) ? abs(a.logo_path) : undefined, address: a.city ? { '@type': 'PostalAddress', addressLocality: a.city, addressCountry: a.country || 'India' } : undefined });
+    // Structured data for Google on VaayuTrip's home page only (everything an agent shares is private).
     let ld = null;
-    if (m.ld && m.ld.pkg) {
-      const p = m.ld.pkg;
-      ld = { '@context': 'https://schema.org', '@type': 'TouristTrip', name: p.title, description, url: `${origin}${path}`,
-        image: raster(p.image_url) ? abs(p.image_url) : undefined, touristType: p.theme || undefined,
-        itinerary: { '@type': 'Place', name: p.destination },
-        provider: agencyLd(site),
-        offers: m.ld.price ? { '@type': 'Offer', price: Math.round(m.ld.price), priceCurrency: 'INR', availability: 'https://schema.org/InStock', url: `${origin}${path}`, seller: { '@type': 'TravelAgency', name: site.name } } : undefined };
-    } else if (ownSite) {
-      ld = { '@context': 'https://schema.org', ...agencyLd(site), description };
-    } else if (path === '/') {
+    if (path === '/') {
       ld = { '@context': 'https://schema.org', '@type': 'Organization', name: settings.company_name || 'VaayuTrip', legalName: settings.legal_name || undefined, url: origin, logo: abs('/img/vaayutrip-logo.png'), email: settings.email || undefined, telephone: settings.phone || undefined, description };
     }
   %>

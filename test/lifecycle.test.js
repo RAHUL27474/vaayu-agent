@@ -21,7 +21,6 @@ const all = (sql, ...p) => db.prepare(sql).all(...p);
   const pkgHtml = await pkgPage.text();
   check('package page still works and warns about the missing item', pkgPage.status === 200 && /no longer offered/i.test(pkgHtml));
   check('package edit form still works', (await c.get(`/agent/packages/${pkg.id}/edit`, agent)).status === 200);
-  check("agent's public package page still works", (await c.get(`/site/${sky.slug}/p/${pkg.slug}`)).status === 200);
   for (const { quote_id: qid } of quotesUsing.slice(0, 3)) {
     const q = await one('SELECT * FROM quotes WHERE id = ?', qid);
     check(`quote ${q.code} still opens (agent and customer)`, (await c.get(`/agent/quotes/${qid}`, agent)).status === 200 && (await c.get(`/q/${q.code}`)).status === 200);
@@ -49,7 +48,6 @@ const all = (sql, ...p) => db.prepare(sql).all(...p);
   const after = await c.get('/agent', agent);
   check('suspended agent is logged out', after.status === 302 && after.headers.get('location').startsWith('/login'));
   check('suspended agent cannot log back in to the portal', (await c.get('/agent', await c.login(...ROLES.agent))).status === 302);
-  check("suspended agency's website is offline", (await c.get(`/site/${sky.slug}`)).status === 404);
   check("suspended agency's API key stops working", (await fetch(`${c.B}/api/v1/packages`, { headers: { authorization: `Bearer ${key}` } })).status === 401);
   check('admin agent page for a suspended agency works', (await c.get(`/admin/agents/${sky.id}`, admin)).status === 200);
   await c.post(`/admin/agents/${sky.id}/status`, admin, { status: 'active' });

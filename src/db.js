@@ -394,6 +394,12 @@ CREATE TABLE IF NOT EXISTS password_resets (
   used_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+-- Agency websites are built by VaayuTrip's team on request (on the agency's own domain, connected via the API):
+-- website_status none | requested | in_progress | live.
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS website_status TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS website_domain TEXT;
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS website_request TEXT;
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS website_requested_at TEXT;
 -- Invoice numbers: unique per series (VaayuTrip's own; each agency's own), not across agencies, so two agencies
 -- with the same initials can't collide.
 ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_number_key;

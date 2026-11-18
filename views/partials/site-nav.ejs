@@ -1,9 +1,0 @@
-<nav class="site-nav">
-  <a class="logo" href="/site/<%= site.slug %>" style="display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:700;font-size:18px">
-    <% if (site.logo_path) { %><img src="<%= site.logo_path %>" alt="<%= site.name %>"><% } else { %><%= site.name %><% } %>
-  </a>
-  <div class="links">
-    <% if (site.phone) { %><a class="site-phone" href="tel:<%= site.phone.replace(/\s/g, '') %>"><%- icon('phone') %><span><%= site.phone %></span></a><% } %>
-    <a class="btn btn-primary" style="background:<%= site.brand_color %>;border-color:<%= site.brand_color %>" href="#enquire">Enquire now</a>
-  </div>
-</nav>

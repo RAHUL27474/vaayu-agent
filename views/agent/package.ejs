@@ -9,7 +9,7 @@
   <div>
     <h1><%= pkg.title %></h1>
     <p><%= plural(pkg.nights, 'night') %> / <%= plural(pkg.nights + 1, 'day') %> · <%= pkg.destination %><%= pkg.theme ? ` · ${pkg.theme}` : '' %> ·
-      <span class="badge <%= pkg.status === 'published' ? 'active' : '' %>"><%= pkg.status === 'published' ? 'On your website' : 'Draft' %></span>
+      <span class="badge <%= pkg.status === 'published' ? 'active' : '' %>"><%= pkg.status === 'published' ? 'Published' : 'Draft' %></span>
       <% if (pkg.is_international) { %><span class="badge">International</span><% } %></p>
   </div>
   <div class="actions">
@@ -17,22 +17,15 @@
     <% if (pkg.status === 'published') { %>
       <form method="post" action="/agent/packages/<%= pkg.id %>/status"><input type="hidden" name="status" value="draft"><button class="btn">Unpublish</button></form>
     <% } else { %>
-      <form method="post" action="/agent/packages/<%= pkg.id %>/status"><input type="hidden" name="status" value="published"><button class="btn btn-accent" <%= problems.length ? 'disabled' : '' %> title="<%= problems.join(' ') %>">Publish to my website</button></form>
+      <form method="post" action="/agent/packages/<%= pkg.id %>/status"><input type="hidden" name="status" value="published"><button class="btn btn-accent" <%= problems.length ? 'disabled' : '' %> title="<%= problems.join(' ') %>">Publish</button></form>
     <% } %>
     <form method="post" action="/agent/packages/<%= pkg.id %>/duplicate"><button class="btn">Duplicate</button></form>
   </div>
 </div>
 <% if (problems.length && pkg.status !== 'published') { %>
-  <div class="alert warn">To publish this package on your website: <%= problems.join(' ') %> <a href="/agent/packages/<%= pkg.id %>/edit">Edit package</a></div>
+  <div class="alert warn">To publish this package: <%= problems.join(' ') %> <a href="/agent/packages/<%= pkg.id %>/edit">Edit package</a></div>
 <% } %>
 <% calc.warnings.forEach(w => { %><div class="alert warn"><%= w %> <a href="/agent/packages/<%= pkg.id %>/edit#items">Replace it</a></div><% }) %>
-<% if (siteUrl) { %>
-  <div class="share-bar">
-    <span>Share with a customer: this package on <b>your website</b>, with your branding and prices.</span>
-    <a class="btn btn-sm btn-wa" href="https://wa.me/?text=<%= encodeURIComponent(`${pkg.title} — ${pkg.nights}N/${pkg.nights + 1}D ${pkg.destination}, from ${inr(from.sell)} per person. Full itinerary: ${siteUrl}`) %>" target="_blank" rel="noopener">WhatsApp</a>
-    <button class="btn btn-sm" type="button" data-copy="<%= siteUrl %>">Copy link</button>
-  </div>
-<% } %>
 
 <div class="split">
   <div>

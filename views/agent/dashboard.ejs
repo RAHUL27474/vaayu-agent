@@ -125,7 +125,7 @@
   </div>
   <div class="card flush">
     <div class="card-head"><h3>New leads</h3><a href="/agent/leads">All leads</a></div>
-    <% if (!leads.length) { %><div class="empty">No new leads. Share <a href="/agent/website">your website</a> to get enquiries.</div><% } else { %>
+    <% if (!leads.length) { %><div class="empty">No new leads. Add enquiries you get by phone or WhatsApp in <a href="/agent/leads">Leads</a>.</div><% } else { %>
     <table class="table" style="margin-top:10px">
       <% leads.forEach(l => { %>
         <tr><td><b><%= l.name %></b><br><small><%= l.destination || 'Any destination' %> · <%= l.source %></small></td><td class="num"><form method="post" action="/agent/leads/<%= l.id %>/quote"><button class="btn btn-sm">Create quote</button></form></td></tr>

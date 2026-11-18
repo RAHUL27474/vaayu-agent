@@ -11,7 +11,7 @@
   </div>
   <div class="actions">
     <form method="post" action="/agent/vaayutrip-packages/<%= pkg.id %>/copy"><button class="btn" title="Change hotels, days or add your own services">Copy to My packages</button></form>
-    <form method="post" action="/agent/vaayutrip-packages/<%= pkg.id %>/copy"><input type="hidden" name="publish" value="1"><button class="btn btn-accent">Add to my website</button></form>
+    <form method="post" action="/agent/vaayutrip-packages/<%= pkg.id %>/copy"><input type="hidden" name="publish" value="1"><button class="btn btn-accent" title="Copy into My packages and publish it">Copy &amp; publish</button></form>
   </div>
 </div>
 <% if (copies.length) { %><div class="alert info">You already have <%= copies.length === 1 ? 'a copy' : `${copies.length} copies` %>: <%- copies.map(c => `<a href="/agent/packages/${c.id}">${c.title.replace(/</g, '&lt;')}</a>`).join(', ') %></div><% } %>

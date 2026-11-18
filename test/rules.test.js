@@ -212,10 +212,9 @@ const png = [PNG, 'image/png', 'me.png'];
   // ---------- health check, structured data ----------
   const hz = await c.get('/healthz');
   check('health check answers', hz.status === 200 && (await hz.json()).ok === true);
-  const pkgUrl = (await (await c.get('/sitemap.xml')).text()).match(/\/site\/skyline-holidays\/p\/[^<]+/)[0];
-  const ldm = (await (await c.get(pkgUrl)).text()).match(/<script type="application\/ld\+json">(.*?)<\/script>/);
-  const ld = ldm && JSON.parse(ldm[1]);
-  check('package page has TouristTrip data with an INR price', ld && ld['@type'] === 'TouristTrip' && ld.offers.priceCurrency === 'INR' && ld.offers.price > 0 && ld.provider.name === 'Skyline Holidays');
+  const homeLd = (await (await c.get('/')).text()).match(/<script type="application\/ld\+json">(.*?)<\/script>/);
+  check('home page has Organization data for Google', homeLd && JSON.parse(homeLd[1])['@type'] === 'Organization');
+  check('agency mini-sites are gone (websites are built by VaayuTrip on request)', (await c.get('/site/skyline-holidays')).status === 404);
 
   // ---------- rate card ----------
   const card = 'C:/Users/Dell/Downloads/VaayuTrip-RateCard-Template.xlsx';

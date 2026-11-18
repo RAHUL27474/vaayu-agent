@@ -1,7 +1,8 @@
-// Online payments: start one at PhonePe, and settle it once PhonePe confirms it. Settling is idempotent, so the
+// Agents' wallet top-ups through PhonePe: start one, and settle it once PhonePe confirms it. (Customers pay their
+// agent directly; VaayuTrip takes no customer payments.) Settling is idempotent, so the
 // payer's return, PhonePe's webhook and the background check can all call it for the same order safely.
 const crypto = require('crypto');
-const { one, all, run, tx, notify, getSettings } = require('./db');
+const { one, all, run, tx, notify } = require('./db');
 const { round2 } = require('./util');
 const phonepe = require('./phonepe');
 const { moveWallet, AppError } = require('./services');
@@ -10,11 +11,11 @@ const newOrderId = (prefix) => `VT${prefix}${Date.now().toString(36).toUpperCase
 
 /**
  * Creates the payment and returns PhonePe's checkout URL.
- * purpose 'topup': refId = topup_requests.id; 'link': refId = payment_links.id.
+ * purpose: 'topup'; refId = topup_requests.id.
  */
 async function startPayment({ purpose, agencyId, refId, amount, origin, note, payerRef }) {
   if (!phonepe.enabled()) throw new AppError('Online payment is not set up yet.');
-  const orderId = newOrderId(purpose === 'topup' ? 'T' : 'L');
+  const orderId = newOrderId('T');
   await run('INSERT INTO payments (order_id, purpose, agency_id, ref_id, amount) VALUES (?, ?, ?, ?, ?)', orderId, purpose, agencyId, refId, round2(amount));
   try {
     const { redirectUrl } = await phonepe.createPayment({
@@ -27,12 +28,6 @@ async function startPayment({ purpose, agencyId, refId, amount, origin, note, pa
     await run("UPDATE payments SET status = 'failed' WHERE order_id = ?", orderId);
     throw new AppError(e instanceof phonepe.PaymentError ? `${e.message} Please try again in a minute.` : 'Could not reach PhonePe. Please try again in a minute.');
   }
-}
-
-/** Customer payments are credited to the agency less the gateway fee VaayuTrip passes on (Admin → Settings). */
-async function linkCredit(amount) {
-  const fee = Math.max(0, Math.min(10, parseFloat((await getSettings()).pg_fee_pct) || 0));
-  return { fee: round2(amount * fee / 100), feePct: fee };
 }
 
 /**
@@ -56,18 +51,9 @@ async function settle(orderId) {
     }
     await run("UPDATE payments SET status = 'completed', provider_txn = ?, mode = ?, completed_at = datetime('now') WHERE id = ?", s.transactionId || null, s.mode || null, cur.id);
     const ref = `PhonePe ${s.transactionId || orderId}`;
-    if (cur.purpose === 'topup') {
-      await run("UPDATE topup_requests SET status = 'approved', utr = ? WHERE id = ?", ref, cur.ref_id);
-      await moveWallet(cur.agency_id, 'topup', cur.amount, ref, 'Wallet top-up (PhonePe)');
-      await notify(cur.agency_id, 'Wallet topped up', `₹${cur.amount.toLocaleString('en-IN')} added to your wallet via PhonePe.`, '/agent/wallet');
-    } else {
-      const link = await one('SELECT * FROM payment_links WHERE id = ? FOR UPDATE', cur.ref_id);
-      await run("UPDATE payment_links SET status = 'paid', paid_at = datetime('now') WHERE id = ?", link.id);
-      const { fee, feePct } = await linkCredit(cur.amount);
-      await moveWallet(cur.agency_id, 'customer_payment', cur.amount - fee, ref,
-        `${link.customer_name || 'Customer'} paid ${link.purpose}${fee ? ` (less ${feePct}% gateway fee ₹${fee.toLocaleString('en-IN')})` : ''}`);
-      await notify(cur.agency_id, 'Payment received', `${link.customer_name || 'Customer'} paid ₹${cur.amount.toLocaleString('en-IN')} for ${link.purpose}. ₹${(cur.amount - fee).toLocaleString('en-IN')} added to your wallet.`, '/agent/wallet');
-    }
+    await run("UPDATE topup_requests SET status = 'approved', utr = ? WHERE id = ?", ref, cur.ref_id);
+    await moveWallet(cur.agency_id, 'topup', cur.amount, ref, 'Wallet top-up (PhonePe)');
+    await notify(cur.agency_id, 'Wallet topped up', `₹${cur.amount.toLocaleString('en-IN')} added to your wallet via PhonePe.`, '/agent/wallet');
     return { ...cur, status: 'completed' };
   });
 }
@@ -87,4 +73,4 @@ async function settlePending({ agencyId = null, olderThanMinutes = 2, limit = 20
   return done;
 }
 
-module.exports = { startPayment, settle, settlePending, linkCredit };
+module.exports = { startPayment, settle, settlePending };

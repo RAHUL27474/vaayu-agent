@@ -17,11 +17,6 @@ const count = async (sql, ...p) => (await one(sql, ...p)).n;
     await c.post('/agent/wallet/topup', agent, { amount, utr: `UTR${amount}X` });
     check(`top-up of "${amount}" is refused`, (await count('SELECT COUNT(*) AS n FROM topup_requests')) === before);
   }
-  for (const amount of ['-1', '0', 'xyz']) {
-    const before = await count('SELECT COUNT(*) AS n FROM payment_links');
-    await c.post('/agent/payment-links', agent, { amount, purpose: 'Test' });
-    check(`payment link of "${amount}" is refused`, (await count('SELECT COUNT(*) AS n FROM payment_links')) === before);
-  }
   const w0 = (await one('SELECT wallet_balance, credit_limit FROM agencies WHERE id = ?', sky.id));
   await c.post(`/admin/agents/${sky.id}/wallet`, admin, { amount: 'abc', ref: 'x' });
   await c.post(`/admin/agents/${sky.id}/credit`, admin, { credit_limit: '-5000' });

@@ -3,13 +3,14 @@
   <div class="actions"><a class="btn" href="/admin/agents?status=pending">Review agents</a><a class="btn" href="/admin/log">Activity log</a><a class="btn btn-primary" href="/backend">Inventory</a></div>
 </div>
 
-<% if (stats.pendingAgents || stats.cancelRequests || pendingTopups) { %>
+<% if (stats.pendingAgents || stats.cancelRequests || pendingTopups || stats.websiteRequests) { %>
   <div class="alert warn">
     Needs attention:
     <%- [
       stats.pendingAgents && `<a href="/admin/agents?status=pending">${plural(stats.pendingAgents, 'agent')} awaiting approval</a>`,
       stats.cancelRequests && `<a href="/admin/bookings?status=cancel_requested">${plural(stats.cancelRequests, 'cancellation request')}</a>`,
       pendingTopups && `<a href="/admin/topups">${plural(pendingTopups, 'wallet top-up')} to verify</a>`,
+      stats.websiteRequests && `<a href="/admin/agents">${plural(stats.websiteRequests, 'website request')} to call back</a>`,
     ].filter(Boolean).join(' · ') %>
   </div>
 <% } %>

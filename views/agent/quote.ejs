@@ -98,24 +98,15 @@
     <% } %>
 
     <div class="card" id="share">
-      <div class="card-head"><h3>Share &amp; collect payment</h3></div>
+      <div class="card-head"><h3>Share with your customer</h3></div>
       <div class="field">
         <label>Customer link</label>
         <div style="display:flex;gap:8px"><input type="text" readonly value="<%= shareUrl %>" aria-label="Link to share with your customer"><button class="btn" type="button" data-copy="<%= shareUrl %>">Copy</button></div>
-        <div class="hint">Shows the quote with your branding, EMI options and an Accept button.
+        <div class="hint">Shows the quote with your branding and an Accept button. Payment is between you and your customer.
           <%# Opens a chat with the customer directly when we have their number (Indian 10-digit numbers get +91). %>
           <% const waDigits = customer && customer.phone ? customer.phone.replace(/\D/g, '') : ''; const waTo = waDigits.length === 10 ? `91${waDigits}` : waDigits; %>
           <a href="https://wa.me/<%= waTo %>?text=<%= encodeURIComponent(`Hi${customer ? ' ' + customer.name : ''}, here is your quote for ${quote.title}: ${shareUrl}`) %>" target="_blank" rel="noopener">Send on WhatsApp<%= waTo ? ` to ${customer.phone}` : '' %><%- icon('external') %></a></div>
       </div>
-      <form method="post" action="/agent/quotes/<%= quote.id %>/payment-link" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
-        <div style="flex:1;min-width:160px"><label for="pl-amount">Payment link amount</label><input id="pl-amount" type="number" min="1" name="amount" value="<%= Math.round(customerTotal.total) %>"></div>
-        <button class="btn" <%= agency.status !== 'active' ? 'disabled' : '' %>>Create payment link</button>
-      </form>
-      <% if (links.length) { %>
-        <table class="table" style="margin-top:12px">
-          <% links.forEach(p => { %><tr><td><a href="/pay/<%= p.code %>" target="_blank"><%= p.code %></a></td><td class="num"><%= inr(p.amount) %></td><td><span class="badge <%= p.status %>"><%= p.status %></span></td><td class="num"><button class="btn btn-sm" type="button" data-copy="<%= shareUrl.replace(/\/q\/.*/, '/pay/' + p.code) %>">Copy link</button></td></tr><% }) %>
-        </table>
-      <% } %>
     </div>
 
     <div class="card flush">
@@ -152,7 +143,6 @@
         <% if (priced.agentCost) { %><tr><td>You pay your suppliers</td><td class="num"><%= inr(priced.agentCost) %></td></tr><% } %>
         <tr><td><b>Your earning</b></td><td class="num profit" style="font-size:18px"><%= inr(priced.commission) %></td></tr>
       </table>
-      <% if (quote.emi_enabled && customerTotal.total) { %><p class="muted" style="font-size:12.5px;margin:12px 0 0">Customer EMI from <b><%= inr(emi[emi.length - 1].monthly) %>/month</b> (12 months)</p><% } %>
     </div>
 
     <form class="card" method="post" action="/agent/quotes/<%= quote.id %>">
@@ -193,8 +183,6 @@
 
       <h3>Customer invoice</h3>
       <p class="muted" style="font-size:13px;margin:0 0 6px">Your customer's invoice, quote and voucher carry <b><%= agency.name %></b>'s name, logo and details.</p>
-      <div class="field" style="margin-top:14px"><label class="check"><input type="checkbox" name="pay_online" value="1" <%= quote.pay_online ? 'checked' : '' %>> Let the customer pay online from the quote link<% if (!phonepeOn) { %> <small class="muted">(available once VaayuTrip connects PhonePe)</small><% } %></label></div>
-      <div class="field"><label class="check"><input type="checkbox" name="emi_enabled" value="1" <%= quote.emi_enabled ? 'checked' : '' %>> Show EMI options to the customer</label></div>
       <div class="field"><label for="notes">Notes for customer</label><textarea id="notes" name="notes" placeholder="Validity, cancellation policy, special requests…"><%= quote.notes || '' %></textarea></div>
       <button class="btn btn-primary" style="width:100%">Save details</button>
     </form>

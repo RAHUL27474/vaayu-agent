@@ -61,11 +61,7 @@ const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000
   check('customer can open the shared quote', shared.status === 200);
   await act('customer accepts the quote', `/q/${quote.code}/accept`, '', {});
   check('quote accepted', (await one('SELECT status FROM quotes WHERE id = ?', qid)).status === 'accepted');
-  r = await act('agent creates a payment link for the quote', `/agent/quotes/${qid}/payment-link`, agent, { amount: '5000' });
-  const link = await one('SELECT * FROM payment_links WHERE quote_id = ? ORDER BY id DESC', qid);
-  check('payment link opens', (await c.get(`/pay/${link.code}`)).status === 200);
-  await act('customer pays the link (demo checkout)', `/pay/${link.code}`, '', {});
-  check('payment link paid', (await one('SELECT status FROM payment_links WHERE id = ?', link.id)).status === 'paid');
+  check('no customer payment links (customers pay their agent directly)', (await c.get('/agent/payment-links', agent)).status === 404);
 
   // ---------- booking, invoices, cancellation ----------
   const w0 = (await one('SELECT wallet_balance FROM agencies WHERE id = ?', ag.id)).wallet_balance;
@@ -129,7 +125,6 @@ const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000
   await act('publish the package', `/agent/packages/${pid}/status`, agent, { status: 'published' });
   const pub = await one('SELECT status, slug FROM packages WHERE id = ?', pid);
   check('package published', pub.status === 'published');
-  check('package on the agent website', (await c.get(`/site/${ag.slug}/p/${pub.slug}`)).status === 200);
   r = await act('quote from the package', `/agent/packages/${pid}/quote`, agent, { adults: '2', children: '0', rooms: '1', customer_id: String(cust.id), date: '2027-02-01' });
   const pq = idFrom(r);
   const pqItems = await db.prepare('SELECT * FROM quote_items WHERE quote_id = ?').all(pq);
@@ -142,10 +137,11 @@ const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000
   check('item added to package', JSON.parse((await one('SELECT details FROM packages WHERE id = ?', pid)).details).items.length === 3);
 
   // ---------- website, enquiries, API ----------
-  await act('agent updates website text', '/agent/website', agent, { website_enabled: '1', website_tagline: 'Holidays made easy', website_about: 'We are Skyline.' });
-  check('website shows the tagline', (await (await c.get(`/site/${ag.slug}`)).text()).includes('Holidays made easy'));
-  await act('visitor enquires on the website', `/site/${ag.slug}/enquire`, '', { name: 'Web Visitor', phone: '+91 90000 00003', package_id: String(pid), message: 'Hi' }, `/site/${ag.slug}`);
-  check('enquiry became a website lead', Boolean(await one("SELECT 1 FROM leads WHERE name = 'Web Visitor' AND source = 'website'")));
+  await act('agent asks VaayuTrip for a website', '/agent/website/request', agent, { domain: 'https://flowtravels.in/', phone: '+91 90000 00009', message: 'Simple site' });
+  const wsA = await one('SELECT website_status, website_domain FROM agencies WHERE id = ?', ag.id);
+  check('website request recorded and VaayuTrip told', wsA.website_status === 'requested' && wsA.website_domain === 'flowtravels.in' && Boolean(await one("SELECT 1 FROM notifications WHERE agency_id IS NULL AND title = 'Website request'")));
+  await act('admin marks the website live', `/admin/agents/${ag.id}/website`, admin, { website_status: 'live', website_domain: 'flowtravels.in' });
+  check('agent sees its live website', (await (await c.get('/agent/website', agent)).text()).includes('Your website is live'));
   await act('agent regenerates the API key', '/agent/api/regenerate', agent, {});
   const key = (await one('SELECT api_key FROM agencies WHERE id = ?', ag.id)).api_key;
   const api = (p, init = {}) => fetch(c.B + '/api/v1' + p, { ...init, headers: { ...(init.headers || {}), authorization: `Bearer ${key}` } });
@@ -171,10 +167,6 @@ const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000
   const tu2 = await one("SELECT * FROM topup_requests WHERE utr = 'UTRFLOW999'");
   await act('admin rejects it', `/admin/topups/${tu2.id}/reject`, admin, {});
   check('rejected top-up not credited', (await one('SELECT status FROM topup_requests WHERE id = ?', tu2.id)).status === 'rejected');
-  await act('agent creates a standalone payment link', '/agent/payment-links', agent, { amount: '3000', purpose: 'Advance', customer_name: 'Flow Customer' });
-  const pl = await one("SELECT * FROM payment_links WHERE purpose = 'Advance' ORDER BY id DESC");
-  await act('agent expires it', `/agent/payment-links/${pl.id}/expire`, agent, {});
-  check('payment link expired', (await one('SELECT status FROM payment_links WHERE id = ?', pl.id)).status === 'expired');
   for (const csv of ['/agent/reports/bookings.csv', '/agent/reports/ledger.csv']) {
     const res = await c.get(csv, agent);
     check(`${csv} downloads`, res.status === 200 && (res.headers.get('content-type') || '').includes('csv') && (await res.text()).split('\n').length > 1);

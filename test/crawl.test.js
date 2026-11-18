@@ -92,15 +92,11 @@ async function crawl(client, role, cookie, startAt) {
     check(`${role} can log in`, Boolean(cookie));
     total += await crawl(client, role, cookie, { admin: '/admin', backend: '/backend' }[role] || '/agent');
   }
-  // Agent websites are reached from the agent portal, but crawl one directly too.
-  total += await crawl(client, 'agent website', '', '/site/skyline-holidays');
   // Search engines and link previews: public pages listed, private ones kept out.
   const robots = await (await client.get('/robots.txt')).text();
   check('robots.txt keeps portals and shared quotes out', /Disallow: \/agent/.test(robots) && /Disallow: \/q\//.test(robots) && /Sitemap: /.test(robots));
   const sitemap = await (await client.get('/sitemap.xml')).text();
-  check('sitemap lists public pages and agency packages', sitemap.includes('/terms</loc>') && /\/site\/skyline-holidays\/p\//.test(sitemap));
-  const pkgPage = await (await client.get(sitemap.match(/\/site\/skyline-holidays\/p\/[^<]+/)[0])).text();
-  check('agency package page has its own link preview, no VaayuTrip branding', /og:site_name" content="Skyline Holidays"/.test(pkgPage) && !pkgPage.includes('VaayuTrip for Travel Agents'));
+  check('sitemap lists VaayuTrip pages only', sitemap.includes('/terms</loc>') && !sitemap.includes('/site/'));
   check('portal pages are noindex', /name="robots" content="noindex/.test(await (await client.get('/agent', await client.login(...ROLES.agent))).text()));
   console.log(`crawled ${total} pages in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
   if (process.env.VERBOSE) console.log('heaviest pages:', [...new Map(top.sort((a, b) => b[0] - a[0]).map(([n, k]) => [k, n])).entries()].slice(0, 10).map(([k, n]) => `${n} ${k}`).join(' | '));
