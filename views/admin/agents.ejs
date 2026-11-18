@@ -1,4 +1,4 @@
-<div class="page-head"><div><h1>Agents</h1><p>Approve partners, manage KYC, credit and wallets.</p></div></div>
+<div class="page-head"><div><h1>Agents</h1><p>Approve partners, manage KYC, credit, wallets and Silver/Gold tiers.</p></div><div class="actions"><a class="btn" href="/admin/settings#tiers">Silver/Gold &amp; offers</a></div></div>
 <div class="tabs">
   <% [['', 'All'], ['pending', 'Pending'], ['active', 'Active'], ['suspended', 'Suspended']].forEach(([s, label]) => { %>
     <a href="/admin/agents<%= s ? '?status=' + s : '' %>" class="<%= status === s ? 'active' : '' %>"><%= label %></a>
