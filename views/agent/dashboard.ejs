@@ -33,6 +33,10 @@
   <% if (agentCan('/agent/wallet')) { %><a class="quick" href="/agent/wallet"><span class="q-ico"><%- icon('wallet') %></span><b>Top up wallet</b><small>Balance <%= inr(agency.wallet_balance) %></small></a><% } %>
 </div>
 
+<% if (tierNow.tier !== 'standard') { %>
+  <div class="tier-banner <%= tierNow.tier %>"><span class="tier-badge <%= tierNow.tier %>"><%= tierNow.tier === 'gold' ? 'Gold' : 'Silver' %> prices</span>
+    <span><%= tierNow.source === 'all' ? (tierNow.label || 'Special offer') + ': lower net rates on all VaayuTrip inventory and packages' : `You're a ${tierNow.tier === 'gold' ? 'Gold' : 'Silver'} partner: lower net rates on all VaayuTrip inventory and packages` %><%= tierNow.until ? ` till ${fmtDate(tierNow.until)}` : '' %>.</span></div>
+<% } %>
 <% if (credit.dueOn && (credit.overdue || credit.daysLeft <= 3)) { %>
   <div class="alert <%= credit.overdue ? 'error' : 'warn' %>"><b><%= credit.overdue ? 'Credit overdue' : 'Credit due soon' %>:</b> <%= inr(credit.used) %> <%= credit.overdue ? `was due on ${fmtDate(credit.dueOn)}. Bookings can't use credit until it's repaid.` : `is due on ${fmtDate(credit.dueOn)}.` %> <% if (agentCan('/agent/wallet')) { %><a href="/agent/wallet">Repay from wallet</a><% } %></div>
 <% } %>
@@ -137,7 +141,7 @@
       <a href="/agent/<%= x.path %>/<%= x.id %>" style="display:flex;gap:12px;align-items:center;padding:8px 0;color:inherit">
         <img src="<%= cover({ image_url: x.image_url, destination: x.city }) %>" alt="" style="width:72px;height:52px;object-fit:cover;border-radius:8px">
         <div style="flex:1"><b><%= x.title %></b><br><small><%= x.city %>, <%= x.country %></small></div>
-        <div class="num"><%= inr(x.price.net) %><small class="muted"> net</small><br><small class="muted"><%= x.price.unit %></small></div>
+        <div class="num"><% if (x.price.was) { %><s class="was-price"><%= inr(x.price.was) %></s> <b class="tier-price"><%= inr(x.price.net) %></b><% } else { %><%= inr(x.price.net) %><% } %><small class="muted"> net</small><br><small class="muted"><%= x.price.unit %></small></div>
       </a>
     <% }) %>
   </div>

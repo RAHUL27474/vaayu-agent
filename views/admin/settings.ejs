@@ -9,8 +9,12 @@
     gst_enabled: ['Charge GST', 'When off, no GST is added to quotes, bookings or invoices. Invoices already issued keep theirs.'],
     tax_rate: ['GST rate (%)', 'Used when GST is switched on. Tour operator services: 5%.'],
     tcs_rate: ['TCS on overseas tour packages (%)', 'Collected on customer invoices for international packages. Confirm the current rate with your CA.'],
-    tier_silver_pct: ['Silver partner discount (points)', "Percentage points off VaayuTrip's margin for Silver agencies, e.g. 1 turns a 5% margin into 4%."],
-    tier_gold_pct: ['Gold partner discount (points)', "Percentage points off VaayuTrip's margin for Gold agencies, e.g. 2 turns a 5% margin into 3%."],
+    tier_silver_pct: ['Silver: lower VaayuTrip\'s margin by (%)', "E.g. 1: a 3% hotel margin becomes 2% and a 5% activity margin 4% for Silver agents. A ₹10,000 hotel then costs them ₹10,200 instead of ₹10,300."],
+    tier_gold_pct: ['Gold: lower VaayuTrip\'s margin by (%)', "E.g. 2: a 3% hotel margin becomes 1% and a 5% activity margin 3% for Gold agents. A ₹10,000 hotel then costs them ₹10,100 instead of ₹10,300."],
+    tier_all: ['Offer for every agent', 'Give all agents Silver or Gold prices for a period (e.g. Christmas). Agents you made Gold keep Gold.'],
+    tier_all_label: ['Offer name', 'Shown to agents, e.g. Christmas offer'],
+    tier_all_from: ['Offer from', 'First day (empty = from today)'],
+    tier_all_to: ['Offer until', 'Last day (empty = until you switch it off)'],
     sac_code: ['SAC code on invoices', 'Services Accounting Code printed on every invoice line. 998552 = tour operator services.'],
     bank_details: ['Bank details for wallet top-ups', 'Shown to agents who top up by bank transfer: bank, account number, IFSC, UPI ID (one per line).'],
   };
@@ -29,6 +33,8 @@
       <label class="check"><input type="checkbox" name="gst_enabled" value="1" <%= values.gst_enabled === '1' ? 'checked' : '' %>> <b>Charge GST</b></label>
       <% } else { %><label for="<%= k %>"><%= labels[k][0] %></label><% } %>
       <% if (k === 'gst_enabled') { %>
+      <% } else if (k === 'tier_all') { %><select id="tier_all" name="tier_all"><% [['none', 'No offer'], ['silver', 'Silver prices for everyone'], ['gold', 'Gold prices for everyone']].forEach(([v, l]) => { %><option value="<%= v %>" <%= (values.tier_all || 'none') === v ? 'selected' : '' %>><%= l %></option><% }) %></select>
+      <% } else if (k === 'tier_all_from' || k === 'tier_all_to') { %><input id="<%= k %>" type="date" name="<%= k %>" value="<%= values[k] || '' %>">
       <% } else if (k === 'bank_details') { %><textarea id="<%= k %>" name="<%= k %>" rows="4"><%= values[k] || '' %></textarea><% } else { %>
       <input id="<%= k %>" name="<%= k %>" value="<%= values[k] || '' %>" <%= ['tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'tier_silver_pct', 'tier_gold_pct'].includes(k) ? 'type=number step=0.01 min=0' : '' %>><% } %>
       <% if (labels[k][1]) { %><div class="hint"><%= labels[k][1] %></div><% } %>

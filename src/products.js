@@ -216,8 +216,10 @@ const UNIT_LABELS = { per_person: 'per adult', per_room_night: 'per room / night
 function cardPrice(agency, p) {
   const unit = p.price_basis === 'per_group' ? `per group of ${p.group_size}` : UNIT_LABELS[p.price_basis];
   const rule = markupRule(agency, p.kind);
-  if (rule.type === 'flat') return { net: p.net_adult, unit, earn: rule.value, earnLabel: 'You earn per booking' };
-  return { net: p.net_adult, unit, earn: round2((p.net_adult * rule.value) / 100), earnLabel: `You earn ${unit}` };
+  const was = p.was_net_adult || null;
+  const tier = p.tier || null;
+  if (rule.type === 'flat') return { net: p.net_adult, was, tier, unit, earn: rule.value, earnLabel: 'You earn per booking' };
+  return { net: p.net_adult, was, tier, unit, earn: round2((p.net_adult * rule.value) / 100), earnLabel: `You earn ${unit}` };
 }
 
 /** What a customer sees about a product inside an itinerary (no prices). */
@@ -289,10 +291,33 @@ const withMargin = (cost, pct) => (cost == null ? null : Math.round(cost * (1 + 
 
 const TIERS = { standard: 'Standard', silver: 'Silver', gold: 'Gold' };
 /** Percentage points of VaayuTrip's margin an agency's tier saves it (0 for standard). */
+const TIER_RANK = { standard: 0, silver: 1, gold: 2 };
+const indiaDay = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+
+/**
+ * The tier an agency gets today: its own (until rate_tier_until), or the offer for everyone in Settings
+ * (tier_all between tier_all_from and tier_all_to), whichever is higher. { tier, source: 'own' | 'all', until, label }.
+ */
+function activeTier(agency, settings) {
+  const none = { tier: 'standard', source: null, until: null, label: '' };
+  if (!agency || agency.noTier || !settings) return none;
+  const today = indiaDay();
+  let best = none;
+  if (TIER_RANK[agency.rate_tier] && (!agency.rate_tier_until || agency.rate_tier_until >= today)) {
+    best = { tier: agency.rate_tier, source: 'own', until: agency.rate_tier_until || null, label: '' };
+  }
+  const all = settings.tier_all;
+  if (TIER_RANK[all] > TIER_RANK[best.tier] && (!settings.tier_all_from || settings.tier_all_from <= today) && (!settings.tier_all_to || settings.tier_all_to >= today)) {
+    best = { tier: all, source: 'all', until: settings.tier_all_to || null, label: settings.tier_all_label || '' };
+  }
+  return best;
+}
+
+/** Percentage points of VaayuTrip's margin the agency's tier saves it today (0 for standard). */
 function tierDiscount(agency, settings) {
-  const t = agency && agency.rate_tier;
-  if (t !== 'silver' && t !== 'gold') return 0;
-  const v = parseFloat(settings[`tier_${t}_pct`]);
+  const { tier } = activeTier(agency, settings);
+  if (!TIER_RANK[tier]) return 0;
+  const v = parseFloat(settings[`tier_${tier}_pct`]);
   return Number.isFinite(v) && v > 0 ? v : 0;
 }
 /**
@@ -300,10 +325,16 @@ function tierDiscount(agency, settings) {
  * cost, and standard agencies, keep the published net.
  */
 function tierPrices(agency, p, settings) {
+  if (!p || p.tier) return p; // already priced for the tier
   const d = settings ? tierDiscount(agency, settings) : 0;
-  if (!d || !p || p.cost_adult == null) return p;
+  if (!d || p.cost_adult == null) return p;
   const pct = Math.max(0, marginPct(p.kind, settings) - d);
-  return { ...p, net_adult: withMargin(p.cost_adult, pct), net_child: withMargin(p.cost_child, pct), net_infant: withMargin(p.cost_infant, pct) };
+  const net = withMargin(p.cost_adult, pct);
+  if (net >= p.net_adult) return p;
+  return {
+    ...p, net_adult: net, net_child: withMargin(p.cost_child, pct), net_infant: withMargin(p.cost_infant, pct),
+    was_net_adult: p.net_adult, tier: activeTier(agency, settings).tier,
+  };
 }
 
 /** Product fields from the backend form (net_* = what VaayuTrip pays) → stored fields: cost_* and agents' net_*. */
@@ -338,7 +369,7 @@ async function ensureProductCosts() {
 module.exports = {
   DEFAULT_MARGINS, marginPct, kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups, priceForAgents, repriceProducts, ensureProductCosts,
   DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, MEAL_PLANS, KINDS, KIND_BY_PATH, BASIS_LABELS,
-  seasonOn, soldOutOn, seasonsFromForm, listOf, TIERS, tierDiscount, tierPrices,
+  seasonOn, soldOutOn, seasonsFromForm, listOf, TIERS, activeTier, tierDiscount, tierPrices,
   destinationOf, parseProductDetails, productFromForm, publishProblems, describe, productLines, cardPrice, presentProduct,
   publishedProduct, productMap, childNet, lines,
 };

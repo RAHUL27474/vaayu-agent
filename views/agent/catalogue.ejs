@@ -41,7 +41,7 @@
         <h3><%= p.title %></h3>
         <p class="muted" style="font-size:13px;margin:0"><%= kind === 'activity' ? p.summary : p.line %></p>
         <div class="price">
-          <div><small class="muted">Net <%= p.price.unit %></small><br><b><%= inr(p.price.net) %></b></div>
+          <div><small class="muted">Net <%= p.price.unit %></small><br><% if (p.price.was) { %><s class="was-price"><%= inr(p.price.was) %></s> <b class="tier-price"><%= inr(p.price.net) %></b><br><span class="tier-badge <%= p.price.tier %>"><%= p.price.tier === 'gold' ? 'Gold' : 'Silver' %> price</span><% } else { %><b><%= inr(p.price.net) %></b><% } %></div>
           <div class="num"><small class="muted"><%= p.price.earnLabel %></small><br><span class="profit"><%= inr(p.price.earn) %></span></div>
         </div>
       </div>

@@ -70,6 +70,25 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
   check("other agencies keep the standard rate", otherNet === standard);
   await c.post(`/admin/agents/${agencyId}/tier`, admin, { rate_tier: 'standard' });
 
+  // ---------- offer for everyone, and a few agents on Gold ----------
+  const day = (n) => new Date(Date.now() + 330 * 60000 + n * 864e5).toISOString().slice(0, 10);
+  await c.post('/admin/settings', admin, { tier_silver_pct: '1', tier_gold_pct: '2', tier_all: 'silver', tier_all_label: 'Christmas offer', tier_all_from: day(-1), tier_all_to: day(10) });
+  const silverAll = await netShown();
+  check('an offer for everyone lowers every agent\'s rate', silverAll < standard && Number(((await page(`/agent/activities/${act.id}?adults=1`, other)).match(/Net to VaayuTrip<\/td><td class="num"><b>₹([\d,]+)/) || [])[1]?.replace(/,/g, '')) === silverAll);
+  const cat = await page('/agent/activities', agent);
+  check('cards show the standard price struck out and the offer price highlighted', cat.includes('class="was-price"') && cat.includes('class="tier-price"') && cat.includes('Silver price'));
+  check('the dashboard names the offer and its end', (await page('/agent', agent)).includes('Christmas offer'));
+  await c.post(`/admin/agents/${agencyId}/tier`, admin, { rate_tier: 'gold', rate_tier_until: day(30) });
+  const goldOver = await netShown();
+  check('an agent made Gold gets Gold during a Silver offer (the higher wins)', goldOver < silverAll);
+  check('its page shows the saving', (await page(`/agent/activities/${act.id}?adults=1`, agent)).includes('Gold price saves you'));
+  await c.post('/admin/settings', admin, { tier_all: 'silver', tier_all_from: day(-10), tier_all_to: day(-1) });
+  check('a finished offer no longer applies', Number(((await page(`/agent/activities/${act.id}?adults=1`, other)).match(/Net to VaayuTrip<\/td><td class="num"><b>₹([\d,]+)/) || [])[1]?.replace(/,/g, '')) === standard);
+  await db.prepare('UPDATE agencies SET rate_tier_until = ? WHERE id = ?').run(day(-1), agencyId);
+  check("an agent's tier ends on its date", await netShown() === standard);
+  await c.post('/admin/settings', admin, { tier_all: 'none' });
+  await c.post(`/admin/agents/${agencyId}/tier`, admin, { rate_tier: 'standard' });
+
   // ---------- travellers' documents ----------
   const cust = await one('SELECT * FROM customers WHERE agency_id = ? ORDER BY id LIMIT 1', agencyId);
   const fd = new FormData();

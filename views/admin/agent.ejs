@@ -104,8 +104,12 @@
     </form>
     <form class="card" method="post" action="/admin/agents/<%= agent.id %>/tier">
       <h3>Rate tier</h3>
-      <p class="muted" style="font-size:13px;margin:0 0 8px">Silver and Gold partners get lower net rates (Settings → tier discounts: Silver <%= settings.tier_silver_pct || 0 %>, Gold <%= settings.tier_gold_pct || 0 %> points off VaayuTrip's margin).</p>
-      <div style="display:flex;gap:8px"><label class="sr-only" for="tier">Rate tier</label><select id="tier" name="rate_tier"><% [['standard', 'Standard'], ['silver', 'Silver'], ['gold', 'Gold']].forEach(([k, l]) => { %><option value="<%= k %>" <%= agent.rate_tier === k ? 'selected' : '' %>><%= l %></option><% }) %></select><button class="btn">Save</button></div>
+      <p class="muted" style="font-size:13px;margin:0 0 8px">Silver and Gold agents get lower net rates: VaayuTrip's margin is <%= settings.tier_silver_pct || 0 %>% (Silver) or <%= settings.tier_gold_pct || 0 %>% (Gold) lower. An offer for everyone in Settings also applies; the higher one wins.</p>
+      <div class="row">
+        <div class="field"><label for="tier">Tier</label><select id="tier" name="rate_tier"><% [['standard', 'Standard'], ['silver', 'Silver'], ['gold', 'Gold']].forEach(([k, l]) => { %><option value="<%= k %>" <%= agent.rate_tier === k ? 'selected' : '' %>><%= l %></option><% }) %></select></div>
+        <div class="field"><label for="tier-until">Until <span class="muted">(optional)</span></label><input id="tier-until" type="date" name="rate_tier_until" value="<%= agent.rate_tier_until || '' %>"></div>
+      </div>
+      <button class="btn">Save tier</button>
     </form>
     <form class="card" method="post" action="/admin/agents/<%= agent.id %>/credit">
       <h3>Credit limit</h3>

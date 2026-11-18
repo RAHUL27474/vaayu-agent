@@ -46,7 +46,7 @@
     <% if (agency) { %>
       <a class="workspace" href="/agent/settings" title="<%= agency.name %>">
         <span class="ws-mark"><% if (agency.logo_path) { %><img src="<%= agency.logo_path %>" alt=""><% } else { %><%= initialsOf(agency.name) %><% } %></span>
-        <span class="lbl ws-text"><b><%= agency.name %></b><small><span class="ws-dot <%= agency.status %>"></span><%= agency.status === 'active' ? ({ gold: 'Gold partner', silver: 'Silver partner' }[agency.rate_tier] || 'Verified partner') : agency.status.charAt(0).toUpperCase() + agency.status.slice(1) %></small></span>
+        <span class="lbl ws-text"><b><%= agency.name %></b><small><span class="ws-dot <%= agency.status %>"></span><%= agency.status === 'active' ? ((typeof tierNow !== 'undefined' && tierNow.source === 'own' && { gold: 'Gold partner', silver: 'Silver partner' }[tierNow.tier]) || 'Verified partner') : agency.status.charAt(0).toUpperCase() + agency.status.slice(1) %></small></span>
       </a>
     <% } else { %>
       <div class="workspace">

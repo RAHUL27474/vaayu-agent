@@ -439,6 +439,7 @@ CREATE TABLE IF NOT EXISTS package_departures (
 -- Agency rate tier: standard | silver | gold. Silver and gold agencies pay less of VaayuTrip's margin
 -- (Admin → Settings: tier_silver_pct / tier_gold_pct, in percentage points off each service's margin).
 ALTER TABLE agencies ADD COLUMN IF NOT EXISTS rate_tier TEXT NOT NULL DEFAULT 'standard';
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS rate_tier_until TEXT;   -- last day of the agency's tier (null = no end)
 -- A package an agency copied from a VaayuTrip package (agency_id IS NULL = built by VaayuTrip's backend team).
 ALTER TABLE packages ADD COLUMN IF NOT EXISTS copied_from INTEGER REFERENCES packages(id) ON DELETE SET NULL;
 -- Inventory seasons: [{ from, to, pct, label }] adds pct % to agents' net price for travel dates in that range;

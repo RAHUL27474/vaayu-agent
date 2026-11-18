@@ -21,8 +21,9 @@
  * agent's own services: they go on quotes at the agent's price and on the agent's branded invoice.
  */
 const { round2 } = require('./util');
+const { getSettings } = require('./db');
 const { priceQuote } = require('./pricing');
-const { productMap, productLines, presentProduct, parseProductDetails, KINDS, tierPrices } = require('./products');
+const { productMap, productLines, presentProduct, parseProductDetails, KINDS, tierPrices, tierDiscount, activeTier } = require('./products');
 
 const MEAL_PLANS = {
   EP: 'Room only (EP)',
@@ -146,9 +147,9 @@ function normalizeParty(o = {}) {
 async function calcPackage(pkg, d, rawParty, products, agency = null) {
   products = products || await productMap(itemIds(d));
   // An agency's rate tier lowers VaayuTrip's margin on its prices.
-  if (agency && agency.rate_tier && agency.rate_tier !== 'standard') {
+  if (agency) {
     const settings = await getSettings();
-    products = new Map([...products].map(([id, p]) => [id, tierPrices(agency, p, settings)]));
+    if (tierDiscount(agency, settings) > 0) products = new Map([...products].map(([id, p]) => [id, tierPrices(agency, p, settings)]));
   }
   const o = normalizeParty(rawParty);
   const errors = [];
@@ -201,7 +202,13 @@ function priceLines(markup, lines) {
 async function fromPrice(agency, pkg, d, products) {
   const calc = await calcPackage(pkg, d, { adults: 2, rooms: 1 }, products, agency);
   const priced = priceLines(agency, calc.lines);
-  return { net: round2(priced.net / 2), sell: round2(priced.sell / 2), earning: round2(priced.commission / 2) };
+  const out = { net: round2(priced.net / 2), sell: round2(priced.sell / 2), earning: round2(priced.commission / 2), was: null, tier: null };
+  // With a tier discount, also the standard net it beats.
+  if (agency && !agency.noTier && tierDiscount(agency, await getSettings()) > 0) {
+    const std = priceLines(agency, (await calcPackage(pkg, d, { adults: 2, rooms: 1 }, products, null)).lines);
+    if (std.net > priced.net) Object.assign(out, { was: round2(std.net / 2), tier: activeTier(agency, await getSettings()).tier });
+  }
+  return out;
 }
 
 /** Problems that keep a package off the agent's website and API. */

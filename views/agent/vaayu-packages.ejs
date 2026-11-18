@@ -26,7 +26,7 @@
         <% if (p.next) { %><p style="font-size:12.5px;margin:0 0 4px"><span class="badge seats <%= p.next.left <= 5 ? 'pending' : 'active' %>">Next: <%= fmtDate(p.next.depart_on) %> · <%= p.next.left %> seats</span></p><% } %>
         <% if (p.summary) { %><p class="muted" style="font-size:13px;margin:0"><%= p.summary.length > 110 ? p.summary.slice(0, 107) + '…' : p.summary %></p><% } %>
         <div class="price">
-          <div><small class="muted">Net pp</small><br><b><%= inr(p.price.net) %></b></div>
+          <div><small class="muted">Net pp</small><br><% if (p.price.was) { %><s class="was-price"><%= inr(p.price.was) %></s> <b class="tier-price"><%= inr(p.price.net) %></b><br><span class="tier-badge <%= p.price.tier %>"><%= p.price.tier === 'gold' ? 'Gold' : 'Silver' %> price</span><% } else { %><b><%= inr(p.price.net) %></b><% } %></div>
           <div class="num"><small class="muted">Sell pp · you earn</small><br><b><%= inr(p.price.sell) %></b> · <span class="profit"><%= inr(p.price.earning) %></span></div>
         </div>
       </div>

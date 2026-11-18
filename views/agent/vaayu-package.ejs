@@ -56,6 +56,7 @@
       <% } else if (calc.lines.length) { %>
         <table class="totals" style="margin-top:14px">
           <tr><td class="muted">Net to VaayuTrip</td><td class="num"><b><%= inr(priced.net) %></b></td></tr>
+          <% if (tierSaving) { %><tr class="tier-row"><td><%= tierNow.tier === 'gold' ? 'Gold' : 'Silver' %> price saves you</td><td class="num"><b>− <%= inr(tierSaving) %></b></td></tr><% } %>
           <tr><td class="muted">Your markup</td><td class="num profit">+ <%= inr(markup) %></td></tr>
           <tr class="grand"><td>Selling price</td><td class="num"><%= inr(priced.sell) %></td></tr>
           <tr><td class="pp" colspan="2">≈ <%= inr(calc.pax ? priced.sell / calc.pax : 0) %> per person<%= gstOn ? ' · + GST' : '' %><%= pkg.is_international ? ' · + TCS' : '' %></td></tr>

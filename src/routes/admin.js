@@ -236,9 +236,10 @@ router.post('/agents/:id/tier', h(async (req, res, next) => {
   const a = await one('SELECT id, name, rate_tier FROM agencies WHERE id = ?', num(req.params.id));
   if (!a) return next();
   const tier = TIERS[req.body.rate_tier] ? req.body.rate_tier : 'standard';
-  await run('UPDATE agencies SET rate_tier = ? WHERE id = ?', tier, a.id);
+  const until = /^\d{4}-\d{2}-\d{2}$/.test(req.body.rate_tier_until || '') && tier !== 'standard' ? req.body.rate_tier_until : null;
+  await run('UPDATE agencies SET rate_tier = ?, rate_tier_until = ? WHERE id = ?', tier, until, a.id);
   await audit(req.user, 'agency.tier', { entity: 'agency', id: a.id, agencyId: a.id, link: `/admin/agents/${a.id}`, summary: `${a.name}: ${TIERS[a.rate_tier] || a.rate_tier} → ${TIERS[tier]}` });
-  if (tier !== a.rate_tier && tier !== 'standard') await notify(a.id, `You're now a ${TIERS[tier]} partner`, `Your net rates on VaayuTrip inventory and packages are now lower. Prices update across the portal.`, '/agent/vaayutrip-packages');
+  if (tier !== a.rate_tier && tier !== 'standard') await notify(a.id, `You're now a ${TIERS[tier]} partner`, `Your net rates on VaayuTrip inventory and packages are now lower${until ? ` until ${until}` : ''}. Prices update across the portal.`, '/agent/vaayutrip-packages');
   req.flash('success', `${a.name} is now on ${TIERS[tier]} rates.`);
   res.redirect(`/admin/agents/${a.id}`);
 }));
@@ -525,7 +526,7 @@ router.post('/tickets/:id/reply', h(async (req, res, next) => {
 }));
 
 const MARGIN_KEYS = Object.keys(KINDS).map((k) => `margin_${k}`);
-const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'gst_enabled', 'tax_rate', 'tcs_rate', 'bank_details', 'sac_code', 'tier_silver_pct', 'tier_gold_pct', ...MARGIN_KEYS];
+const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'gst_enabled', 'tax_rate', 'tcs_rate', 'bank_details', 'sac_code', 'tier_silver_pct', 'tier_gold_pct', 'tier_all', 'tier_all_label', 'tier_all_from', 'tier_all_to', ...MARGIN_KEYS];
 
 router.get('/settings', async (req, res) => {
   const values = await getSettings();
@@ -534,6 +535,9 @@ router.get('/settings', async (req, res) => {
 
 router.post('/settings', h(async (req, res) => {
   const before = await getSettings();
+  if (req.body.tier_all !== undefined && !['none', 'silver', 'gold'].includes(req.body.tier_all)) req.body.tier_all = 'none';
+  for (const k of ['tier_all_from', 'tier_all_to']) if (req.body[k] !== undefined && req.body[k] !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(req.body[k])) req.body[k] = '';
+  for (const k of ['tier_silver_pct', 'tier_gold_pct']) if (req.body[k] !== undefined && req.body[k] !== '' && !(parseFloat(req.body[k]) >= 0 && parseFloat(req.body[k]) <= 50)) throw new svc.AppError('Tier discounts must be between 0 and 50%.');
   // The form sends a hidden 0 and, when ticked, a 1.
   if (req.body.gst_enabled !== undefined) req.body.gst_enabled = [].concat(req.body.gst_enabled).includes('1') ? '1' : '0';
   for (const k of MARGIN_KEYS) {

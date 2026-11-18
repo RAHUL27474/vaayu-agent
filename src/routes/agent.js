@@ -19,7 +19,7 @@ const {
 } = require('../packages');
 const {
   KINDS, KIND_BY_PATH, DESTINATIONS, ALL_DESTINATIONS, MEAL_PLANS: PRODUCT_MEAL_PLANS, productLines, productMap, cardPrice, describe, parseProductDetails, publishedProduct,
-  kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups, seasonOn, soldOutOn, listOf, tierPrices, TIERS
+  kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups, seasonOn, soldOutOn, listOf, tierPrices, TIERS, activeTier
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
 const { persistFile, writePersisted, restoreFile, deleteFile } = require('../files');
@@ -34,7 +34,7 @@ router.use(requireAgent);
 router.use(limitPendingAgency);
 router.use(limitStaffRole);
 // What the agency still has to fill in before it can book (shown on the dashboard, quotes and settings).
-router.use((req, res, next) => { res.locals.profileGaps = profileGaps(req.agency); next(); });
+router.use((req, res, next) => { res.locals.profileGaps = profileGaps(req.agency); res.locals.tierNow = activeTier(req.agency, res.locals.settings); next(); });
 router.use((req, res, next) => { res.locals.agentCan = (href) => staffCan(req.user.agency_role, href.replace(/^\/agent/, '') || '/'); next(); });
 
 const LOGO_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
@@ -214,7 +214,8 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
   }));
 
   router.get(`/${path}/:id`, h(async (req, res, next) => {
-    const p = tierPrices(req.agency, await publishedProduct(num(req.params.id), kind), res.locals.settings);
+    const raw = await publishedProduct(num(req.params.id), kind);
+    const p = tierPrices(req.agency, raw, res.locals.settings);
     if (!p) return next();
     const party = partyOf(req.query);
     const lines = productLines(p, party).map((l) => ({ ...l, supplier: 'vaayu', sell: null }));
@@ -223,7 +224,9 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
       .map(withPrices(req.agency, res.locals.settings));
     res.page('agent/product', {
       title: p.title, kind, cfg, p: withPrices(req.agency, res.locals.settings)(p), d: parseProductDetails(p.details), party, lines, priced: priceLines(own || req.agency, lines), more,
-      own, defaultRule: markupRule(req.agency, kind), season: seasonOn(p, party.date), soldOut: soldOutOn(p, party.date), seasons: listOf(p.seasons), blackouts: listOf(p.blackouts),
+      own, defaultRule: markupRule(req.agency, kind),
+      // What the tier saves on this calculation (net, before markup).
+      tierSaving: p.tier ? Math.max(0, priceLines(own || req.agency, productLines(raw, party).map((l) => ({ ...l, supplier: 'vaayu', sell: null }))).net - priceLines(own || req.agency, lines).net) : 0, season: seasonOn(p, party.date), soldOut: soldOutOn(p, party.date), seasons: listOf(p.seasons), blackouts: listOf(p.blackouts),
       quotes: await openQuotes(req.agency.id), packages: await ownPackages(req.agency.id), customers: await customersOf(req.agency.id), mealPlans: PRODUCT_MEAL_PLANS,
     });
   }));
@@ -422,11 +425,13 @@ router.get('/vaayutrip-packages/:id', h(async (req, res, next) => {
   const details = parseDetails(pkg.details);
   const products = await productMap(itemIds(details));
   const calc = await calcPackage(pkg, details, req.query, products, req.agency);
+  const stdNet = res.locals.tierNow.tier !== 'standard' ? priceLines(req.agency, (await calcPackage(pkg, details, req.query, products, null)).lines).net : 0;
   res.page('agent/vaayu-package', {
     title: pkg.title, pkg, details, calc, priced: priceLines(req.agency, calc.lines),
     view: await present(pkg, details, products), from: await fromPrice(req.agency, pkg, details, products), customers: await customersOf(req.agency.id),
     copies: await all('SELECT id, title FROM packages WHERE agency_id = ? AND copied_from = ?', req.agency.id, pkg.id),
     departures: await svc.departuresOf(pkg.id),
+    tierSaving: stdNet ? Math.max(0, stdNet - priceLines(req.agency, calc.lines).net) : 0,
   });
 }));
 

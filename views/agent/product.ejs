@@ -21,7 +21,8 @@
   </div>
   <div class="num">
     <div class="pp">Net <%= p.price.unit %></div>
-    <div class="price-big"><%= inr(p.net_adult) %></div>
+    <% if (p.price.was) { %><div><s class="was-price" style="font-size:16px"><%= inr(p.price.was) %></s> <span class="tier-badge <%= p.price.tier %>"><%= p.price.tier === 'gold' ? 'Gold' : 'Silver' %> price</span></div><% } %>
+    <div class="price-big<%= p.price.was ? ' tier-price' : '' %>"><%= inr(p.net_adult) %></div>
     <div class="pp"><% if (perPerson) { %>Child 2–11 <b><%= inr(p.net_child ?? p.net_adult) %></b><% if (p.net_infant) { %> · infant <b><%= inr(p.net_infant) %></b><% } %> · <% } %><%= p.price.earnLabel %> <b class="profit"><%= inr(p.price.earn) %></b></div>
   </div>
 </div>
@@ -89,6 +90,7 @@
       </table>
       <table class="totals" style="margin-top:8px">
         <tr><td class="muted">Net to VaayuTrip</td><td class="num"><b><%= inr(priced.net) %></b></td></tr>
+        <% if (tierSaving) { %><tr class="tier-row"><td><%= tierNow.tier === 'gold' ? 'Gold' : 'Silver' %> price saves you</td><td class="num"><b>− <%= inr(tierSaving) %></b></td></tr><% } %>
         <tr><td class="muted">Your markup <%= own ? (own.markup_type === 'flat' ? '' : `(${own.markup_value}%)`) : `(${defLabel})` %></td><td class="num profit">+ <%= inr(priced.sell - priced.net) %></td></tr>
         <tr class="grand"><td>Selling price</td><td class="num"><%= inr(priced.sell) %></td></tr>
         <tr><td class="pp" colspan="2">≈ <%= inr(pax ? priced.sell / pax : 0) %> per person · <%= gstOn ? '+ GST ' : '' %>+ TCS</td></tr>
