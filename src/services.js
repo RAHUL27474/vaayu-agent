@@ -44,6 +44,7 @@ async function createQuoteFromPackage(agency, packageId, opts = {}) {
   if (calc.errors.length) throw new AppError(calc.errors[0]);
   if (!calc.lines.length) throw new AppError('This package has nothing priced yet. Add VaayuTrip services, hotel prices or your own services first.');
   const o = calc.options;
+  await assertSeats(pkg.id, o.date, o.adults + o.children);
   return await tx(async () => {
     const quoteId = (await run(
       `INSERT INTO quotes (agency_id, customer_id, lead_id, package_id, code, title, travel_date, adults, children, infants, markup_type, markup_value,
@@ -57,6 +58,24 @@ async function createQuoteFromPackage(agency, packageId, opts = {}) {
     if (opts.leadId) await run("UPDATE leads SET status = 'quoted' WHERE id = ? AND agency_id = ?", opts.leadId, agency.id);
     return quoteId;
   });
+}
+
+/** A package's fixed departures with seats taken and left; [] when it has none (any date). */
+async function departuresOf(packageId, { upcoming = true } = {}) {
+  return (await all(
+    `SELECT d.*, COALESCE((SELECT SUM(q.adults + q.children) FROM bookings b JOIN quotes q ON q.id = b.quote_id
+       WHERE q.package_id = d.package_id AND b.travel_date = d.depart_on AND b.status != 'cancelled'), 0) AS booked
+     FROM package_departures d WHERE d.package_id = ? ${upcoming ? "AND d.depart_on >= sqldate('now')" : ''} ORDER BY d.depart_on`, packageId,
+  )).map((d) => ({ ...d, left: Math.max(0, d.seats - d.booked) }));
+}
+
+/** Throws unless a package with fixed departures has the seats on that date (packages without departures: any date). */
+async function assertSeats(packageId, date, pax) {
+  const deps = await departuresOf(packageId, { upcoming: false });
+  if (!deps.length) return;
+  const d = deps.find((x) => x.depart_on === date);
+  if (!d) throw new AppError(`This package runs on fixed dates only: ${deps.filter((x) => x.left > 0).slice(0, 4).map((x) => x.depart_on).join(', ') || 'none open right now'}.`);
+  if (d.left < pax) throw new AppError(d.left ? `Only ${d.left} seat${d.left === 1 ? '' : 's'} left on ${date}.` : `The ${date} departure is full.`);
 }
 
 /** Adds a VaayuTrip product to a quote for a party ({ adults, children, infants, rooms, nights }). Every destination is abroad, so TCS applies. */
@@ -140,15 +159,19 @@ function financialYear(d = new Date()) {
 }
 
 // Numbers are counted per series, so callers hold that series' lock (see issueInvoice) until they insert.
+/**
+ * Next invoice number in a series, at most 16 characters (CGST Rule 46): VT/26-27/000001 for VaayuTrip,
+ * SKH/26-27/00001 for an agency (its initials). Each financial year starts again at 1.
+ */
 async function invoiceNumber(agency, kind) {
-  const fy = financialYear();
-  if (kind === 'customer_agent') {
-    const prefix = agency.name.split(/\s+/).map((w) => w[0]).join('').replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3) || 'AG';
-    const n = (await one("SELECT COUNT(*) AS n FROM invoices WHERE agency_id = ? AND kind = 'customer_agent'", agency.id)).n + 1;
-    return `${prefix}/${fy}/${String(n).padStart(4, '0')}`;
-  }
-  const n = (await one("SELECT COUNT(*) AS n FROM invoices WHERE kind IN ('customer_vaayu', 'b2b')")).n + 1;
-  return `VT/${fy}/${String(n).padStart(6, '0')}`;
+  const fy = financialYear().replace(/^20/, '');
+  const [series, digits, where, params] = kind === 'customer_agent'
+    ? [agency.name.split(/\s+/).map((w) => w[0]).join('').replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 3) || 'AG', 5, "agency_id = ? AND kind = 'customer_agent'", [agency.id]]
+    : ['VT', 6, "kind <> 'customer_agent'", []];
+  const prefix = `${series}/${fy}/`;
+  const last = await one(`SELECT number FROM invoices WHERE ${where} AND number LIKE ? ORDER BY id DESC LIMIT 1`, ...params, `${prefix}%`);
+  const n = (last ? parseInt(last.number.slice(prefix.length), 10) || 0 : 0) + 1;
+  return `${prefix}${String(n).padStart(digits, '0')}`;
 }
 
 async function issueInvoice(agency, quoteId, kind, bookingId = null) {
@@ -186,6 +209,11 @@ async function bookQuote(agencyId, quoteId) {
 
     const settings = await getSettings();
     const payable = round2(full.priced.net * (1 + taxRate(settings) / 100));
+    // Fixed-departure seats: checked again here, with the departure row locked so two bookings can't take the last seats.
+    if (full.quote.package_id) {
+      await run('SELECT id FROM package_departures WHERE package_id = ? AND depart_on = ? FOR UPDATE', full.quote.package_id, full.quote.travel_date || '');
+      await assertSeats(full.quote.package_id, full.quote.travel_date, full.quote.adults + full.quote.children);
+    }
     const fromWallet = Math.min(Math.max(agency.wallet_balance, 0), payable);
     const fromCredit = round2(payable - fromWallet);
     if (fromCredit && creditStatus(agency).overdue) {
@@ -264,6 +292,7 @@ async function voucherFor(booking) {
 }
 
 module.exports = {
+  departuresOf, assertSeats,
   creditStatus, repayCredit, creditReminders,
   voucherFor,
   AppError, getQuote, createQuote, createQuoteFromPackage, addProductToQuote, addQuoteItem, moveWallet, issueInvoice,

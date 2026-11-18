@@ -50,7 +50,7 @@
         <h4>Bill to</h4>
         <b><%= doc.buyer.legalName || doc.buyer.name %></b><br>
         <% if (doc.buyer.address) { %><%= doc.buyer.address %><br><% } %>
-        <% if (doc.buyer.gstin) { %>GSTIN: <b><%= doc.buyer.gstin %></b><% if (gst.buyerState) { %> · State: <%= stateLine(gst.buyerState) %><% } %><br><% } %>
+        <% if (doc.buyer.gstin) { %>GSTIN: <b><%= doc.buyer.gstin %></b><% if (gst.buyerState) { %> · State: <%= stateLine(gst.buyerState) %><% } %><br><% } else if (gst.buyerState) { %>State: <%= stateLine(gst.buyerState) %><br><% } %>
         <% if (doc.buyer.pan) { %>PAN: <%= doc.buyer.pan %><br><% } %>
         <% if (doc.buyer.taxId) { %>Tax ID: <%= doc.buyer.taxId %><br><% } %>
         <%= [doc.buyer.phone, doc.buyer.email].filter(Boolean).join(' · ') %>

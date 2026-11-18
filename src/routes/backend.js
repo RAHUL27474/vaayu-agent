@@ -327,7 +327,8 @@ const builderOpts = { KINDS, MEAL_PLANS: pkgs.MEAL_PLANS, STAY_TYPES: pkgs.STAY_
 const vaayuPkg = (id) => one('SELECT * FROM packages WHERE id = ? AND agency_id IS NULL', num(id));
 
 router.get('/packages', h(async (req, res) => {
-  const rows = await all(`SELECT p.*, (SELECT COUNT(*) FROM quotes q WHERE q.package_id = p.id) AS quotes, (SELECT COUNT(*) FROM packages c WHERE c.copied_from = p.id) AS copies
+  const rows = await all(`SELECT p.*, (SELECT COUNT(*) FROM quotes q WHERE q.package_id = p.id) AS quotes, (SELECT COUNT(*) FROM packages c WHERE c.copied_from = p.id) AS copies,
+    (SELECT COUNT(*) FROM package_departures d WHERE d.package_id = p.id AND d.depart_on >= sqldate('now')) AS departures
     FROM packages p WHERE p.agency_id IS NULL ORDER BY p.updated_at DESC`);
   const packages = await Promise.all(rows.map(async (p) => {
     const d = pkgs.parseDetails(p.details);
@@ -390,6 +391,35 @@ router.post('/packages/:id/status', h(async (req, res, next) => {
   }
   req.flash('success', status === 'published' ? 'Published: agents can now sell it.' : 'Hidden from agents. Quotes already made keep their copy.');
   res.redirect('/backend/packages');
+}));
+
+router.get('/packages/:id/departures', h(async (req, res, next) => {
+  const pkg = await vaayuPkg(req.params.id);
+  if (!pkg) return next();
+  res.page('backend/departures', { title: `Departures · ${pkg.title}`, pkg, departures: await svc.departuresOf(pkg.id, { upcoming: false }) });
+}));
+
+router.post('/packages/:id/departures', h(async (req, res, next) => {
+  const pkg = await vaayuPkg(req.params.id);
+  if (!pkg) return next();
+  const seats = Math.round(num(req.body.seats, 0));
+  const dates = String(req.body.dates || '').split(/[\s,]+/).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  if (!dates.length || !(seats > 0 && seats <= 999)) throw new svc.AppError('Pick at least one date and 1–999 seats.');
+  for (const d of dates) {
+    await run('INSERT INTO package_departures (package_id, depart_on, seats, note) VALUES (?, ?, ?, ?) ON CONFLICT (package_id, depart_on) DO UPDATE SET seats = excluded.seats, note = excluded.note',
+      pkg.id, d, seats, str(req.body.note).slice(0, 80) || null);
+  }
+  await audit(req.user, 'vaayu_package.departures', { entity: 'package', id: pkg.id, summary: `${pkg.title}: ${dates.join(', ')} · ${seats} seats`, link: `/backend/packages/${pkg.id}/departures` });
+  req.flash('success', `${dates.length} departure${dates.length === 1 ? '' : 's'} saved with ${seats} seats.`);
+  res.redirect(`/backend/packages/${pkg.id}/departures`);
+}));
+
+router.post('/packages/:id/departures/:depId/delete', h(async (req, res, next) => {
+  const pkg = await vaayuPkg(req.params.id);
+  if (!pkg) return next();
+  await run('DELETE FROM package_departures WHERE id = ? AND package_id = ?', num(req.params.depId), pkg.id);
+  req.flash('success', 'Departure removed. Bookings already made stay as they are.');
+  res.redirect(`/backend/packages/${pkg.id}/departures`);
 }));
 
 router.post('/packages/:id/delete', h(async (req, res, next) => {

@@ -165,6 +165,7 @@ function agencyParty(agency) {
     gstin: agency.gstin || '',
     taxId: agency.tax_id || '',
     pan: agency.pan || '',
+    bank: agency.bank_details || '',
     address: [agency.address, agency.city, agency.country && agency.country !== 'India' ? agency.country : ''].filter(Boolean).join(', '),
     phone: agency.phone || '',
     email: agency.email || '',
@@ -175,7 +176,10 @@ function agencyParty(agency) {
 
 function customerParty(customer, quote) {
   return customer
-    ? { name: customer.name, email: customer.email || '', phone: customer.phone || '', address: customer.city || '' }
+    ? {
+      name: customer.name, email: customer.email || '', phone: customer.phone || '', pan: customer.pan || '', state: customer.state || '',
+      address: [customer.address, customer.city, customer.state].filter(Boolean).join(', '),
+    }
     : { name: quote.title, email: '', phone: '', address: '' };
 }
 

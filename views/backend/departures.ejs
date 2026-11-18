@@ -1,0 +1,29 @@
+<%# Fixed departures (seats per date) of a VaayuTrip package. Locals: pkg, departures %>
+<a href="/backend/packages"><%- icon('arrowLeft') %>VaayuTrip packages</a>
+<div class="page-head" style="margin-top:10px">
+  <div><h1>Departures: <%= pkg.title %></h1><p>Set the dates this package runs and the seats on each. Agents can then only quote and book those dates, until the seats run out. Without any departures, agents can choose any date.</p></div>
+</div>
+<div class="split">
+  <div class="card flush">
+    <% if (!departures.length) { %><div class="empty">No fixed departures: agents can quote any date.</div><% } else { %>
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Date</th><th class="num">Seats</th><th class="num">Booked</th><th class="num">Left</th><th></th></tr></thead>
+      <% departures.forEach(d => { const past = d.depart_on < today; %>
+        <tr class="<%= past ? 'muted' : '' %>">
+          <td><b><%= fmtDate(d.depart_on) %></b><%= past ? ' (past)' : '' %><%= d.note ? ` · ${d.note}` : '' %></td>
+          <td class="num"><%= d.seats %></td><td class="num"><%= d.booked %></td>
+          <td class="num"><span class="badge seats <%= d.left === 0 ? 'cancelled' : d.left <= 5 ? 'pending' : 'active' %>"><%= d.left %></span></td>
+          <td class="num"><form method="post" action="/backend/packages/<%= pkg.id %>/departures/<%= d.id %>/delete" class="inline" data-confirm="Remove the <%= d.depart_on %> departure?"><button class="btn btn-sm btn-danger">Remove</button></form></td>
+        </tr>
+      <% }) %>
+    </table></div>
+    <% } %>
+  </div>
+  <form class="card" method="post" action="/backend/packages/<%= pkg.id %>/departures">
+    <h3>Add or change departures</h3>
+    <div class="field"><label for="dates">Dates</label><textarea id="dates" name="dates" rows="3" placeholder="2027-01-15, 2027-01-22, 2027-02-05" required></textarea><div class="hint">One or more dates (YYYY-MM-DD), separated by commas or new lines. An existing date gets the new seat count.</div></div>
+    <div class="field"><label for="seats">Seats on each</label><input id="seats" type="number" min="1" max="999" name="seats" required></div>
+    <div class="field"><label for="note">Note <span class="muted">(optional)</span></label><input id="note" name="note" maxlength="80" placeholder="e.g. Diwali special, group with tour leader"></div>
+    <button class="btn btn-primary">Save departures</button>
+  </form>
+</div>

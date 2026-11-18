@@ -16,6 +16,7 @@
           <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= agency.email || '' %>"></div>
         </div>
         <div class="field"><label for="address">Address</label><input id="address" name="address" value="<%= agency.address || '' %>"></div>
+        <div class="field"><label for="bank_details">Bank details for your invoices</label><textarea id="bank_details" name="bank_details" rows="3" maxlength="500" placeholder="Bank, account name and number, IFSC, UPI ID"><%= agency.bank_details || '' %></textarea><div class="hint">Printed on your branded invoices so customers can pay you.</div></div>
         <div class="field"><label for="city">City</label><input id="city" name="city" value="<%= agency.city || '' %>"></div>
       </div>
       <div class="card">

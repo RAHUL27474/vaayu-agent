@@ -8,6 +8,41 @@
       <table class="table" style="margin-top:10px"><% quotes.forEach(q => { %><tr class="click" data-href="/agent/quotes/<%= q.id %>"><td><b><%= q.title %></b><br><small><%= q.code %></small></td><td><span class="badge <%= q.status %>"><%= q.status %></span></td></tr><% }) %></table>
       <% } %>
     </div>
+    <div class="card flush" id="docs">
+      <div class="card-head"><h3>Travellers &amp; documents</h3><% if (nextTrip) { %><small class="muted">Next trip <%= fmtDate(nextTrip) %></small><% } %></div>
+      <% if (!docs.length) { %><div class="empty">No documents yet. Keep passports, visas and photos here for quick bookings.</div><% } else { %>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Traveller</th><th>Document</th><th>Expires</th><th></th></tr></thead>
+        <% docs.forEach(d => {
+             const ref = nextTrip || today;
+             const sixMonths = new Date(new Date(ref + 'T00:00:00Z').getTime() + 182 * 864e5).toISOString().slice(0, 10);
+             const expired = d.expires_on && d.expires_on < today;
+             const short = !expired && d.doc_type === 'passport' && d.expires_on && d.expires_on < sixMonths; %>
+          <tr>
+            <td><b><%= d.traveller %></b></td>
+            <td><%= docTypes[d.doc_type] %><%= d.doc_number ? ' · ' + (d.doc_number.length > 4 ? '••' + d.doc_number.slice(-4) : d.doc_number) : '' %></td>
+            <td><% if (d.expires_on) { %><span class="<%= expired ? 'badge cancelled' : short ? 'badge pending' : '' %>"><%= fmtDate(d.expires_on) %><%= expired ? ' · expired' : short ? ' · under 6 months' : '' %></span><% } else { %>—<% } %></td>
+            <td class="num" style="white-space:nowrap">
+              <a class="btn btn-sm" href="/agent/customers/<%= customer.id %>/docs/<%= d.id %>" target="_blank" rel="noopener">View</a>
+              <form method="post" action="/agent/customers/<%= customer.id %>/docs/<%= d.id %>/delete" class="inline" data-confirm="Delete this document?"><button class="btn btn-sm btn-danger" aria-label="Delete document">✕</button></form>
+            </td>
+          </tr>
+        <% }) %>
+      </table></div>
+      <% } %>
+      <form class="doc-upload" method="post" action="/agent/customers/<%= customer.id %>/docs" enctype="multipart/form-data">
+        <div class="row">
+          <div class="field"><label for="d-traveller">Traveller</label><input id="d-traveller" name="traveller" value="<%= customer.name %>" maxlength="80" required></div>
+          <div class="field"><label for="d-type">Type</label><select id="d-type" name="doc_type"><% Object.entries(docTypes).forEach(([k, l]) => { %><option value="<%= k %>"><%= l %></option><% }) %></select></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="d-number">Number <span class="muted">(optional)</span></label><input id="d-number" name="doc_number" maxlength="40"></div>
+          <div class="field"><label for="d-exp">Expiry <span class="muted">(optional)</span></label><input id="d-exp" type="date" name="expires_on"></div>
+        </div>
+        <div class="field"><label for="d-file">File</label><input id="d-file" type="file" name="file" accept="application/pdf,image/jpeg,image/png,image/webp" required><div class="hint">PDF or photo, up to 4 MB. Only your agency can open it.</div></div>
+        <button class="btn btn-primary btn-sm">Upload document</button>
+      </form>
+    </div>
     <div class="card flush">
       <div class="card-head"><h3>Bookings</h3></div>
       <% if (!bookings.length) { %><div class="empty">No bookings yet.</div><% } else { %>
@@ -21,6 +56,11 @@
     <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" value="<%= customer.phone || '' %>"></div>
     <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= customer.email || '' %>"></div>
     <div class="field"><label for="city">City</label><input id="city" name="city" value="<%= customer.city || '' %>"></div>
+    <div class="field"><label for="address">Address</label><textarea id="address" name="address" rows="2" placeholder="Needed on invoices over ₹50,000"><%= customer.address || '' %></textarea></div>
+    <div class="row">
+      <div class="field"><label for="state">State</label><select id="state" name="state"><option value="">—</option><% states.forEach(s => { %><option <%= customer.state === s ? 'selected' : '' %>><%= s %></option><% }) %></select></div>
+      <div class="field"><label for="pan">PAN <span class="muted">(for TCS)</span></label><input id="pan" name="pan" value="<%= customer.pan || '' %>" maxlength="10" placeholder="ABCDE1234F" style="text-transform:uppercase"></div>
+    </div>
     <div class="field"><label for="notes">Notes</label><textarea id="notes" name="notes"><%= customer.notes || '' %></textarea></div>
     <button class="btn btn-primary">Save</button>
   </form>

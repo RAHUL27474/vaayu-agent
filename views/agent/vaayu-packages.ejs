@@ -23,6 +23,7 @@
       <div class="body">
         <div class="meta"><span class="badge info">VaayuTrip</span> <%= p.nights %>N/<%= p.nights + 1 %>D · <%= p.destination %><%= p.theme ? ` · ${p.theme}` : '' %></div>
         <h3><%= p.title %></h3>
+        <% if (p.next) { %><p style="font-size:12.5px;margin:0 0 4px"><span class="badge seats <%= p.next.left <= 5 ? 'pending' : 'active' %>">Next: <%= fmtDate(p.next.depart_on) %> · <%= p.next.left %> seats</span></p><% } %>
         <% if (p.summary) { %><p class="muted" style="font-size:13px;margin:0"><%= p.summary.length > 110 ? p.summary.slice(0, 107) + '…' : p.summary %></p><% } %>
         <div class="price">
           <div><small class="muted">Net pp</small><br><b><%= inr(p.price.net) %></b></div>

@@ -10,6 +10,7 @@ const { searchAll } = require('../search');
 const phonepe = require('../phonepe');
 const payments = require('../payments');
 const { invoiceView } = require('../invoice-view');
+const { tcsRows, sendTcsCsv } = require('../tcs-report');
 const { KINDS, marginPct, repriceProducts, destinationOf, TIERS } = require('../products');
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 const { restoreFile } = require('../files');
@@ -412,6 +413,15 @@ router.post('/topups/:id/reject', h(async (req, res) => {
 }));
 
 // ---------- invoices, notifications, settings ----------
+
+// TCS VaayuTrip collected on its customer invoices, for the TCS return (Form 27EQ).
+router.get('/reports/tcs.csv', h(async (req, res) => {
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  const now = new Date(Date.now() + 330 * 60000);
+  const from = iso.test(req.query.from || '') ? req.query.from : `${now.toISOString().slice(0, 7)}-01`;
+  const to = iso.test(req.query.to || '') ? req.query.to : now.toISOString().slice(0, 10);
+  sendTcsCsv(res, `vaayutrip_tcs_${from}_to_${to}.csv`, await tcsRows({ from, to }));
+}));
 
 router.get('/invoices', h(async (req, res) => {
   const kind = ['b2b', 'customer_vaayu', 'customer_agent'].includes(req.query.kind) ? req.query.kind : '';

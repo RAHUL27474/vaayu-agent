@@ -2,7 +2,7 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
-const { one, all, run, tx, getSettings, notify, audit, UPLOADS_DIR } = require('../db');
+const { one, all, run, tx, getSettings, notify, audit, UPLOADS_DIR, DATA_DIR } = require('../db');
 const { num, code, round2, uniqueSlug, fmtDate } = require('../util');
 const { requireAgent, requireActiveAgency, limitPendingAgency, limitStaffRole, staffCan, STAFF_ROLES, h, idParam, MAX_AMOUNT } = require('../auth');
 const { hashPassword } = require('../util');
@@ -11,6 +11,7 @@ const { searchAgency } = require('../search');
 const phonepe = require('../phonepe');
 const payments = require('../payments');
 const { invoiceView } = require('../invoice-view');
+const { tcsRows, sendTcsCsv } = require('../tcs-report');
 const { PKG_CORE, withPrices, insertPackage, newPackageDetails, productCatalogue, packageCore, builderData: buildWith, vaayuPackage } = require('../package-builder');
 const { priceQuote, emiPlans, agencyHasBranding, withTax, markupRule } = require('../pricing');
 const {
@@ -21,7 +22,8 @@ const {
   kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups, seasonOn, soldOutOn, listOf, tierPrices, TIERS
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
-const { persistFile } = require('../files');
+const { persistFile, writePersisted, restoreFile, deleteFile } = require('../files');
+const { INDIAN_STATES } = require('../invoice-view');
 const { paging, pageOf } = require('../paging');
 const { COUNTRIES, isIndia, kycLabel, requiredFiles, withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded } = require('../kyc');
 
@@ -411,7 +413,7 @@ router.get('/vaayutrip-packages', h(async (req, res) => {
   const rows = await all(
     `SELECT * FROM packages WHERE agency_id IS NULL AND status = 'published' ${dest ? 'AND destination = ?' : ''} ORDER BY updated_at DESC`, ...(dest ? [dest] : []),
   );
-  const packages = await Promise.all(rows.map(async (p) => ({ ...p, price: await fromPrice(req.agency, p, parseDetails(p.details)) })));
+  const packages = await Promise.all(rows.map(async (p) => ({ ...p, price: await fromPrice(req.agency, p, parseDetails(p.details)), next: (await svc.departuresOf(p.id)).find((d) => d.left > 0) || null })));
   const destinations = (await all("SELECT destination, COUNT(*) AS n FROM packages WHERE agency_id IS NULL AND status = 'published' GROUP BY destination ORDER BY destination"));
   res.page('agent/vaayu-packages', { title: 'VaayuTrip packages', packages, destinations, dest });
 }));
@@ -426,6 +428,7 @@ router.get('/vaayutrip-packages/:id', h(async (req, res, next) => {
     title: pkg.title, pkg, details, calc, priced: priceLines(req.agency, calc.lines),
     view: await present(pkg, details, products), from: await fromPrice(req.agency, pkg, details, products), customers: await customersOf(req.agency.id),
     copies: await all('SELECT id, title FROM packages WHERE agency_id = ? AND copied_from = ?', req.agency.id, pkg.id),
+    departures: await svc.departuresOf(pkg.id),
   });
 }));
 
@@ -704,13 +707,69 @@ router.get('/customers/:id', h(async (req, res, next) => {
   const quotes = await all('SELECT * FROM quotes WHERE customer_id = ? ORDER BY id DESC', customer.id);
   const bookings = await all('SELECT * FROM bookings WHERE customer_id = ? ORDER BY id DESC', customer.id);
   const leads = await all('SELECT * FROM leads WHERE customer_id = ? ORDER BY id DESC', customer.id);
-  res.page('agent/customer', { title: customer.name, customer, quotes, bookings, leads });
+  const docs = await all('SELECT * FROM traveller_docs WHERE customer_id = ? ORDER BY traveller, doc_type, id', customer.id);
+  const nextTrip = bookings.filter((b) => b.status === 'confirmed' && b.travel_date && b.travel_date >= res.locals.today).map((b) => b.travel_date).sort()[0] || null;
+  res.page('agent/customer', { title: customer.name, customer, quotes, bookings, leads, docs, nextTrip, docTypes: DOC_TYPES, states: INDIAN_STATES });
+}));
+
+// ---------- travellers' documents ----------
+
+const DOC_TYPES = { passport: 'Passport', visa: 'Visa', photo: 'Photo', ticket: 'Ticket', insurance: 'Insurance', other: 'Other' };
+const DOC_FILES = { 'application/pdf': '.pdf', 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
+const TRAVEL_DIR = path.join(DATA_DIR, 'travel');
+const docUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024, files: 1 },
+  fileFilter: (req, file, cb) => cb(null, Boolean(DOC_FILES[file.mimetype])),
+}).single('file');
+const ownCustomer = (req) => one('SELECT * FROM customers WHERE id = ? AND agency_id = ?', num(req.params.id), req.agency.id);
+
+router.post('/customers/:id/docs', (req, res, next) => docUpload(req, res, (err) => {
+  if (err) { req.flash('error', err.code === 'LIMIT_FILE_SIZE' ? 'That file is over 4 MB. Upload a smaller scan or photo.' : 'Upload failed. Try again.'); return res.redirect(`/agent/customers/${num(req.params.id)}#docs`); }
+  next();
+}), h(async (req, res, next) => {
+  const customer = await ownCustomer(req);
+  if (!customer) return next();
+  if (!req.file) throw new svc.AppError('Choose a PDF or photo (JPG, PNG or WebP).');
+  const name = `${req.agency.id}-${customer.id}-${crypto.randomBytes(12).toString('hex')}${DOC_FILES[req.file.mimetype]}`;
+  const abs = path.join(TRAVEL_DIR, name);
+  await writePersisted(abs, req.file.buffer);
+  const expires = /^\d{4}-\d{2}-\d{2}$/.test(req.body.expires_on || '') ? req.body.expires_on : null;
+  await run('INSERT INTO traveller_docs (agency_id, customer_id, traveller, doc_type, doc_number, expires_on, file_path, file_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    req.agency.id, customer.id, str(req.body.traveller).slice(0, 80) || customer.name, DOC_TYPES[req.body.doc_type] ? req.body.doc_type : 'other',
+    str(req.body.doc_number).slice(0, 40) || null, expires, `data/travel/${name}`, String(req.file.originalname || '').slice(0, 120));
+  await audit(req.user, 'traveller_doc.added', { entity: 'customer', id: customer.id, summary: `${DOC_TYPES[req.body.doc_type] || 'Document'} for ${str(req.body.traveller) || customer.name}`, link: `/agent/customers/${customer.id}` });
+  req.flash('success', 'Document saved.');
+  res.redirect(`/agent/customers/${customer.id}#docs`);
+}));
+
+router.get('/customers/:id/docs/:docId', h(async (req, res, next) => {
+  const doc = await one('SELECT * FROM traveller_docs WHERE id = ? AND customer_id = ? AND agency_id = ?', num(req.params.docId), num(req.params.id), req.agency.id);
+  if (!doc) return next();
+  const abs = path.join(DATA_DIR, doc.file_path.replace(/^data\//, ''));
+  if (!await restoreFile(abs)) return next();
+  res.set('Cache-Control', 'private, no-store');
+  if (req.query.download) return res.download(abs, doc.file_name || path.basename(abs));
+  res.sendFile(abs);
+}));
+
+router.post('/customers/:id/docs/:docId/delete', h(async (req, res, next) => {
+  const doc = await one('SELECT * FROM traveller_docs WHERE id = ? AND customer_id = ? AND agency_id = ?', num(req.params.docId), num(req.params.id), req.agency.id);
+  if (!doc) return next();
+  await deleteFile(path.join(DATA_DIR, doc.file_path.replace(/^data\//, '')));
+  await run('DELETE FROM traveller_docs WHERE id = ?', doc.id);
+  await audit(req.user, 'traveller_doc.deleted', { entity: 'customer', id: doc.customer_id, summary: `${DOC_TYPES[doc.doc_type]} for ${doc.traveller}`, link: `/agent/customers/${doc.customer_id}` });
+  req.flash('success', 'Document deleted.');
+  res.redirect(`/agent/customers/${doc.customer_id}#docs`);
 }));
 
 router.post('/customers/:id', h(async (req, res) => {
   const id = num(req.params.id);
-  await run('UPDATE customers SET name = ?, email = ?, phone = ?, city = ?, notes = ? WHERE id = ? AND agency_id = ?',
-    str(req.body.name) || 'Customer', str(req.body.email) || null, str(req.body.phone) || null, str(req.body.city) || null, str(req.body.notes) || null, id, req.agency.id);
+  const pan = str(req.body.pan).toUpperCase();
+  if (pan && !/^[A-Z]{5}\d{4}[A-Z]$/.test(pan)) throw new svc.AppError('PAN should look like ABCDE1234F.');
+  await run('UPDATE customers SET name = ?, email = ?, phone = ?, city = ?, notes = ?, address = ?, state = ?, pan = ? WHERE id = ? AND agency_id = ?',
+    str(req.body.name) || 'Customer', str(req.body.email) || null, str(req.body.phone) || null, str(req.body.city) || null, str(req.body.notes) || null,
+    str(req.body.address) || null, INDIAN_STATES.includes(req.body.state) ? req.body.state : null, pan || null, id, req.agency.id);
   req.flash('success', 'Customer updated.');
   res.redirect(`/agent/customers/${id}`);
 }));
@@ -1099,6 +1158,11 @@ router.get('/reports', h(async (req, res) => {
   res.page('agent/reports', { title: 'Reports', from, to, totals, months, destinations, customers });
 }));
 
+router.get('/reports/tcs.csv', h(async (req, res) => {
+  const { from, to } = reportPeriod(req.query);
+  sendTcsCsv(res, `tcs_${from}_to_${to}.csv`, await tcsRows({ agencyId: req.agency.id, from, to }));
+}));
+
 router.get('/reports/bookings.csv', h(async (req, res) => {
   const { from, to } = reportPeriod(req.query);
   const rows = await all(
@@ -1155,10 +1219,10 @@ router.post('/settings', upload.single('logo'), h(async (req, res) => {
   if (req.logoRejected) req.flash('error', 'Logo must be a PNG, JPG or WebP image; it was not changed.');
   await run(
     `UPDATE agencies SET name = ?, legal_name = ?, pan = ?, phone = ?, email = ?, address = ?, city = ?, brand_color = ?, logo_path = ?,
-       markup_type = ?, markup_value = ?, markup_by_kind = ? WHERE id = ?`,
+       markup_type = ?, markup_value = ?, markup_by_kind = ?, bank_details = ? WHERE id = ?`,
     str(b.name) || req.agency.name, str(b.legal_name) || null, str(b.pan).toUpperCase() || null, str(b.phone) || null,
     str(b.email) || null, str(b.address) || null, str(b.city) || null, /^#[0-9a-f]{6}$/i.test(b.brand_color) ? b.brand_color : '#0e7490', logo,
-    b.markup_type === 'flat' ? 'flat' : 'percent', Math.max(0, num(b.markup_value, 0)), kindMarkupsFromForm(b), req.agency.id,
+    b.markup_type === 'flat' ? 'flat' : 'percent', Math.max(0, num(b.markup_value, 0)), kindMarkupsFromForm(b), str(b.bank_details).slice(0, 500) || null, req.agency.id,
   );
   req.flash('success', 'Company profile saved.');
   res.redirect('/agent/settings');

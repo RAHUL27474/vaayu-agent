@@ -18,6 +18,7 @@
       <td class="num"><small><%= plural(p.quotes, 'quote') %><br><%= plural(p.copies, 'copy', 'copies') %></small></td>
       <td class="num" style="white-space:nowrap">
         <a class="btn btn-sm" href="/backend/packages/<%= p.id %>/edit">Edit</a>
+        <a class="btn btn-sm" href="/backend/packages/<%= p.id %>/departures">Departures<%= p.departures ? ` (${p.departures})` : '' %></a>
         <% if (p.status === 'published') { %>
           <form method="post" action="/backend/packages/<%= p.id %>/status" class="inline"><input type="hidden" name="status" value="draft"><button class="btn btn-sm">Unpublish</button></form>
         <% } else { %>

@@ -13,11 +13,13 @@ const STATES = {
   29: 'Karnataka', 30: 'Goa', 31: 'Lakshadweep', 32: 'Kerala', 33: 'Tamil Nadu', 34: 'Puducherry', 35: 'Andaman and Nicobar Islands',
   36: 'Telangana', 37: 'Andhra Pradesh', 38: 'Ladakh', 97: 'Other Territory',
 };
+const INDIAN_STATES = [...new Set(Object.values(STATES))].filter((s) => s !== 'Other Territory').sort();
 const GSTIN = /^(\d{2})([A-Z]{5}\d{4}[A-Z])[A-Z\d]Z[A-Z\d]$/i;
 const stateOf = (gstin) => {
   const m = GSTIN.exec(String(gstin || '').trim());
   return m && STATES[m[1]] ? { code: m[1], name: STATES[m[1]] } : null;
 };
+const byName = (name) => { const e = Object.entries(STATES).find(([, n]) => n === name); return e ? { code: String(e[0]).padStart(2, '0'), name } : null; };
 const panOf = (party) => party.pan || (GSTIN.exec(String(party.gstin || '').trim()) || [])[2] || '';
 
 // ---------- amount in words, Indian numbering (lakh, crore) ----------
@@ -59,7 +61,8 @@ async function invoiceView(inv) {
 
   // Place of supply: a GST-registered buyer's state; otherwise (customers, whose address we don't hold) the supplier's.
   const supplierState = stateOf(doc.seller.gstin);
-  const buyerState = stateOf(doc.buyer.gstin);
+  // Unregistered customers: the state on their profile, when the agency has filled it in.
+  const buyerState = stateOf(doc.buyer.gstin) || byName(doc.buyer.state);
   const pos = buyerState || supplierState;
   const interState = Boolean(supplierState && pos && supplierState.code !== pos.code);
   const t = doc.totals;
@@ -87,7 +90,9 @@ async function invoiceView(inv) {
         : null;
 
   // VaayuTrip's bank details on its own invoices (an agency's invoice is paid to the agency).
-  const bank = inv.kind !== 'customer_agent' ? settings.bank_details || '' : '';
+  // VaayuTrip's bank on its invoices; an agency's own on its branded invoices (from its profile if issued before it was saved).
+  const bank = inv.kind !== 'customer_agent' ? settings.bank_details || ''
+    : doc.seller.bank || (await one('SELECT bank_details FROM agencies WHERE id = ?', inv.agency_id) || {}).bank_details || '';
   const terms = [
     'Cancellations and refunds follow the policy of each service as stated on the quote; charges apply as per that policy.',
     'Hotel, transfer and activity confirmations are subject to the operators\' terms. Visa issuance is at the discretion of the embassy.',
@@ -98,4 +103,4 @@ async function invoiceView(inv) {
   return { doc, gst, words: rupeesInWords(t.total), booking, payment, bank, terms };
 }
 
-module.exports = { invoiceView, rupeesInWords, stateOf };
+module.exports = { invoiceView, rupeesInWords, stateOf, INDIAN_STATES, STATES };
