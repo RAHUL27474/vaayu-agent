@@ -319,5 +319,87 @@ router.post('/import', (req, res, next) => importUpload(req, res, (err) => next(
   res.redirect(added ? '/backend/products?status=draft' : '/backend/import');
 }));
 
+// ---------- VaayuTrip packages (agency_id IS NULL): ready-made trips agents sell or copy ----------
+
+const pkgBuilder = require('../package-builder');
+const pkgs = require('../packages');
+const builderOpts = { KINDS, MEAL_PLANS: pkgs.MEAL_PLANS, STAY_TYPES: pkgs.STAY_TYPES, EXTRA_TYPES: pkgs.EXTRA_TYPES };
+const vaayuPkg = (id) => one('SELECT * FROM packages WHERE id = ? AND agency_id IS NULL', num(id));
+
+router.get('/packages', h(async (req, res) => {
+  const rows = await all(`SELECT p.*, (SELECT COUNT(*) FROM quotes q WHERE q.package_id = p.id) AS quotes, (SELECT COUNT(*) FROM packages c WHERE c.copied_from = p.id) AS copies
+    FROM packages p WHERE p.agency_id IS NULL ORDER BY p.updated_at DESC`);
+  const packages = await Promise.all(rows.map(async (p) => {
+    const d = pkgs.parseDetails(p.details);
+    return { ...p, price: await pkgs.fromPrice(pkgBuilder.NET_ONLY, p, d), services: d.items.length, problems: pkgs.publishProblems(p, d) };
+  }));
+  res.page('backend/packages', { title: 'VaayuTrip packages', packages });
+}));
+
+router.get('/packages/new', h(async (req, res) => {
+  res.page('agent/package-form', { title: 'New VaayuTrip package', formBase: '/backend/packages', ...await pkgBuilder.builderData(pkgBuilder.NET_ONLY, { nights: 3, status: 'draft', destination: str(req.query.destination), title: '' }, pkgBuilder.newPackageDetails(), builderOpts) });
+}));
+
+router.post('/packages', withCover(svc.AppError), h(async (req, res) => {
+  const details = pkgs.detailsFromForm(req.body, await pkgBuilder.productCatalogue());
+  const core = { ...pkgBuilder.packageCore(req.body, details), image_url: coverFrom(req, null) };
+  if (!core.title || !core.destination) throw new svc.AppError('Give the package a name and destination.');
+  const id = await pkgBuilder.insertPackage(null, core, details);
+  await audit(req.user, 'vaayu_package.created', { entity: 'package', id, summary: core.title, link: `/backend/packages/${id}/edit` });
+  req.flash('success', 'Package saved as a draft. Publish it to show it to agents.');
+  res.redirect(`/backend/packages/${id}/edit`);
+}));
+
+router.get('/packages/:id/edit', h(async (req, res, next) => {
+  const pkg = await vaayuPkg(req.params.id);
+  if (!pkg) return next();
+  res.page('agent/package-form', { title: `Edit ${pkg.title}`, formBase: '/backend/packages', ...await pkgBuilder.builderData(pkgBuilder.NET_ONLY, pkg, pkgs.parseDetails(pkg.details), builderOpts) });
+}));
+
+router.post('/packages/:id', withCover(svc.AppError), h(async (req, res, next) => {
+  const pkg = await vaayuPkg(req.params.id);
+  if (!pkg) return next();
+  const details = pkgs.detailsFromForm(req.body, await pkgBuilder.productCatalogue());
+  const core = { ...pkgBuilder.packageCore(req.body, details), image_url: coverFrom(req, pkg.image_url) };
+  if (!core.title || !core.destination) throw new svc.AppError('Give the package a name and destination.');
+  await run(`UPDATE packages SET ${pkgBuilder.PKG_CORE.map((k) => `${k} = ?`).join(', ')}, details = ?, updated_at = datetime('now') WHERE id = ?`,
+    ...pkgBuilder.PKG_CORE.map((k) => core[k]), JSON.stringify(details), pkg.id);
+  await audit(req.user, 'vaayu_package.updated', { entity: 'package', id: pkg.id, summary: core.title, link: `/backend/packages/${pkg.id}/edit` });
+  const problems = pkgs.publishProblems(core, details);
+  if (pkg.status === 'published' && problems.length) {
+    await run("UPDATE packages SET status = 'draft' WHERE id = ?", pkg.id);
+    req.flash('warn', `Package hidden from agents: ${problems[0]}`);
+  } else {
+    req.flash('success', 'Package saved.');
+  }
+  res.redirect('/backend/packages');
+}));
+
+router.post('/packages/:id/status', h(async (req, res, next) => {
+  const pkg = await vaayuPkg(req.params.id);
+  if (!pkg) return next();
+  const status = req.body.status === 'published' ? 'published' : 'draft';
+  if (status === 'published') {
+    const problems = pkgs.publishProblems(pkg, pkgs.parseDetails(pkg.details));
+    if (problems.length) throw new svc.AppError(`Can't publish yet: ${problems.join(' ')}`);
+  }
+  await run("UPDATE packages SET status = ?, updated_at = datetime('now') WHERE id = ?", status, pkg.id);
+  await audit(req.user, status === 'published' ? 'vaayu_package.published' : 'vaayu_package.unpublished', { entity: 'package', id: pkg.id, summary: pkg.title, link: '/backend/packages' });
+  if (status === 'published') {
+    for (const a of await all("SELECT id FROM agencies WHERE status = 'active'")) await notify(a.id, 'New VaayuTrip package', `${pkg.title} (${pkg.nights}N ${pkg.destination}) is ready to sell.`, `/agent/vaayutrip-packages/${pkg.id}`);
+  }
+  req.flash('success', status === 'published' ? 'Published: agents can now sell it.' : 'Hidden from agents. Quotes already made keep their copy.');
+  res.redirect('/backend/packages');
+}));
+
+router.post('/packages/:id/delete', h(async (req, res, next) => {
+  const pkg = await vaayuPkg(req.params.id);
+  if (!pkg) return next();
+  await run('DELETE FROM packages WHERE id = ?', pkg.id);
+  await audit(req.user, 'vaayu_package.deleted', { entity: 'package', id: pkg.id, summary: pkg.title, link: '/backend/packages' });
+  req.flash('success', 'Package deleted. Agents\' copies and quotes keep theirs.');
+  res.redirect('/backend/packages');
+}));
+
 module.exports = router;
 module.exports.parseCsv = parseCsv;

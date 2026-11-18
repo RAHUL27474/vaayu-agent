@@ -287,6 +287,25 @@ function marginPct(kind, settings) {
 }
 const withMargin = (cost, pct) => (cost == null ? null : Math.round(cost * (1 + pct / 100)));
 
+const TIERS = { standard: 'Standard', silver: 'Silver', gold: 'Gold' };
+/** Percentage points of VaayuTrip's margin an agency's tier saves it (0 for standard). */
+function tierDiscount(agency, settings) {
+  const t = agency && agency.rate_tier;
+  if (t !== 'silver' && t !== 'gold') return 0;
+  const v = parseFloat(settings[`tier_${t}_pct`]);
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
+/**
+ * A product priced for an agency's tier: net = cost × (1 + (margin − tier discount)). Products without a stored
+ * cost, and standard agencies, keep the published net.
+ */
+function tierPrices(agency, p, settings) {
+  const d = settings ? tierDiscount(agency, settings) : 0;
+  if (!d || !p || p.cost_adult == null) return p;
+  const pct = Math.max(0, marginPct(p.kind, settings) - d);
+  return { ...p, net_adult: withMargin(p.cost_adult, pct), net_child: withMargin(p.cost_child, pct), net_infant: withMargin(p.cost_infant, pct) };
+}
+
 /** Product fields from the backend form (net_* = what VaayuTrip pays) → stored fields: cost_* and agents' net_*. */
 function priceForAgents(p, settings) {
   const pct = marginPct(p.kind, settings);
@@ -319,7 +338,7 @@ async function ensureProductCosts() {
 module.exports = {
   DEFAULT_MARGINS, marginPct, kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups, priceForAgents, repriceProducts, ensureProductCosts,
   DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, MEAL_PLANS, KINDS, KIND_BY_PATH, BASIS_LABELS,
-  seasonOn, soldOutOn, seasonsFromForm, listOf,
+  seasonOn, soldOutOn, seasonsFromForm, listOf, TIERS, tierDiscount, tierPrices,
   destinationOf, parseProductDetails, productFromForm, publishProblems, describe, productLines, cardPrice, presentProduct,
   publishedProduct, productMap, childNet, lines,
 };

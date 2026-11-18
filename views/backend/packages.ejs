@@ -1,0 +1,32 @@
+<%# VaayuTrip's ready-made packages, built and published by the backend team. Locals: packages %>
+<div class="page-head">
+  <div><h1>VaayuTrip packages</h1><p>Ready-made holidays for agents to sell. Build them from published inventory; agents see them at net plus VaayuTrip's margin, add their own markup, and can copy them to customise.</p></div>
+  <div class="actions"><a class="btn btn-primary" href="/backend/packages/new"><%- icon('plus') %>New package</a></div>
+</div>
+<% if (!packages.length) { %>
+  <div class="card empty"><span class="big"><%- icon('briefcase') %></span><b>No VaayuTrip packages yet.</b><br>Build the first one: lay out the days and add hotels, activities, transfers and flights from the inventory.
+    <div style="margin-top:14px"><a class="btn btn-primary" href="/backend/packages/new">Build a package</a></div></div>
+<% } else { %>
+<div class="card flush"><div class="table-wrap"><table class="table">
+  <thead><tr><th>Package</th><th>Status</th><th class="num">Agents' net pp</th><th class="num">Used</th><th></th></tr></thead>
+  <% packages.forEach(p => { %>
+    <tr>
+      <td><a href="/backend/packages/<%= p.id %>/edit"><b><%= p.title %></b></a><br><small class="muted"><%= p.nights %>N · <%= p.destination %> · <%= plural(p.services, 'service') %></small>
+        <% if (p.problems.length) { %><br><small style="color:var(--warn)"><%= p.problems.join(' ') %></small><% } %></td>
+      <td><span class="badge <%= p.status === 'published' ? 'active' : '' %>"><%= p.status === 'published' ? 'Live for agents' : 'Draft' %></span></td>
+      <td class="num"><%= p.price.net ? inr(p.price.net) : '—' %></td>
+      <td class="num"><small><%= plural(p.quotes, 'quote') %><br><%= plural(p.copies, 'copy', 'copies') %></small></td>
+      <td class="num" style="white-space:nowrap">
+        <a class="btn btn-sm" href="/backend/packages/<%= p.id %>/edit">Edit</a>
+        <% if (p.status === 'published') { %>
+          <form method="post" action="/backend/packages/<%= p.id %>/status" class="inline"><input type="hidden" name="status" value="draft"><button class="btn btn-sm">Unpublish</button></form>
+        <% } else { %>
+          <form method="post" action="/backend/packages/<%= p.id %>/status" class="inline"><input type="hidden" name="status" value="published"><button class="btn btn-sm btn-accent" <%= p.problems.length ? 'disabled' : '' %>>Publish</button></form>
+          <form method="post" action="/backend/packages/<%= p.id %>/delete" class="inline" data-confirm="Delete this package? Agents' copies and quotes keep theirs."><button class="btn btn-sm btn-danger">Delete</button></form>
+        <% } %>
+      </td>
+    </tr>
+  <% }) %>
+</table></div></div>
+<p class="muted" style="font-size:12.5px">Per person for two adults sharing a room, at agents' net (your cost plus VaayuTrip's margin). Publishing notifies every active agent.</p>
+<% } %>

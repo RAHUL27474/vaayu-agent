@@ -394,6 +394,11 @@ CREATE TABLE IF NOT EXISTS password_resets (
   used_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+-- Agency rate tier: standard | silver | gold. Silver and gold agencies pay less of VaayuTrip's margin
+-- (Admin → Settings: tier_silver_pct / tier_gold_pct, in percentage points off each service's margin).
+ALTER TABLE agencies ADD COLUMN IF NOT EXISTS rate_tier TEXT NOT NULL DEFAULT 'standard';
+-- A package an agency copied from a VaayuTrip package (agency_id IS NULL = built by VaayuTrip's backend team).
+ALTER TABLE packages ADD COLUMN IF NOT EXISTS copied_from INTEGER REFERENCES packages(id) ON DELETE SET NULL;
 -- Inventory seasons: [{ from, to, pct, label }] adds pct % to agents' net price for travel dates in that range;
 -- blackouts: [{ from, to, label }] are dates the item can't be booked (sold out). Both JSON; dates YYYY-MM-DD.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS seasons TEXT;

@@ -1,0 +1,36 @@
+<%# Ready-made VaayuTrip packages for agents. Locals: packages (with price), destinations, dest %>
+<div class="page-head">
+  <div><h1>VaayuTrip packages</h1><p>Ready-made holidays by VaayuTrip: hotels, sightseeing, transfers and more, day by day. Quote them to your customers as they are, or copy one into My packages to make it your own.</p></div>
+  <div class="actions"><a class="btn" href="/agent/packages">My packages</a></div>
+</div>
+<% if (destinations.length > 1) { %>
+<div class="tabs">
+  <a href="/agent/vaayutrip-packages" class="<%= !dest ? 'active' : '' %>">All</a>
+  <% destinations.forEach(d => { %><a href="/agent/vaayutrip-packages?destination=<%= encodeURIComponent(d.destination) %>" class="<%= dest === d.destination ? 'active' : '' %>"><%= d.destination %> <small class="muted"><%= d.n %></small></a><% }) %>
+</div>
+<% } %>
+<% if (!packages.length) { %>
+  <div class="card empty">
+    <span class="big"><%- icon('briefcase') %></span><b>No VaayuTrip packages here yet.</b><br>
+    Our team is adding ready-made holidays. Meanwhile, build your own from our inventory.
+    <div style="margin-top:14px"><a class="btn btn-primary" href="/agent/packages/new">Build a package</a></div>
+  </div>
+<% } else { %>
+<div class="pkg-grid">
+  <% packages.forEach(p => { %>
+    <a class="pkg" href="/agent/vaayutrip-packages/<%= p.id %>" style="color:inherit;text-decoration:none">
+      <img src="<%= cover(p) %>" alt="" loading="lazy">
+      <div class="body">
+        <div class="meta"><span class="badge info">VaayuTrip</span> <%= p.nights %>N/<%= p.nights + 1 %>D · <%= p.destination %><%= p.theme ? ` · ${p.theme}` : '' %></div>
+        <h3><%= p.title %></h3>
+        <% if (p.summary) { %><p class="muted" style="font-size:13px;margin:0"><%= p.summary.length > 110 ? p.summary.slice(0, 107) + '…' : p.summary %></p><% } %>
+        <div class="price">
+          <div><small class="muted">Net pp</small><br><b><%= inr(p.price.net) %></b></div>
+          <div class="num"><small class="muted">Sell pp · you earn</small><br><b><%= inr(p.price.sell) %></b> · <span class="profit"><%= inr(p.price.earning) %></span></div>
+        </div>
+      </div>
+    </a>
+  <% }) %>
+</div>
+<p class="muted" style="font-size:12.5px;margin-top:12px">Per person for two adults sharing a room, with your default markup, before taxes. Open a package to price it for your group and travel date.</p>
+<% } %>

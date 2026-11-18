@@ -11,13 +11,14 @@ const { searchAgency } = require('../search');
 const phonepe = require('../phonepe');
 const payments = require('../payments');
 const { invoiceView } = require('../invoice-view');
+const { PKG_CORE, withPrices, insertPackage, newPackageDetails, productCatalogue, packageCore, builderData: buildWith, vaayuPackage } = require('../package-builder');
 const { priceQuote, emiPlans, agencyHasBranding, withTax, markupRule } = require('../pricing');
 const {
   MEAL_PLANS, STAY_TYPES, EXTRA_TYPES, emptyDetails, parseDetails, itemIds, detailsFromForm, calcPackage, priceLines, fromPrice, publishProblems, present,
 } = require('../packages');
 const {
   KINDS, KIND_BY_PATH, DESTINATIONS, ALL_DESTINATIONS, MEAL_PLANS: PRODUCT_MEAL_PLANS, productLines, productMap, cardPrice, describe, parseProductDetails, publishedProduct,
-  kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups, seasonOn, soldOutOn, listOf
+  kindMarkupsFromForm, quoteKindMarkupsFromForm, kindMarkups, seasonOn, soldOutOn, listOf, tierPrices, TIERS
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
 const { persistFile } = require('../files');
@@ -171,7 +172,6 @@ function partyOf(src) {
   };
 }
 const ownPackages = async (agencyId) => await all('SELECT id, title, nights, destination FROM packages WHERE agency_id = ? ORDER BY updated_at DESC', agencyId);
-const withPrices = (agency) => (p) => ({ ...p, price: cardPrice(agency, p), line: describe(p) });
 
 // Dashboard booking panel: send the agent to the chosen service's catalogue with the destination and search applied.
 router.get('/find', (req, res) => {
@@ -203,7 +203,7 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
       `SELECT * FROM products WHERE ${where.map(([c]) => c).join(' AND ')} ORDER BY country, city, net_adult, id ${pg.sql}`,
       ...where.flatMap(([, ...p]) => p), ...pg.params,
     ), pg);
-    const products = found.rows.map(withPrices(req.agency));
+    const products = found.rows.map(withPrices(req.agency, res.locals.settings));
     const cities = (await all("SELECT city, country, COUNT(*) AS n FROM products WHERE status = 'published' AND kind = ? GROUP BY city, country ORDER BY country, city", kind))
       .filter((c) => !f.dest || DESTINATIONS[f.dest].includes(c.country) || c.country === ALL_DESTINATIONS);
     const services = Object.entries(KIND_BY_PATH).map(([p, k]) => ({ path: p, kind: k, label: KINDS[k].plural, icon: KINDS[k].icon }));
@@ -211,22 +211,22 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
   }));
 
   router.get(`/${path}/:id`, h(async (req, res, next) => {
-    const p = await publishedProduct(num(req.params.id), kind);
+    const p = tierPrices(req.agency, await publishedProduct(num(req.params.id), kind), res.locals.settings);
     if (!p) return next();
     const party = partyOf(req.query);
     const lines = productLines(p, party).map((l) => ({ ...l, supplier: 'vaayu', sell: null }));
     const own = ownMarkup(req.query);
     const more = (await all("SELECT * FROM products WHERE status = 'published' AND kind = ? AND city = ? AND id != ? ORDER BY net_adult LIMIT 4", kind, p.city, p.id))
-      .map(withPrices(req.agency));
+      .map(withPrices(req.agency, res.locals.settings));
     res.page('agent/product', {
-      title: p.title, kind, cfg, p: withPrices(req.agency)(p), d: parseProductDetails(p.details), party, lines, priced: priceLines(own || req.agency, lines), more,
+      title: p.title, kind, cfg, p: withPrices(req.agency, res.locals.settings)(p), d: parseProductDetails(p.details), party, lines, priced: priceLines(own || req.agency, lines), more,
       own, defaultRule: markupRule(req.agency, kind), season: seasonOn(p, party.date), soldOut: soldOutOn(p, party.date), seasons: listOf(p.seasons), blackouts: listOf(p.blackouts),
       quotes: await openQuotes(req.agency.id), packages: await ownPackages(req.agency.id), customers: await customersOf(req.agency.id), mealPlans: PRODUCT_MEAL_PLANS,
     });
   }));
 
   router.post(`/${path}/:id/quote`, h(async (req, res, next) => {
-    const p = await publishedProduct(num(req.params.id), kind);
+    const p = tierPrices(req.agency, await publishedProduct(num(req.params.id), kind), res.locals.settings);
     if (!p) return next();
     const party = partyOf(req.body);
     let quoteId = num(req.body.quote_id, 0);
@@ -284,56 +284,10 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
 
 // ---------- my packages (built by the agency from VaayuTrip inventory + its own services) ----------
 
-const PKG_CORE = ['title', 'destination', 'nights', 'theme', 'summary', 'inclusions', 'exclusions', 'image_url', 'is_international', 'departure_city'];
-
 async function ownPackage(req, id) {
   return await one('SELECT * FROM packages WHERE id = ? AND agency_id = ?', id, req.agency.id);
 }
-
-async function insertPackage(agency, core, details) {
-  const row = { nights: 3, ...core, is_international: 1 };
-  return (await run(
-    `INSERT INTO packages (${PKG_CORE.join(', ')}, details, slug, agency_id, status) VALUES (${PKG_CORE.map(() => '?').join(', ')}, ?, ?, ?, 'draft')`,
-    ...PKG_CORE.map((k) => row[k] ?? null), JSON.stringify(details), await uniqueSlug('packages', row.title), agency.id,
-  )).lastInsertRowid;
-}
-
-function newPackageDetails() {
-  const d = emptyDetails();
-  d.days = [{ title: 'Arrival', description: '', meals: { b: false, l: false, d: true }, overnight: '' }];
-  d.policies.cancellation = [{ days: 30, percent: 10 }, { days: 15, percent: 25 }, { days: 7, percent: 50 }, { days: 0, percent: 100 }];
-  d.policies.child = 'Infants below 2 years travel free. Children 2–11 years pay the child price for activities. 12 years and above: adult price.';
-  d.policies.notes = 'Hotel check-in 14:00, check-out 11:00. Valid government photo ID required for all travellers. Activity timings may change with weather and local conditions.';
-  return d;
-}
-
-// Every published product, for the builder's pickers and for validating the form.
-const productCatalogue = async () => new Map((await all("SELECT * FROM products WHERE status = 'published' ORDER BY kind, country, city, title")).map((p) => [p.id, p]));
-
-function packageCore(b, d, catalogue) {
-  const routeNights = d.route.reduce((s, r) => s + r.nights, 0);
-  return {
-    title: str(b.title),
-    destination: str(b.destination),
-    nights: routeNights || Math.max(1, Math.round(num(b.nights, 1))),
-    theme: str(b.theme) || null,
-    summary: str(b.summary) || null,
-    inclusions: str(b.inclusions) || null,
-    exclusions: str(b.exclusions) || null,
-    // Every VaayuTrip destination is abroad, so TCS applies on customer invoices.
-    is_international: 1,
-    departure_city: str(b.departure_city) || null,
-  };
-}
-
-async function builderData(req, pkg, details) {
-  const catalogue = await productCatalogue();
-  return {
-    pkg, d: details, catalogue: [...catalogue.values()].map(withPrices(req.agency)), kinds: KINDS, mealPlans: MEAL_PLANS, stayTypes: STAY_TYPES, extraTypes: EXTRA_TYPES,
-    problems: pkg.id ? publishProblems(pkg, details) : [],
-    from: pkg.id ? await fromPrice(req.agency, pkg, details) : null,
-  };
-}
+const builderData = (req, pkg, details) => buildWith(req.agency, pkg, details, { KINDS, MEAL_PLANS, STAY_TYPES, EXTRA_TYPES });
 
 router.get('/packages', h(async (req, res) => {
   const rows = await all(
@@ -368,7 +322,7 @@ router.get('/packages/:id', h(async (req, res, next) => {
   if (!pkg) return next();
   const details = parseDetails(pkg.details);
   const products = await productMap(itemIds(details));
-  const calc = await calcPackage(pkg, details, req.query, products);
+  const calc = await calcPackage(pkg, details, req.query, products, req.agency);
   res.page('agent/package', {
     title: pkg.title, pkg, details, calc, priced: priceLines(req.agency, calc.lines),
     view: await present(pkg, details, products), from: await fromPrice(req.agency, pkg, details, products),
@@ -448,6 +402,61 @@ router.post('/packages/:id/quote', h(async (req, res) => {
   await audit(req.user, 'quote.created', { entity: 'quote', id: quoteId, summary: `From package: ${(await one('SELECT title FROM quotes WHERE id = ?', quoteId)).title}` });
   req.flash('success', 'Quote created from your package. Adjust prices and items, then share it with your customer.');
   res.redirect(`/agent/quotes/${quoteId}`);
+}));
+
+// ---------- VaayuTrip packages: ready-made by VaayuTrip, sold as they are or copied into My packages ----------
+
+router.get('/vaayutrip-packages', h(async (req, res) => {
+  const dest = str(req.query.destination);
+  const rows = await all(
+    `SELECT * FROM packages WHERE agency_id IS NULL AND status = 'published' ${dest ? 'AND destination = ?' : ''} ORDER BY updated_at DESC`, ...(dest ? [dest] : []),
+  );
+  const packages = await Promise.all(rows.map(async (p) => ({ ...p, price: await fromPrice(req.agency, p, parseDetails(p.details)) })));
+  const destinations = (await all("SELECT destination, COUNT(*) AS n FROM packages WHERE agency_id IS NULL AND status = 'published' GROUP BY destination ORDER BY destination"));
+  res.page('agent/vaayu-packages', { title: 'VaayuTrip packages', packages, destinations, dest });
+}));
+
+router.get('/vaayutrip-packages/:id', h(async (req, res, next) => {
+  const pkg = await vaayuPackage(num(req.params.id));
+  if (!pkg) return next();
+  const details = parseDetails(pkg.details);
+  const products = await productMap(itemIds(details));
+  const calc = await calcPackage(pkg, details, req.query, products, req.agency);
+  res.page('agent/vaayu-package', {
+    title: pkg.title, pkg, details, calc, priced: priceLines(req.agency, calc.lines),
+    view: await present(pkg, details, products), from: await fromPrice(req.agency, pkg, details, products), customers: await customersOf(req.agency.id),
+    copies: await all('SELECT id, title FROM packages WHERE agency_id = ? AND copied_from = ?', req.agency.id, pkg.id),
+  });
+}));
+
+router.post('/vaayutrip-packages/:id/quote', h(async (req, res, next) => {
+  const pkg = await vaayuPackage(num(req.params.id));
+  if (!pkg) return next();
+  const customerId = num(req.body.customer_id, 0);
+  const quoteId = await svc.createQuoteFromPackage(req.agency, pkg.id, {
+    adults: req.body.adults, children: req.body.children, infants: req.body.infants, rooms: req.body.rooms, date: str(req.body.date),
+    customerId: customerId && await one('SELECT 1 FROM customers WHERE id = ? AND agency_id = ?', customerId, req.agency.id) ? customerId : null,
+  });
+  await audit(req.user, 'quote.created', { entity: 'quote', id: quoteId, summary: `From VaayuTrip package: ${pkg.title}` });
+  req.flash('success', 'Quote created from the VaayuTrip package. Adjust it if you like, then share it with your customer.');
+  res.redirect(`/agent/quotes/${quoteId}`);
+}));
+
+// Copy into My packages (to change hotels, days or add own services), optionally straight onto the agent's website.
+router.post('/vaayutrip-packages/:id/copy', h(async (req, res, next) => {
+  const pkg = await vaayuPackage(num(req.params.id));
+  if (!pkg) return next();
+  const details = parseDetails(pkg.details);
+  const publish = req.body.publish === '1' && !publishProblems(pkg, details).length;
+  const id = await insertPackage(req.agency, pkg, details, publish ? 'published' : 'draft');
+  await run('UPDATE packages SET copied_from = ? WHERE id = ?', pkg.id, id);
+  await audit(req.user, 'package.created', { entity: 'package', id, summary: `Copied VaayuTrip package: ${pkg.title}` });
+  if (publish) {
+    req.flash('success', req.agency.website_enabled ? `${pkg.title} is now on your website, priced with your markup.` : `${pkg.title} copied and published. Switch on your website in My website to show it.`);
+    return res.redirect(`/agent/packages/${id}`);
+  }
+  req.flash('success', 'Copied to My packages. Change anything you like and save.');
+  res.redirect(`/agent/packages/${id}/edit`);
 }));
 
 // ---------- quotes ----------

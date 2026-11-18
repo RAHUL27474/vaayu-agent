@@ -65,15 +65,16 @@
     <template data-template="${key}">${fn('__i__', {})}</template>
     <button type="button" class="btn btn-sm" data-add-row="${key}" style="margin-top:8px">${icon('plus')}${addLabel}</button>`;
 %>
-<a href="<%= isNew ? '/agent/packages' : `/agent/packages/${pkg.id}` %>"><%- icon('arrowLeft') %><%= isNew ? 'My packages' : pkg.title %></a>
+<% const base = typeof formBase !== 'undefined' ? formBase : '/agent/packages'; const forVaayu = base.startsWith('/backend'); %>
+<a href="<%= isNew || forVaayu ? base : `${base}/${pkg.id}` %>"><%- icon('arrowLeft') %><%= isNew || forVaayu ? (forVaayu ? 'VaayuTrip packages' : 'My packages') : pkg.title %></a>
 <div class="page-head" style="margin-top:10px">
   <div>
-    <h1><%= isNew ? 'Build a package' : `Edit: ${pkg.title}` %></h1>
+    <h1><%= isNew ? (forVaayu ? 'New VaayuTrip package' : 'Build a package') : `Edit: ${pkg.title}` %></h1>
     <p>Lay out the days, add VaayuTrip airfares, hotels, activities and more to them, then any services you provide yourself at your own prices.</p>
   </div>
 </div>
 
-<form method="post" action="<%= isNew ? '/agent/packages' : `/agent/packages/${pkg.id}` %>" id="pkg-form" enctype="multipart/form-data">
+<form method="post" action="<%= isNew ? base : `${base}/${pkg.id}` %>" id="pkg-form" enctype="multipart/form-data">
 <div class="split split-editor">
   <div>
     <div class="card" id="basics">
@@ -117,7 +118,7 @@
     <div class="card" id="items">
       <h2>4. From VaayuTrip</h2>
       <p class="muted">Airfares, hotels, activities, transfers, visas and insurance, booked through VaayuTrip at net with your markup added in quotes. Pick the day each one happens (the check-in day for hotels, with the number of nights).
-        Browse: <% Object.values(kinds).forEach((k, i) => { %><%= i ? ' · ' : '' %><a href="/agent/<%= k.path %>" target="_blank" rel="noopener"><%= k.plural %></a><% }) %></p>
+        Browse: <% Object.entries(kinds).map(([key, k]) => ({ ...k, key })).forEach((k, i) => { %><%= i ? ' · ' : '' %><a href="<%= forVaayu ? `/backend/products?kind=${k.key}` : `/agent/${k.path}` %>" target="_blank" rel="noopener"><%= k.plural %></a><% }) %></p>
       <div class="rep-head grid-act"><span>Day</span><span>Service</span><span>Nights</span><span></span></div>
       <%- section('items', rowItem, d.items, 'Add from VaayuTrip') %>
     </div>

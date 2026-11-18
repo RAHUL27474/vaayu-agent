@@ -149,6 +149,8 @@ async function seedAll() {
     await setSetting('emi_rate', '14');
     await setSetting('tcs_rate', '5');
     await setSetting('gst_enabled', '0');
+    await setSetting('tier_silver_pct', '1');
+    await setSetting('tier_gold_pct', '2');
 
     await run('INSERT INTO users (role, name, email, password_hash) VALUES (?, ?, ?, ?)', 'admin', 'VaayuTrip Admin', 'admin@vaayutrip.com', hashPassword('admin123'));
     const backendUser = (await run('INSERT INTO users (role, name, email, password_hash) VALUES (?, ?, ?, ?)', 'backend', 'Meera Iyer (Backend team)', 'backend@vaayutrip.com', hashPassword('backend123'))).lastInsertRowid;
@@ -186,6 +188,17 @@ async function seedAll() {
     await run("INSERT INTO audit_log (user_id, role, action, entity, summary, link, created_at) VALUES (?, 'backend', 'product.imported', 'product', ?, '/backend/products', datetime('now', '-7 months'))",
       backendUser, `Imported ${INVENTORY.length} products and published them`);
     for (const p of AGENT_PACKAGES) await insertAgentPackage(p);
+    // VaayuTrip's own ready-made packages: the demo agency's published ones, without the agency's own hotels and services.
+    for (const p of await all("SELECT * FROM packages WHERE agency_id = ? AND status = 'published'", skyline)) {
+      const d = JSON.parse(p.details);
+      d.stays = [];
+      d.extras = [];
+      await run(
+        `INSERT INTO packages (agency_id, title, slug, destination, nights, theme, summary, inclusions, exclusions, is_international, departure_city, details, status)
+         VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 'published')`,
+        p.title, await uniqueSlug('packages', `vaayutrip ${p.title}`), p.destination, p.nights, p.theme, p.summary, p.inclusions, p.exclusions, p.departure_city, JSON.stringify(d),
+      );
+    }
 
     const c1 = (await run("INSERT INTO customers (agency_id, name, email, phone, city) VALUES (?, 'Ananya & Rohit Kapoor', 'ananya.k@example.com', '+91 98765 43210', 'Mumbai')", skyline)).lastInsertRowid;
     await run("INSERT INTO customers (agency_id, name, email, phone, city) VALUES (?, 'Mehta Family', 'vikram.mehta@example.com', '+91 98111 22334', 'Thane')", skyline);

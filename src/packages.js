@@ -22,7 +22,7 @@
  */
 const { round2 } = require('./util');
 const { priceQuote } = require('./pricing');
-const { productMap, productLines, presentProduct, parseProductDetails, KINDS } = require('./products');
+const { productMap, productLines, presentProduct, parseProductDetails, KINDS, tierPrices } = require('./products');
 
 const MEAL_PLANS = {
   EP: 'Room only (EP)',
@@ -143,8 +143,13 @@ function normalizeParty(o = {}) {
  * Lines: { type, title, description, supplier: vaayu | agent, net, sell, cost, qty, productId }.
  * Products withdrawn from the catalogue are skipped and reported in warnings.
  */
-async function calcPackage(pkg, d, rawParty, products) {
+async function calcPackage(pkg, d, rawParty, products, agency = null) {
   products = products || await productMap(itemIds(d));
+  // An agency's rate tier lowers VaayuTrip's margin on its prices.
+  if (agency && agency.rate_tier && agency.rate_tier !== 'standard') {
+    const settings = await getSettings();
+    products = new Map([...products].map(([id, p]) => [id, tierPrices(agency, p, settings)]));
+  }
   const o = normalizeParty(rawParty);
   const errors = [];
   const warnings = [];
@@ -194,7 +199,7 @@ function priceLines(markup, lines) {
 
 /** Per person for two adults in one room, with the agency's default markup: { net, sell, earning }. */
 async function fromPrice(agency, pkg, d, products) {
-  const calc = await calcPackage(pkg, d, { adults: 2, rooms: 1 }, products);
+  const calc = await calcPackage(pkg, d, { adults: 2, rooms: 1 }, products, agency);
   const priced = priceLines(agency, calc.lines);
   return { net: round2(priced.net / 2), sell: round2(priced.sell / 2), earning: round2(priced.commission / 2) };
 }

@@ -36,11 +36,11 @@ async function createQuote(agency, { title, customerId = null, leadId = null, pa
  * opts: { title, customerId, leadId, date, adults, children, infants, rooms }
  */
 async function createQuoteFromPackage(agency, packageId, opts = {}) {
-  const pkg = await one('SELECT * FROM packages WHERE id = ? AND agency_id = ?', packageId, agency.id);
+  const pkg = await one("SELECT * FROM packages WHERE id = ? AND (agency_id = ? OR (agency_id IS NULL AND status = 'published'))", packageId, agency.id);
   if (!pkg) throw new AppError('Package not found');
   const details = parseDetails(pkg.details);
   const products = await productMap(itemIds(details));
-  const calc = await calcPackage(pkg, details, opts, products);
+  const calc = await calcPackage(pkg, details, opts, products, agency);
   if (calc.errors.length) throw new AppError(calc.errors[0]);
   if (!calc.lines.length) throw new AppError('This package has nothing priced yet. Add VaayuTrip services, hotel prices or your own services first.');
   const o = calc.options;

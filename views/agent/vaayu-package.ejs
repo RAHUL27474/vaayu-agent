@@ -1,0 +1,71 @@
+<%# One VaayuTrip package: itinerary, price for the agent's group, quote or copy. Locals: pkg, view, calc, priced, from, customers, copies %>
+<%
+  const o = calc.options;
+  const markup = priced.vaayuSell - priced.net;
+%>
+<a href="/agent/vaayutrip-packages"><%- icon('arrowLeft') %>VaayuTrip packages</a>
+<div class="page-head" style="margin-top:10px">
+  <div>
+    <h1><%= pkg.title %></h1>
+    <p><%= plural(pkg.nights, 'night') %> / <%= plural(pkg.nights + 1, 'day') %> · <%= pkg.destination %><%= pkg.theme ? ` · ${pkg.theme}` : '' %> · <span class="badge info">By VaayuTrip</span></p>
+  </div>
+  <div class="actions">
+    <form method="post" action="/agent/vaayutrip-packages/<%= pkg.id %>/copy"><button class="btn" title="Change hotels, days or add your own services">Copy to My packages</button></form>
+    <form method="post" action="/agent/vaayutrip-packages/<%= pkg.id %>/copy"><input type="hidden" name="publish" value="1"><button class="btn btn-accent">Add to my website</button></form>
+  </div>
+</div>
+<% if (copies.length) { %><div class="alert info">You already have <%= copies.length === 1 ? 'a copy' : `${copies.length} copies` %>: <%- copies.map(c => `<a href="/agent/packages/${c.id}">${c.title.replace(/</g, '&lt;')}</a>`).join(', ') %></div><% } %>
+<% calc.warnings.forEach(w => { %><div class="alert warn"><%= w %></div><% }) %>
+
+<div class="split">
+  <div>
+    <img src="<%= cover(pkg) %>" alt="" style="width:100%;max-height:320px;object-fit:cover;border-radius:14px;margin-bottom:20px">
+    <div class="card">
+      <% if (pkg.summary) { %><p style="font-size:15px"><%= pkg.summary %></p><% } %>
+      <%- include('../partials/package-full', { p: view }) %>
+    </div>
+  </div>
+
+  <div>
+    <form class="card calc" method="get" action="/agent/vaayutrip-packages/<%= pkg.id %>" style="position:sticky;top:76px">
+      <h3>Price this trip</h3>
+      <div class="field"><label for="date">Travel date</label><input id="date" type="date" min="<%= o.date && o.date < today ? o.date : today %>" name="date" value="<%= o.date %>"></div>
+      <div class="row">
+        <div class="field"><label for="adults">Adults</label><input id="adults" type="number" min="1" name="adults" value="<%= o.adults %>"></div>
+        <div class="field"><label for="children">Children 2–11</label><input id="children" type="number" min="0" name="children" value="<%= o.children %>"></div>
+        <div class="field"><label for="infants">Infants</label><input id="infants" type="number" min="0" name="infants" value="<%= o.infants %>"></div>
+        <div class="field"><label for="rooms">Rooms</label><input id="rooms" type="number" min="1" name="rooms" value="<%= o.rooms %>"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%">Calculate price</button>
+      <% if (calc.errors.length) { %>
+        <div class="alert error" style="margin:14px 0 0;font-size:13px"><%= calc.errors.join(' ') %></div>
+      <% } else if (calc.lines.length) { %>
+        <table class="totals" style="margin-top:14px">
+          <tr><td class="muted">Net to VaayuTrip</td><td class="num"><b><%= inr(priced.net) %></b></td></tr>
+          <tr><td class="muted">Your markup</td><td class="num profit">+ <%= inr(markup) %></td></tr>
+          <tr class="grand"><td>Selling price</td><td class="num"><%= inr(priced.sell) %></td></tr>
+          <tr><td class="pp" colspan="2">≈ <%= inr(calc.pax ? priced.sell / calc.pax : 0) %> per person<%= gstOn ? ' · + GST' : '' %><%= pkg.is_international ? ' · + TCS' : '' %></td></tr>
+          <tr><td><b>Your earning</b></td><td class="num profit"><b><%= inr(priced.commission) %></b></td></tr>
+        </table>
+        <details class="more" style="margin-top:8px">
+          <summary>What's included at net</summary>
+          <table class="table" style="font-size:12.5px">
+            <% calc.lines.forEach(l => { %><tr><td style="padding:6px 0"><%= l.title %> <span class="muted">× <%= l.qty %></span></td><td class="num" style="padding:6px 0"><%= inr(l.net * l.qty) %></td></tr><% }) %>
+          </table>
+        </details>
+      <% } %>
+    </form>
+
+    <% if (!calc.errors.length && calc.lines.length) { %>
+      <form class="card" method="post" action="/agent/vaayutrip-packages/<%= pkg.id %>/quote">
+        <h3>Quote it to your customer</h3>
+        <% ['date', 'adults', 'children', 'infants', 'rooms'].forEach(k => { %><input type="hidden" name="<%= k %>" value="<%= o[k] %>"><% }) %>
+        <div class="field"><label for="customer_id">Customer</label>
+          <select id="customer_id" name="customer_id"><option value="">Choose later</option><% customers.forEach(c => { %><option value="<%= c.id %>"><%= c.name %></option><% }) %></select>
+        </div>
+        <button class="btn btn-accent btn-lg" style="width:100%">Create quote · <%= inr(priced.sell) %></button>
+        <p class="muted" style="font-size:12.5px;margin:10px 0 0">The quote carries your branding and the full itinerary. You can still change prices or add your own services in it.</p>
+      </form>
+    <% } %>
+  </div>
+</div>

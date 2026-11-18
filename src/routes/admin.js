@@ -10,7 +10,7 @@ const { searchAll } = require('../search');
 const phonepe = require('../phonepe');
 const payments = require('../payments');
 const { invoiceView } = require('../invoice-view');
-const { KINDS, marginPct, repriceProducts, destinationOf } = require('../products');
+const { KINDS, marginPct, repriceProducts, destinationOf, TIERS } = require('../products');
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 const { restoreFile } = require('../files');
 const { paging, pageOf } = require('../paging');
@@ -215,6 +215,17 @@ router.post('/agents/:id/status', h(async (req, res) => {
   await audit(req.user, 'agency.updated', { entity: 'agency', id, agencyId: id, link: `/admin/agents/${id}`, summary: [name, status && `status ${status}`, kyc && `KYC ${kyc}`].filter(Boolean).join(': ') });
   req.flash('success', 'Agent updated.');
   res.redirect(`/admin/agents/${id}`);
+}));
+
+router.post('/agents/:id/tier', h(async (req, res, next) => {
+  const a = await one('SELECT id, name, rate_tier FROM agencies WHERE id = ?', num(req.params.id));
+  if (!a) return next();
+  const tier = TIERS[req.body.rate_tier] ? req.body.rate_tier : 'standard';
+  await run('UPDATE agencies SET rate_tier = ? WHERE id = ?', tier, a.id);
+  await audit(req.user, 'agency.tier', { entity: 'agency', id: a.id, agencyId: a.id, link: `/admin/agents/${a.id}`, summary: `${a.name}: ${TIERS[a.rate_tier] || a.rate_tier} → ${TIERS[tier]}` });
+  if (tier !== a.rate_tier && tier !== 'standard') await notify(a.id, `You're now a ${TIERS[tier]} partner`, `Your net rates on VaayuTrip inventory and packages are now lower. Prices update across the portal.`, '/agent/vaayutrip-packages');
+  req.flash('success', `${a.name} is now on ${TIERS[tier]} rates.`);
+  res.redirect(`/admin/agents/${a.id}`);
 }));
 
 router.post('/agents/:id/credit', h(async (req, res) => {
@@ -499,7 +510,7 @@ router.post('/tickets/:id/reply', h(async (req, res, next) => {
 }));
 
 const MARGIN_KEYS = Object.keys(KINDS).map((k) => `margin_${k}`);
-const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'gst_enabled', 'tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'bank_details', 'sac_code', ...MARGIN_KEYS];
+const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'gst_enabled', 'tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'bank_details', 'sac_code', 'tier_silver_pct', 'tier_gold_pct', ...MARGIN_KEYS];
 
 router.get('/settings', async (req, res) => {
   const values = await getSettings();
