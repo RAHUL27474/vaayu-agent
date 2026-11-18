@@ -111,11 +111,17 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
   const today = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
   const agentCsv = await page(`/agent/reports/tcs.csv?from=2000-01-01&to=${today}`, agent);
   check("agency TCS report lists its invoices with TCS", agentCsv.includes('Customer PAN') && agentCsv.includes(inv.number) && agentCsv.includes('ABCDE1234F'));
-  await db.prepare("UPDATE quotes SET invoice_mode = 'vaayu' WHERE id = ?").run(q1);
-  await c.post(`/agent/quotes/${q1}/invoice`, agent, {});
-  const adminCsv = await (await c.get(`/admin/reports/tcs.csv?from=2000-01-01&to=${today}`, admin)).text();
-  check('VaayuTrip TCS report lists its customer invoices with totals', adminCsv.includes('Invoice no.') && /VT\/\d{2}-\d{2}\/\d{6}/.test(adminCsv) && adminCsv.includes('Total'));
-  check('agents can not download VaayuTrip\'s TCS report', (await c.get('/admin/reports/tcs.csv', agent)).status === 302);
+  check('VaayuTrip sells to agents only: no VaayuTrip-to-customer invoices or TCS report', (await c.get('/admin/reports/tcs.csv', admin)).status === 404
+    && !(await one("SELECT 1 FROM invoices WHERE kind = 'customer_vaayu' AND created_at > datetime('now', '-1 hour')")));
+
+  // ---------- no booking until the agency profile is complete ----------
+  const ravi = await one('SELECT a.* FROM agencies a JOIN users u ON u.agency_id = a.id WHERE u.email = ?', ROLES.agent2[0]);
+  await db.prepare('UPDATE agencies SET logo_path = NULL WHERE id = ?').run(ravi.id);
+  const open = await one("SELECT id FROM packages p WHERE agency_id IS NULL AND status = 'published' AND NOT EXISTS (SELECT 1 FROM package_departures d WHERE d.package_id = p.id) ORDER BY id LIMIT 1");
+  const rq = quoteIdOf(await c.post(`/agent/vaayutrip-packages/${open.id}/quote`, other, { adults: '2', rooms: '1', date: '' }));
+  const blocked = await c.follow(await c.post(`/agent/quotes/${rq}/book`, other, {}), other);
+  check('an agency without its logo and details cannot book', blocked.includes('Complete your company profile') && !(await one('SELECT 1 FROM bookings WHERE quote_id = ?', rq)));
+  check('dashboard tells it what is missing', (await page('/agent', other)).includes('company logo'));
 
   finish(c);
 })().catch((e) => { console.error(e); process.exit(1); });

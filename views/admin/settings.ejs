@@ -1,6 +1,6 @@
 <%
   const labels = {
-    company_name: ['Brand name', 'Shown on VaayuTrip invoices and quotes'],
+    company_name: ['Brand name', 'Shown on VaayuTrip\'s B2B invoices to agents'],
     legal_name: ['Legal name', ''],
     gstin: ['GSTIN', ''],
     address: ['Registered address', ''],
@@ -17,7 +17,7 @@
     bank_details: ['Bank details for wallet top-ups', 'Shown to agents who top up by bank transfer: bank, account number, IFSC, UPI ID (one per line).'],
   };
 %>
-<div class="page-head"><div><h1>Settings</h1><p>Company details used on VaayuTrip invoices, tax and EMI rates, and VaayuTrip's margin on inventory.</p></div></div>
+<div class="page-head"><div><h1>Settings</h1><p>Company details on VaayuTrip's invoices to agents, tax and EMI rates, and VaayuTrip's margin on inventory.</p></div></div>
 <div class="card" style="max-width:720px">
   <h3>Online payments (PhonePe)</h3>
   <p style="margin:6px 0"><span class="badge <%= phonepe === 'not set up' ? 'pending' : 'approved' %>"><%= phonepe %></span></p>

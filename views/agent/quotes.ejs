@@ -21,7 +21,7 @@
     <thead><tr><th>Quote</th><th>Customer</th><th>Travel</th><th>Status</th><th class="num">Customer price</th><th class="num">You earn</th></tr></thead>
     <% quotes.forEach(q => { %>
       <tr class="click" data-href="/agent/quotes/<%= q.id %>">
-        <td><b><%= q.title %></b><br><small><%= q.code %> · <%= q.invoice_mode === 'agent' ? 'Your invoice' : 'VaayuTrip invoice' %></small></td>
+        <td><b><%= q.title %></b><br><small><%= q.code %></small></td>
         <td><%= q.customer_name || '—' %></td>
         <td><%= fmtDate(q.travel_date) || '—' %></td>
         <td><span class="badge <%= q.status %>"><%= q.status %></span></td>

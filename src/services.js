@@ -4,6 +4,7 @@ const { code, round2 } = require('./util');
 const { priceQuote, buildInvoice, agencyHasBranding, taxRate } = require('./pricing');
 const { parseDetails, itemIds, calcPackage, snapshot, fromPrice } = require('./packages');
 const { productMap, productLines, KINDS } = require('./products');
+const { profileGaps } = require('./kyc');
 
 class AppError extends Error {}
 
@@ -17,8 +18,9 @@ async function getQuote(quoteId, agencyId) {
   return { quote, items, customer, priced: priceQuote(quote, items) };
 }
 
-function defaultInvoiceMode(agency) {
-  return agencyHasBranding(agency) ? 'agent' : 'vaayu';
+// VaayuTrip never sells to customers: every customer invoice is the agency's own.
+function defaultInvoiceMode() {
+  return 'agent';
 }
 
 async function createQuote(agency, { title, customerId = null, leadId = null, packageId = null, travelDate = null, adults = 2, children = 0, infants = 0 }) {
@@ -183,7 +185,7 @@ async function issueInvoice(agency, quoteId, kind, bookingId = null) {
     if (!full) throw new AppError('Quote not found');
     if (!full.items.length) throw new AppError('Add at least one item before issuing an invoice');
     if (kind === 'customer_agent' && !agencyHasBranding(agency)) {
-      throw new AppError('Upload your company logo in Settings to issue invoices under your own brand');
+      throw new AppError('Upload your company logo in Company & branding first: invoices to your customers carry your name and logo.');
     }
     const data = buildInvoice(kind, { ...full, agency, settings: await getSettings() });
     if (!data.lines.length) throw new AppError('No items on this quote can be billed on this invoice type');
@@ -202,6 +204,8 @@ async function bookQuote(agencyId, quoteId) {
     const agency = await one('SELECT * FROM agencies WHERE id = ? FOR UPDATE', agencyId);
     await one('SELECT id FROM quotes WHERE id = ? AND agency_id = ? FOR UPDATE', quoteId, agencyId);
     if (agency.status !== 'active') throw new AppError('Your account must be approved before you can book');
+    const gaps = profileGaps(agency);
+    if (gaps.length) throw new AppError(`Complete your company profile before booking. Missing: ${gaps.join(', ')}. Go to Company & branding.`);
     const full = await getQuote(quoteId, agencyId);
     if (!full) throw new AppError('Quote not found');
     if (full.quote.status === 'booked') throw new AppError('This quote is already booked');
@@ -285,7 +289,7 @@ async function voucherFor(booking) {
   if (!full) return null;
   const agency = await one('SELECT * FROM agencies WHERE id = ?', booking.agency_id);
   const settings = await getSettings();
-  const kind = full.quote.invoice_mode === 'agent' && agencyHasBranding(agency) ? 'customer_agent' : 'customer_vaayu';
+  const kind = 'customer_agent';
   const doc = buildInvoice(kind, { ...full, agency, settings });
   const pkgView = full.quote.package_snapshot ? JSON.parse(full.quote.package_snapshot) : null;
   return { booking, ...full, agency, settings, doc, pkgView, kinds: KINDS, favicon: kind === 'customer_agent' ? agency.logo_path : null };

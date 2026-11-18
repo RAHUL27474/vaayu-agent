@@ -1,12 +1,6 @@
-<div class="page-head"><div><h1>Invoices</h1><p>VaayuTrip's B2B invoices to agents, VaayuTrip invoices sent to customers by agents, and agents' own branded invoices.</p></div></div>
-<form class="card tcs-form" method="get" action="/admin/reports/tcs.csv">
-  <b>TCS report</b> <span class="muted">VaayuTrip invoices to customers, for the TCS return</span>
-  <label class="sr-only" for="tcs-from">From</label><input id="tcs-from" type="date" name="from" value="<%= today.slice(0, 8) %>01">
-  <label class="sr-only" for="tcs-to">To</label><input id="tcs-to" type="date" name="to" value="<%= today %>">
-  <button class="btn btn-sm"><%- icon('download') %>Download CSV</button>
-</form>
+<div class="page-head"><div><h1>Invoices</h1><p>VaayuTrip's B2B invoices to agents, and the invoices agents issue to their customers under their own brand.</p></div></div>
 <div class="tabs">
-  <% [['', 'All'], ['b2b', 'VaayuTrip → agent'], ['customer_vaayu', 'VaayuTrip → customer'], ['customer_agent', "Agents' own"]].forEach(([k, label]) => { %>
+  <% [['', 'All'], ['b2b', 'VaayuTrip → agent'], ['customer_agent', 'Agents → customers']].forEach(([k, label]) => { %>
     <a href="/admin/invoices<%= k ? '?kind=' + k : '' %>" class="<%= kind === k ? 'active' : '' %>"><%= label %></a>
   <% }) %>
 </div>

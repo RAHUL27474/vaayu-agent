@@ -363,7 +363,7 @@ async function sharedQuote(codeParam) {
   const full = await getQuote(q.id);
   const agency = await one('SELECT * FROM agencies WHERE id = ?', q.agency_id);
   const settings = await getSettings();
-  const kind = q.invoice_mode === 'agent' && agency.logo_path ? 'customer_agent' : 'customer_vaayu';
+  const kind = 'customer_agent';
   const doc = buildInvoice(kind, { ...full, agency, settings });
   const agentItems = kind === 'customer_vaayu' ? full.priced.lines.filter((l) => l.supplier === 'agent') : [];
   const pkgView = q.package_snapshot ? JSON.parse(q.package_snapshot) : null;

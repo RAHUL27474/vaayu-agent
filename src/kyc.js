@@ -134,10 +134,26 @@ function missingKyc(agency) {
   return out;
 }
 
+/**
+ * What an agency still has to fill in before it can book: its customers' invoices carry its name, logo and
+ * details, so all of them are required, as are the KYC documents. [] when complete.
+ */
+function profileGaps(agency) {
+  const out = [];
+  if (!agency.logo_path) out.push('company logo');
+  if (!agency.legal_name) out.push('legal company name');
+  if (!agency.address) out.push('address');
+  if (!agency.city) out.push('city');
+  if (!agency.phone) out.push('phone');
+  if (!agency.email) out.push('email');
+  if (isIndia(agency.country) && !agency.pan) out.push('PAN');
+  return [...out, ...missingKyc(agency)];
+}
+
 const removeDoc = async (file) => { if (file) await deleteFile(path.join(KYC_DIR, path.basename(file))); };
 const removeUploaded = (req) => Promise.all(Object.values(req.kycFiles || {}).map(removeDoc));
 
 module.exports = {
   KYC_DIR, KYC_FILES, COUNTRIES, GSTIN_RE, isIndia, panFromGstin, kycLabel, requiredFiles,
-  withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded, imageSize,
+  withKycDocs, checkTax, checkKycFiles, missingKyc, profileGaps, removeDoc, removeUploaded, imageSize,
 };

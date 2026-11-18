@@ -18,7 +18,7 @@
     <% if (quote.status === 'draft') { %><form method="post" action="/agent/quotes/<%= quote.id %>/send"><button class="btn">Mark as sent</button></form><% } %>
     <% if (!locked) { %>
       <form method="post" action="/agent/quotes/<%= quote.id %>/book" data-confirm="Book now? <%= inr(netPayable.total) %> <%= netPayable.tax ? '(net + GST) ' : '' %>will be paid to VaayuTrip from your wallet/credit.">
-        <button class="btn btn-accent" <%= agency.status !== 'active' || !items.length ? 'disabled' : '' %>>Book now · pay <%= inr(netPayable.total) %></button>
+        <button class="btn btn-accent" <%= agency.status !== 'active' || !items.length || profileGaps.length ? 'disabled' : '' %> <%- profileGaps.length ? `title="Complete your company profile first"` : '' %>>Book now · pay <%= inr(netPayable.total) %></button>
       </form>
     <% } else if (booking) { %>
       <a class="btn btn-primary" href="/agent/bookings/<%= booking.id %>">View booking <%= booking.code %></a>
@@ -26,6 +26,7 @@
   </div>
 </div>
 
+<% if (profileGaps.length && !locked) { %><div class="alert warn">You can't book yet: complete your company profile first (missing: <%= profileGaps.join(', ') %>). <a href="/agent/settings">Go to Company &amp; branding</a></div><% } %>
 <div class="split">
   <div>
     <form class="card flush" id="items" method="post" action="/agent/quotes/<%= quote.id %>/items">
@@ -101,7 +102,7 @@
       <div class="field">
         <label>Customer link</label>
         <div style="display:flex;gap:8px"><input type="text" readonly value="<%= shareUrl %>" aria-label="Link to share with your customer"><button class="btn" type="button" data-copy="<%= shareUrl %>">Copy</button></div>
-        <div class="hint">Shows the quote with <%= quote.invoice_mode === 'agent' ? 'your branding' : 'VaayuTrip branding and your name as the agent' %>, EMI options and an Accept button.
+        <div class="hint">Shows the quote with your branding, EMI options and an Accept button.
           <%# Opens a chat with the customer directly when we have their number (Indian 10-digit numbers get +91). %>
           <% const waDigits = customer && customer.phone ? customer.phone.replace(/\D/g, '') : ''; const waTo = waDigits.length === 10 ? `91${waDigits}` : waDigits; %>
           <a href="https://wa.me/<%= waTo %>?text=<%= encodeURIComponent(`Hi${customer ? ' ' + customer.name : ''}, here is your quote for ${quote.title}: ${shareUrl}`) %>" target="_blank" rel="noopener">Send on WhatsApp<%= waTo ? ` to ${customer.phone}` : '' %><%- icon('external') %></a></div>
@@ -191,21 +192,7 @@
         </div>
 
       <h3>Customer invoice</h3>
-      <div class="radio-cards" style="grid-template-columns:1fr">
-        <label class="radio-card <%= branded ? '' : 'disabled' %>">
-          <input type="radio" name="invoice_mode" value="agent" <%= quote.invoice_mode === 'agent' ? 'checked' : '' %> <%= branded ? '' : 'disabled' %>>
-          My company's invoice
-          <small class="muted"><%= branded ? `${agency.name} name, logo and GSTIN, with all your edited items.` : 'Upload your logo in Company & branding to enable.' %></small>
-        </label>
-        <label class="radio-card">
-          <input type="radio" name="invoice_mode" value="vaayu" <%= quote.invoice_mode === 'vaayu' ? 'checked' : '' %>>
-          VaayuTrip invoice
-          <small class="muted">Issued by VaayuTrip, naming you as the agent. Your commission is included in the total.</small>
-          <label class="check" style="margin-top:8px"><input type="checkbox" name="show_service_fee" value="1" <%= quote.show_service_fee ? 'checked' : '' %>> <small>Show my commission as a separate "service fee" line</small></label>
-        </label>
-      </div>
-      <% if (quote.invoice_mode === 'vaayu' && priced.hasAgentItems) { %><div class="alert warn" style="margin-top:10px;font-size:13px">Your own services aren't included on a VaayuTrip invoice; the customer sees them listed separately on the quote.</div><% } %>
-
+      <p class="muted" style="font-size:13px;margin:0 0 6px">Your customer's invoice, quote and voucher carry <b><%= agency.name %></b>'s name, logo and details.</p>
       <div class="field" style="margin-top:14px"><label class="check"><input type="checkbox" name="pay_online" value="1" <%= quote.pay_online ? 'checked' : '' %>> Let the customer pay online from the quote link<% if (!phonepeOn) { %> <small class="muted">(available once VaayuTrip connects PhonePe)</small><% } %></label></div>
       <div class="field"><label class="check"><input type="checkbox" name="emi_enabled" value="1" <%= quote.emi_enabled ? 'checked' : '' %>> Show EMI options to the customer</label></div>
       <div class="field"><label for="notes">Notes for customer</label><textarea id="notes" name="notes" placeholder="Validity, cancellation policy, special requests…"><%= quote.notes || '' %></textarea></div>

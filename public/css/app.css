@@ -1111,3 +1111,5 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .tcs-form { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; }
 .tcs-form input { width: auto; height: 34px; }
 .badge.seats { text-transform: none; }
+
+.req { color: var(--bad); }

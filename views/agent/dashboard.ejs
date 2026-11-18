@@ -70,6 +70,9 @@
   </div>
 <% } %>
 
+<% if (agency.status === 'active' && profileGaps.length) { %>
+  <div class="alert warn"><b>Complete your company profile to start booking.</b> Your customers' invoices carry your agency's name, logo and details. Missing: <%= profileGaps.join(', ') %>. <a href="/agent/settings">Go to Company &amp; branding</a></div>
+<% } %>
 <% if (agency.status !== 'active') { %>
   <div class="alert warn">Your account is <b><%= agency.status %></b>. VaayuTrip is reviewing your details; you can explore, build quotes and set up your branding meanwhile. Booking unlocks after approval.</div>
 <% } %>

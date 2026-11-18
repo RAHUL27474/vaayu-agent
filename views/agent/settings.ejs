@@ -1,3 +1,4 @@
+<% if (profileGaps.length) { %><div class="alert warn"><b>Required before you can book:</b> <%= profileGaps.join(', ') %>. Every field marked * is printed on your customers' invoices.</div><% } %>
 <div class="page-head"><div><h1>Company &amp; branding</h1><p>Used on your invoices, quotes, website and payment pages.</p></div></div>
 <form method="post" action="/agent/settings" enctype="multipart/form-data">
   <div class="split">
@@ -6,18 +7,18 @@
         <h3>Company</h3>
         <div class="row">
           <div class="field"><label for="name">Brand name</label><input id="name" name="name" value="<%= agency.name %>" required></div>
-          <div class="field"><label for="legal_name">Legal name</label><input id="legal_name" name="legal_name" value="<%= agency.legal_name || '' %>" placeholder="As registered"></div>
+          <div class="field"><label for="legal_name">Legal name <span class="req">*</span></label><input id="legal_name" name="legal_name" value="<%= agency.legal_name || '' %>" placeholder="As registered"></div>
         </div>
         <div class="row">
           <div class="field"><label for="pan">PAN</label><input id="pan" name="pan" value="<%= agency.pan || '' %>"></div>
         </div>
         <div class="row">
-          <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" value="<%= agency.phone || '' %>"></div>
-          <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= agency.email || '' %>"></div>
+          <div class="field"><label for="phone">Phone <span class="req">*</span></label><input id="phone" name="phone" value="<%= agency.phone || '' %>"></div>
+          <div class="field"><label for="email">Email <span class="req">*</span></label><input id="email" type="email" name="email" value="<%= agency.email || '' %>"></div>
         </div>
-        <div class="field"><label for="address">Address</label><input id="address" name="address" value="<%= agency.address || '' %>"></div>
+        <div class="field"><label for="address">Address <span class="req">*</span></label><input id="address" name="address" value="<%= agency.address || '' %>"></div>
         <div class="field"><label for="bank_details">Bank details for your invoices</label><textarea id="bank_details" name="bank_details" rows="3" maxlength="500" placeholder="Bank, account name and number, IFSC, UPI ID"><%= agency.bank_details || '' %></textarea><div class="hint">Printed on your branded invoices so customers can pay you.</div></div>
-        <div class="field"><label for="city">City</label><input id="city" name="city" value="<%= agency.city || '' %>"></div>
+        <div class="field"><label for="city">City <span class="req">*</span></label><input id="city" name="city" value="<%= agency.city || '' %>"></div>
       </div>
       <div class="card">
         <h3>Default commission</h3>
@@ -53,7 +54,7 @@
         </div>
         <div class="field"><label for="brand_color">Brand colour</label><input id="brand_color" type="color" name="brand_color" value="<%= agency.brand_color || '#0e7490' %>"></div>
         <div class="alert <%= branded ? 'success' : 'info' %>" style="font-size:13px">
-          <%= branded ? 'Branded invoices are on: customers can receive invoices under your name and logo.' : "Add a logo to issue invoices under your own brand. Until then, customers get VaayuTrip invoices that include your commission." %>
+          <%= branded ? 'Your customers receive quotes, invoices and vouchers under your name and logo.' : 'Add your logo: it is required before you can book, because your customers receive invoices under your name and logo.' %>
         </div>
       </div>
       <div class="card">

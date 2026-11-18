@@ -25,7 +25,7 @@ const { withCover, coverFrom } = require('../photos');
 const { persistFile, writePersisted, restoreFile, deleteFile } = require('../files');
 const { INDIAN_STATES } = require('../invoice-view');
 const { paging, pageOf } = require('../paging');
-const { COUNTRIES, isIndia, kycLabel, requiredFiles, withKycDocs, checkTax, checkKycFiles, missingKyc, removeDoc, removeUploaded } = require('../kyc');
+const { COUNTRIES, isIndia, kycLabel, requiredFiles, withKycDocs, checkTax, checkKycFiles, missingKyc, profileGaps, removeDoc, removeUploaded } = require('../kyc');
 
 const router = express.Router();
 router.param('id', idParam);
@@ -33,6 +33,8 @@ router.param('itemId', idParam);
 router.use(requireAgent);
 router.use(limitPendingAgency);
 router.use(limitStaffRole);
+// What the agency still has to fill in before it can book (shown on the dashboard, quotes and settings).
+router.use((req, res, next) => { res.locals.profileGaps = profileGaps(req.agency); next(); });
 router.use((req, res, next) => { res.locals.agentCan = (href) => staffCan(req.user.agency_role, href.replace(/^\/agent/, '') || '/'); next(); });
 
 const LOGO_TYPES = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
@@ -513,11 +515,7 @@ router.get('/quotes/:id', h(async (req, res) => {
 router.post('/quotes/:id', h(async (req, res) => {
   const { quote } = await ownQuote(req);
   const b = req.body;
-  let mode = b.invoice_mode === 'agent' ? 'agent' : 'vaayu';
-  if (mode === 'agent' && !agencyHasBranding(req.agency)) {
-    mode = 'vaayu';
-    req.flash('warn', 'Upload your logo in Company & branding to use your own invoice. Using the VaayuTrip invoice for now.');
-  }
+  const mode = 'agent';
   const locked = ['booked', 'cancelled'].includes(quote.status);
   await run(
     `UPDATE quotes SET title = ?, customer_id = ?, travel_date = ?, adults = ?, children = ?, notes = ?, invoice_mode = ?, show_service_fee = ?, emi_enabled = ?, pay_online = ?,
@@ -613,7 +611,7 @@ router.post('/quotes/:id/book', requireActiveAgency, h(async (req, res) => {
 
 router.post('/quotes/:id/invoice', requireActiveAgency, h(async (req, res) => {
   const { quote } = await ownQuote(req);
-  const kind = quote.invoice_mode === 'agent' ? 'customer_agent' : 'customer_vaayu';
+  const kind = 'customer_agent';
   const booking = await one('SELECT id FROM bookings WHERE quote_id = ? ORDER BY id DESC', quote.id);
   const id = await svc.issueInvoice(req.agency, quote.id, kind, booking?.id || null);
   req.flash('success', 'Invoice issued. Print it, save as PDF, or share the link with your customer.');
