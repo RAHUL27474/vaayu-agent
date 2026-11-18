@@ -124,7 +124,7 @@ app.use(async (req, res, next) => {
   res.locals.user = null;
   res.locals.agency = null;
   if (req.session.userId) {
-    const user = await one('SELECT id, role, agency_id, agency_role, name, email, RIGHT(password_hash, 12) AS pw_tag FROM users WHERE id = ? AND is_active = 1', req.session.userId);
+    const user = await one('SELECT id, role, agency_id, agency_role, name, email, email_verified, RIGHT(password_hash, 12) AS pw_tag FROM users WHERE id = ? AND is_active = 1', req.session.userId);
     // Logged in before the password last changed: log out (sessions from before this check get the tag now).
     if (user && req.session.pw && req.session.pw !== user.pw_tag) {
       req.session.userId = null;
@@ -152,6 +152,8 @@ app.use(async (req, res, next) => {
       req.session.userId = null;
     }
   }
+
+  if (req.user && !req.user.email_verified && !/^\/(verify-email|logout)(\/|$)/.test(req.path)) return res.redirect('/verify-email');
 
   // Renders a view inside a layout: res.page('agent/dashboard', { title }, 'app').
   res.page = (view, data = {}, layout = 'app') => {

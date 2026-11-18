@@ -10,6 +10,7 @@ const { COUNTRIES, withKycDocs, checkTax, checkKycFiles, removeUploaded } = requ
 const { DESTINATIONS, destinationOf } = require('../products');
 const phonepe = require('../phonepe');
 const mailer = require('../mailer');
+const otp = require('../otp');
 const payments = require('../payments');
 const { invoiceView } = require('../invoice-view');
 
@@ -62,7 +63,7 @@ router.get('/cover/:name.svg', (req, res) => {
 
 router.get('/login', (req, res) => {
   if (req.user) return res.redirect(homeFor(req.user.role));
-  res.page('public/login', { title: 'Log in', next: req.query.next || '', email: String(req.query.email || '').slice(0, 120) }, 'public');
+  res.page('public/login', { title: 'Log in', next: req.query.next || '', email: String(req.query.email || '').slice(0, 120), mode: req.query.mode === 'otp' && mailer.enabled() ? 'otp' : 'password', otpOn: mailer.enabled() }, 'public');
 });
 
 // Password guessing: 8 failures for one email, or 30 from one address, in 15 minutes pause logins there.
@@ -71,7 +72,7 @@ const LOGIN_LIMITS = { email: 8, ip: 30 };
 router.post('/login', h(async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const loginError = (message) => res.status(message.startsWith('Too many') ? 429 : 200)
-    .page('public/login', { title: 'Log in', next: req.body.next || '', email, flash: [{ type: 'error', message }] }, 'public');
+    .page('public/login', { title: 'Log in', next: req.body.next || '', email, mode: 'password', otpOn: mailer.enabled(), flash: [{ type: 'error', message }] }, 'public');
   const recent = await one(
     "SELECT COUNT(*) FILTER (WHERE email = ?) AS by_email, COUNT(*) FILTER (WHERE ip = ?) AS by_ip FROM login_failures WHERE created_at > datetime('now', '-15 minutes')",
     email, req.ip,
@@ -179,6 +180,84 @@ router.post('/reset-password/:token', h(async (req, res) => {
   res.redirect(`/login?email=${encodeURIComponent(r.email)}`);
 }));
 
+// ---------- email codes: verify after signup, log in without a password ----------
+
+const codePage = (res, data, flash) => res.page('public/code', { title: data.purpose === 'verify' ? 'Verify your email' : 'Login code', noindex: true, ...data, ...(flash ? { flash: [flash] } : {}) }, 'public');
+const safeNext = (user, next) => { const home = homeFor(user.role); return String(next || '').startsWith(home) ? next : home; };
+
+router.get('/verify-email', h(async (req, res) => {
+  if (!req.user) return res.redirect('/login');
+  if (req.user.email_verified) return res.redirect(homeFor(req.user.role));
+  // First visit (e.g. after logging in with a password): send a code unless one is still valid.
+  const active = await one("SELECT 1 FROM one_time_codes WHERE user_id = ? AND purpose = 'verify' AND used_at IS NULL AND expires_at > datetime('now')", req.user.id);
+  let flash = null;
+  if (!active) {
+    const r = await otp.sendCode(req.user, 'verify');
+    if (!r.sent) flash = { type: 'warn', message: otp.MESSAGES[r.reason] };
+  }
+  codePage(res, { purpose: 'verify', email: req.user.email, action: '/verify-email', resendAction: '/verify-email/resend' }, flash);
+}));
+
+router.post('/verify-email', h(async (req, res) => {
+  if (!req.user) return res.redirect('/login');
+  const result = await otp.checkCode(req.user.id, 'verify', req.body.code);
+  if (result !== 'ok') return codePage(res, { purpose: 'verify', email: req.user.email, action: '/verify-email', resendAction: '/verify-email/resend' }, { type: 'error', message: otp.MESSAGES[result] });
+  await run('UPDATE users SET email_verified = 1 WHERE id = ?', req.user.id);
+  await audit(req.user, 'user.email_verified', { entity: 'user', id: req.user.id, summary: req.user.email });
+  req.flash('success', 'Email verified. Thank you!');
+  res.redirect(req.user.role === 'agent' ? '/agent' : homeFor(req.user.role));
+}));
+
+router.post('/verify-email/resend', h(async (req, res) => {
+  if (!req.user) return res.redirect('/login');
+  const r = await otp.sendCode(req.user, 'verify');
+  req.flash(r.sent ? 'success' : 'warn', r.sent ? `New code sent to ${req.user.email}.` : otp.MESSAGES[r.reason]);
+  res.redirect('/verify-email');
+}));
+
+// Log in with a code: the same answer whether or not the email has an account.
+async function sendLoginCode(req, res) {
+  const email = String(req.body.email || '').trim().toLowerCase().slice(0, 120);
+  if (!/^\S+@\S+\.\S+$/.test(email)) return res.redirect('/login?mode=otp');
+  const recent = await one("SELECT COUNT(*) AS n FROM login_failures WHERE ip = ? AND email LIKE 'otp:%' AND created_at > datetime('now', '-1 hour')", req.ip);
+  let flash = null;
+  if (recent.n >= 20) {
+    flash = { type: 'warn', message: otp.MESSAGES.limit };
+  } else {
+    await run('INSERT INTO login_failures (email, ip) VALUES (?, ?)', `otp:${email}`, req.ip);
+    const user = await one('SELECT id, email FROM users WHERE email = ? AND is_active = 1', email);
+    if (user) {
+      const r = await otp.sendCode(user, 'login');
+      if (!r.sent) flash = { type: 'warn', message: otp.MESSAGES[r.reason] };
+    }
+  }
+  codePage(res, { purpose: 'login', email, next: req.body.next || '', action: '/login/otp/verify', resendAction: '/login/otp' }, flash);
+}
+router.post('/login/otp', h(sendLoginCode));
+
+router.post('/login/otp/verify', h(async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase().slice(0, 120);
+  const again = (message) => codePage(res, { purpose: 'login', email, next: req.body.next || '', action: '/login/otp/verify', resendAction: '/login/otp' }, { type: 'error', message });
+  const recent = await one(
+    "SELECT COUNT(*) FILTER (WHERE email = ?) AS by_email, COUNT(*) FILTER (WHERE ip = ?) AS by_ip FROM login_failures WHERE created_at > datetime('now', '-15 minutes') AND email NOT LIKE 'otp:%' AND email NOT LIKE 'reset:%'",
+    email, req.ip,
+  );
+  if (recent.by_email >= LOGIN_LIMITS.email || recent.by_ip >= LOGIN_LIMITS.ip) return again('Too many failed attempts. Wait 15 minutes and try again.');
+  const user = await one('SELECT * FROM users WHERE email = ? AND is_active = 1', email);
+  const result = user ? await otp.checkCode(user.id, 'login', req.body.code) : 'wrong';
+  if (result !== 'ok') {
+    await run('INSERT INTO login_failures (email, ip) VALUES (?, ?)', email, req.ip);
+    return again(otp.MESSAGES[result]);
+  }
+  // The code proves the person reads this inbox.
+  await run('UPDATE users SET email_verified = 1 WHERE id = ?', user.id);
+  await run('DELETE FROM login_failures WHERE email = ?', email);
+  req.session.userId = user.id;
+  req.session.pw = user.password_hash.slice(-12);
+  await audit(user, 'user.login', { entity: 'user', id: user.id, summary: `${user.name} logged in with an email code` });
+  res.redirect(safeNext(user, req.body.next));
+}));
+
 router.post('/logout', (req, res) => {
   req.session = null;
   res.redirect('/login');
@@ -218,9 +297,14 @@ router.post('/signup', withKycDocs, h(async (req, res) => {
       f.agency, await uniqueSlug('agencies', f.agency), f.email, f.phone, f.city, tax.country, tax.gstin, tax.pan, tax.taxId, docs.tax_doc, docs.pan_doc || null, docs.photo,
     )).lastInsertRowid;
     await notify(null, 'New agent signup', `${f.agency}${f.city ? ` (${f.city})` : ''} is waiting for approval.`, `/admin/agents/${agencyId}`);
-    return (await run('INSERT INTO users (role, agency_id, name, email, phone, password_hash) VALUES (?, ?, ?, ?, ?, ?)', 'agent', agencyId, f.name, f.email, f.phone, hashPassword(f.password))).lastInsertRowid;
+    return (await run('INSERT INTO users (role, agency_id, name, email, phone, password_hash, email_verified) VALUES (?, ?, ?, ?, ?, ?, ?)', 'agent', agencyId, f.name, f.email, f.phone, hashPassword(f.password), mailer.enabled() ? 0 : 1)).lastInsertRowid;
   });
   req.session.userId = userId;
+  if (mailer.enabled()) {
+    await otp.sendCode({ id: userId, email: f.email }, 'verify');
+    req.flash('success', `Application received. We've emailed a 6-digit code to ${f.email}: enter it to verify your email.`);
+    return res.redirect('/verify-email');
+  }
   req.flash('success', 'Application received. Our team will check your documents and approve your agency, usually within one working day. Meanwhile you can explore the portal and set up your branding.');
   res.redirect('/agent/settings');
 }));

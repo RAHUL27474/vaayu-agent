@@ -83,7 +83,7 @@
         <dt>Email</dt><dd><%= agent.email || '—' %></dd>
         <dt>Address</dt><dd><%= [agent.address, agent.city].filter(Boolean).join(', ') || '—' %></dd>
         <dt id="users">Users</dt><dd><% users.forEach(u => { %>
-          <div class="user-row"><%= u.name %> <small class="muted"><%= u.email %><%= u.phone ? ` · ${u.phone}` : '' %></small>
+          <div class="user-row"><%= u.name %> <small class="muted"><%= u.email %><%= u.phone ? ` · ${u.phone}` : '' %></small> <% if (u.email_verified === 0) { %><span class="badge pending">email not verified</span><% } %>
             <details class="inline-reset"><summary>Set new password</summary>
               <form method="post" action="/admin/agents/<%= agent.id %>/users/<%= u.id %>/password" data-confirm="Set a new password for <%= u.name %>? Verify the person by phone first.">
                 <label class="sr-only" for="pw-<%= u.id %>">New password for <%= u.name %></label>

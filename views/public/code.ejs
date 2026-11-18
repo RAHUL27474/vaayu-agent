@@ -1,0 +1,36 @@
+<%# Enter a 6-digit email code. Locals: purpose ('verify' | 'login'), email, action, resendAction, next %>
+<div class="auth" style="min-height:calc(100vh - 70px)">
+  <div class="art">
+    <div>
+      <h2><%= purpose === 'verify' ? 'One last step' : 'Log in without a password' %></h2>
+      <ul>
+        <li>We emailed a 6-digit code to <b><%= email %></b></li>
+        <li>It works for 10 minutes</li>
+        <li>Check your spam folder if it isn't in your inbox</li>
+      </ul>
+    </div>
+    <img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip DMC" class="footer-logo" width="189" height="64">
+  </div>
+  <div class="form">
+    <div>
+      <h1><%= purpose === 'verify' ? 'Verify your email' : 'Enter your login code' %></h1>
+      <p class="muted">Code sent to <b><%= email %></b></p>
+      <form method="post" action="<%= action %>">
+        <input type="hidden" name="email" value="<%= email %>">
+        <% if (typeof next !== 'undefined' && next) { %><input type="hidden" name="next" value="<%= next %>"><% } %>
+        <div class="field"><label for="code">6-digit code</label>
+          <input id="code" class="otp-input" name="code" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" required autofocus autocomplete="one-time-code" placeholder="••••••">
+        </div>
+        <button class="btn btn-primary btn-lg" style="width:100%"><%= purpose === 'verify' ? 'Verify email' : 'Log in' %></button>
+      </form>
+      <form method="post" action="<%= resendAction %>" style="margin-top:14px">
+        <input type="hidden" name="email" value="<%= email %>">
+        <% if (typeof next !== 'undefined' && next) { %><input type="hidden" name="next" value="<%= next %>"><% } %>
+        <p class="muted" style="margin:0">Didn't get it? <button class="linklike" type="submit">Send a new code</button></p>
+      </form>
+      <div class="muted" style="margin-top:18px">
+        <% if (purpose === 'verify') { %><form method="post" action="/logout" style="display:inline"><button class="linklike" type="submit">Log out</button></form> and sign up with another email<% } else { %><a href="/login">Log in with password instead</a><% } %>
+      </div>
+    </div>
+  </div>
+</div>

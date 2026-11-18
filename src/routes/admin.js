@@ -138,7 +138,7 @@ router.get('/agents', h(async (req, res) => {
 router.get('/agents/:id', h(async (req, res, next) => {
   const agent = await one('SELECT * FROM agencies WHERE id = ?', num(req.params.id));
   if (!agent) return next();
-  const users = await all('SELECT id, name, email, phone, created_at FROM users WHERE agency_id = ?', agent.id);
+  const users = await all('SELECT id, name, email, phone, email_verified, created_at FROM users WHERE agency_id = ?', agent.id);
   const bookings = await all('SELECT * FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 20', agent.id);
   const txns = await all('SELECT * FROM wallet_txns WHERE agency_id = ? ORDER BY id DESC LIMIT 20', agent.id);
   const totals = await one("SELECT COUNT(*) AS n, COALESCE(SUM(total_net), 0) AS revenue, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS commission FROM bookings WHERE agency_id = ? AND status != 'cancelled'", agent.id);

@@ -1096,3 +1096,10 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .season-table input { width: 100%; height: 36px; }
 .season-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; }
 @media (max-width: 700px) { .season-table thead { display: none; } .season-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; } .season-table td { padding: 0; } .season-table td[colspan] { grid-column: span 2; } }
+
+/* Login: password or email code */
+.login-tabs { display: flex; gap: 4px; padding: 4px; margin: 16px 0 18px; background: var(--line-2); border-radius: 10px; }
+.login-tabs a { flex: 1; text-align: center; padding: 8px 10px; border-radius: 8px; color: var(--ink-2); font-weight: 600; font-size: 14px; text-decoration: none; }
+.login-tabs a.on { background: #fff; color: var(--brand); box-shadow: 0 1px 2px rgba(15, 23, 42, .1); }
+.otp-input { font-size: 26px; letter-spacing: .45em; text-align: center; font-variant-numeric: tabular-nums; height: 56px; }
+.linklike { background: none; border: 0; padding: 0; color: var(--brand); font: inherit; cursor: pointer; text-decoration: underline; }

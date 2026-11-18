@@ -15,6 +15,20 @@
     <div>
       <h1>Log in</h1>
       <p class="muted">Agents and VaayuTrip team members.</p>
+      <% if (otpOn) { %>
+      <nav class="login-tabs" aria-label="How to log in">
+        <a href="/login<%= next ? `?next=${encodeURIComponent(next)}` : '' %>" class="<%= mode === 'password' ? 'on' : '' %>">Password</a>
+        <a href="/login?mode=otp<%= next ? `&next=${encodeURIComponent(next)}` : '' %>" class="<%= mode === 'otp' ? 'on' : '' %>">Email code (OTP)</a>
+      </nav>
+      <% } %>
+      <% if (mode === 'otp') { %>
+      <form method="post" action="/login/otp">
+        <input type="hidden" name="next" value="<%= next %>">
+        <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= email %>" required autofocus autocomplete="username"></div>
+        <button class="btn btn-primary btn-lg" style="width:100%">Email me a login code</button>
+      </form>
+      <p class="muted" style="margin:12px 0 0;font-size:13.5px">We'll email you a 6-digit code. No password needed.</p>
+      <% } else { %>
       <form method="post" action="/login">
         <input type="hidden" name="next" value="<%= next %>">
         <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= email %>" required autofocus autocomplete="username"></div>
@@ -22,6 +36,7 @@
         <button class="btn btn-primary btn-lg" style="width:100%">Log in</button>
       </form>
       <p style="margin:12px 0 0;text-align:right;font-size:14px"><a href="/forgot-password">Forgot password?</a></p>
+      <% } %>
       <p style="margin-top:18px" class="muted">New agent? <a href="/signup">Create a partner account</a></p>
       <% if (process.env.VERCEL_ENV !== 'production') { %>
       <details class="more" style="margin-top:24px">

@@ -144,6 +144,40 @@ const resend = http.createServer((req, res) => {
     && Boolean(await one("SELECT 1 FROM notifications WHERE agency_id IS NULL AND title = 'Password reset request' AND body LIKE '%ravi@unverified.test%'")));
   check('a made-up reset link is refused', (await page(`/reset-password/${'a'.repeat(64)}`)).includes('expired or was already used'));
 
+  // ---------- login with an email code (OTP) ----------
+  const codeIn = (m) => (m && m.subject.match(/^(\d{6}) is your VaayuTrip/) || [])[1];
+  check('login page offers password or email code', (await page('/login?mode=otp')).includes('Email me a login code'));
+  mails.length = 0;
+  const otpPage = await (await c.post('/login/otp', '', { email: ROLES.agent2[0] })).text();
+  const loginCode = codeIn(mails.find((m) => m.to.includes(ROLES.agent2[0])));
+  check('a login code is emailed', otpPage.includes('Enter your login code') && /^\d{6}$/.test(loginCode || ''));
+  const wrongCode = loginCode === '000000' ? '111111' : '000000';
+  check('a wrong code is refused', (await (await c.post('/login/otp/verify', '', { email: ROLES.agent2[0], code: wrongCode })).text()).includes('That code isn'));
+  const otpLogin = await c.post('/login/otp/verify', '', { email: ROLES.agent2[0], code: loginCode });
+  const otpCookie = (otpLogin.headers.getSetCookie() || []).map((x) => x.split(';')[0]).join('; ');
+  check('the right code logs in', otpLogin.status === 302 && otpLogin.headers.get('location') === '/agent' && (await c.get('/agent', otpCookie)).status === 200);
+  check('a code works only once', (await (await c.post('/login/otp/verify', '', { email: ROLES.agent2[0], code: loginCode })).text()).includes('expired'));
+  mails.length = 0;
+  const ghost = await (await c.post('/login/otp', '', { email: 'nobody@nowhere.test' })).text();
+  check('unknown emails get the same page and no email', ghost.includes('Enter your login code') && mails.length === 0);
+
+  // ---------- email verified at signup ----------
+  const PDF = ['%PDF-1.4\n%test\n', 'application/pdf', 'doc.pdf'];
+  const PNG = [Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108020000009077053e0000000c4944415408d763f8ffff3f0005fe02fea7d6a5d50000000049454e44ae426082', 'hex'), 'image/png', 'me.png'];
+  const fd = new FormData();
+  for (const [k, v] of Object.entries({ agency: 'Verify Travels', name: 'Vera Fy', email: 'vera@verify.in', phone: '+91 90000 22222', city: 'Pune', country: 'India', gstin: '27AABCV1234M1Z5', password: 'secret123' })) fd.append(k, v);
+  for (const [f, [data, type, name]] of Object.entries({ tax_doc: PDF, pan_doc: PDF, photo: PNG })) fd.append(f, new Blob([data], { type }), name);
+  mails.length = 0;
+  const signup = await c.post('/signup', '', fd);
+  const vCookie = (signup.headers.getSetCookie() || []).map((x) => x.split(';')[0]).join('; ');
+  const vera = await one("SELECT * FROM users WHERE email = 'vera@verify.in'");
+  check('signup asks for the emailed code first', signup.headers.get('location') === '/verify-email' && vera && vera.email_verified === 0);
+  check('the portal stays closed until the email is verified', (await c.get('/agent', vCookie)).headers.get('location') === '/verify-email');
+  const vCode = codeIn(mails.find((m) => m.to.includes('vera@verify.in')));
+  check('wrong verification code is refused', (await (await c.post('/verify-email', vCookie, { code: vCode === '000000' ? '111111' : '000000' })).text()).includes('That code isn'));
+  await c.post('/verify-email', vCookie, { code: vCode });
+  check('the right code verifies the email and opens the portal', (await one("SELECT email_verified FROM users WHERE email = 'vera@verify.in'")).email_verified === 1 && (await c.get('/agent', vCookie)).status === 200);
+
   resend.close();
   finish(c);
 })().catch((e) => { console.error(e); process.exit(1); });
