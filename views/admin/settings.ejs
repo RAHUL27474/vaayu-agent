@@ -9,14 +9,13 @@
     gst_enabled: ['Charge GST', 'When off, no GST is added to quotes, bookings or invoices. Invoices already issued keep theirs.'],
     tax_rate: ['GST rate (%)', 'Used when GST is switched on. Tour operator services: 5%.'],
     tcs_rate: ['TCS on overseas tour packages (%)', 'Collected on customer invoices for international packages. Confirm the current rate with your CA.'],
-    emi_rate: ['EMI interest rate (% p.a.)', 'Used for the EMI options shown to customers'],
     tier_silver_pct: ['Silver partner discount (points)', "Percentage points off VaayuTrip's margin for Silver agencies, e.g. 1 turns a 5% margin into 4%."],
     tier_gold_pct: ['Gold partner discount (points)', "Percentage points off VaayuTrip's margin for Gold agencies, e.g. 2 turns a 5% margin into 3%."],
     sac_code: ['SAC code on invoices', 'Services Accounting Code printed on every invoice line. 998552 = tour operator services.'],
     bank_details: ['Bank details for wallet top-ups', 'Shown to agents who top up by bank transfer: bank, account number, IFSC, UPI ID (one per line).'],
   };
 %>
-<div class="page-head"><div><h1>Settings</h1><p>Company details on VaayuTrip's invoices to agents, tax and EMI rates, and VaayuTrip's margin on inventory.</p></div></div>
+<div class="page-head"><div><h1>Settings</h1><p>Company details on VaayuTrip's invoices to agents, tax rates, partner tiers and VaayuTrip's margin on inventory.</p></div></div>
 <div class="card" style="max-width:720px">
   <h3>Online payments (PhonePe)</h3>
   <p style="margin:6px 0"><span class="badge <%= phonepe === 'not set up' ? 'pending' : 'approved' %>"><%= phonepe %></span></p>

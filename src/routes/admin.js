@@ -525,7 +525,7 @@ router.post('/tickets/:id/reply', h(async (req, res, next) => {
 }));
 
 const MARGIN_KEYS = Object.keys(KINDS).map((k) => `margin_${k}`);
-const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'gst_enabled', 'tax_rate', 'tcs_rate', 'emi_rate', 'bank_details', 'sac_code', 'tier_silver_pct', 'tier_gold_pct', ...MARGIN_KEYS];
+const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'email', 'gst_enabled', 'tax_rate', 'tcs_rate', 'bank_details', 'sac_code', 'tier_silver_pct', 'tier_gold_pct', ...MARGIN_KEYS];
 
 router.get('/settings', async (req, res) => {
   const values = await getSettings();
