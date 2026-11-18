@@ -39,7 +39,7 @@
 <% if (lowWallet) { %>
   <div class="alert warn"><b>Low wallet balance:</b> <%= inr(agency.wallet_balance) %>, below your alert of <%= inr(agency.low_balance_alert) %>. <% if (agentCan('/agent/wallet')) { %><a href="/agent/wallet">Top up</a><% } %></div>
 <% } %>
-<% if (followUps.length || viewedQuotes.length) { %>
+<% if (followUps.length) { %>
   <div class="today-grid">
     <% if (followUps.length) { %>
     <div class="card flush">
@@ -49,19 +49,6 @@
           <tr class="click" data-href="/agent/leads?due=1">
             <td><b><%= l.name %></b><br><small class="muted"><%= l.follow_up_note || l.destination || '' %><%= l.assignee ? ` · ${l.assignee}` : '' %></small></td>
             <td class="num"><span class="badge <%= overdue ? 'cancelled' : 'pending' %>"><%= overdue ? `overdue · ${fmtDate(l.follow_up_on)}` : 'today' %></span><% if (l.phone) { %><br><a href="tel:<%= l.phone.replace(/\s/g, '') %>"><small><%= l.phone %></small></a><% } %></td>
-          </tr>
-        <% }) %>
-      </table>
-    </div>
-    <% } %>
-    <% if (viewedQuotes.length) { %>
-    <div class="card flush">
-      <div class="card-head"><h3>Customers looking at quotes</h3></div>
-      <table class="table">
-        <% viewedQuotes.forEach(q => { %>
-          <tr class="click" data-href="/agent/quotes/<%= q.id %>">
-            <td><b><%= q.customer || q.title %></b><br><small class="muted"><%= q.title %></small></td>
-            <td class="num"><small>viewed <%= q.view_count %>×<br><%= fmtDate(q.last_viewed_at) %></small></td>
           </tr>
         <% }) %>
       </table>

@@ -2,15 +2,12 @@ const crypto = require('crypto');
 const express = require('express');
 const { one, all, run, tx, notify, audit, getSettings } = require('../db');
 const { hashPassword, verifyPassword, uniqueSlug, num, code, round2 } = require('../util');
-const { getQuote, voucherFor } = require('../services');
-const { buildInvoice } = require('../pricing');
 const { h, homeFor } = require('../auth');
 const { COUNTRIES, withKycDocs, checkTax, checkKycFiles, removeUploaded } = require('../kyc');
 const { DESTINATIONS, destinationOf } = require('../products');
 const mailer = require('../mailer');
 const otp = require('../otp');
 const payments = require('../payments');
-const { invoiceView } = require('../invoice-view');
 
 const router = express.Router();
 
@@ -307,66 +304,6 @@ router.post('/signup', withKycDocs, h(async (req, res) => {
   res.redirect('/agent/settings');
 }));
 
-// ---------- what an agent shares with its customer: quote, invoice, voucher (no login, agency-branded) ----------
-
-async function sharedQuote(codeParam) {
-  const q = await one('SELECT * FROM quotes WHERE code = ?', codeParam);
-  if (!q) return null;
-  const full = await getQuote(q.id);
-  const agency = await one('SELECT * FROM agencies WHERE id = ?', q.agency_id);
-  const settings = await getSettings();
-  const kind = 'customer_agent';
-  const doc = buildInvoice(kind, { ...full, agency, settings });
-  const agentItems = kind === 'customer_vaayu' ? full.priced.lines.filter((l) => l.supplier === 'agent') : [];
-  const pkgView = q.package_snapshot ? JSON.parse(q.package_snapshot) : null;
-  return { ...full, agency, settings, kind, doc, agentItems, pkgView };
-}
-
-// Link-preview fetchers (WhatsApp, Facebook, Slack …) and crawlers open shared links too; they aren't the customer.
-const BOT = /bot|crawl|spider|preview|facebookexternalhit|whatsapp|telegram|slack|skype|discord|linkedin|google|bing|curl|wget|python|headless/i;
-
-router.get('/q/:code', h(async (req, res, next) => {
-  const s = await sharedQuote(req.params.code);
-  if (!s) return next();
-  const own = req.user && (req.user.role !== 'agent' || req.user.agency_id === s.quote.agency_id);
-  if (!own && !BOT.test(req.get('user-agent') || '')) {
-    const q = s.quote;
-    const hoursSince = q.last_viewed_at ? (Date.now() - Date.parse(`${q.last_viewed_at.replace(' ', 'T')}Z`)) / 36e5 : Infinity;
-    await run("UPDATE quotes SET view_count = view_count + 1, first_viewed_at = COALESCE(first_viewed_at, datetime('now')), last_viewed_at = datetime('now') WHERE id = ?", q.id);
-    // Tell the agent the first time, and again when the customer comes back after a day.
-    if (hoursSince >= 24) {
-      await notify(q.agency_id, q.first_viewed_at ? 'Customer looked at a quote again' : 'Customer opened your quote',
-        `${s.customer ? s.customer.name : 'Your customer'} ${q.first_viewed_at ? 'came back to' : 'opened'} "${q.title}". A good moment to follow up.`, `/agent/quotes/${q.id}`);
-    }
-  }
-  const total = s.doc.totals.total + s.agentItems.reduce((t, l) => t + l.lineSell, 0);
-  res.page('public/quote', {
-    title: `${s.quote.title} — quote`, ...s, total,
-    favicon: s.kind === 'customer_agent' ? s.agency.logo_path : null,
-    noindex: true,
-    site: s.kind === 'customer_agent' ? s.agency : undefined,
-    meta: { description: `Your holiday quote${s.agency ? ` from ${s.agency.name}` : ''}: ${s.quote.title}.`, image: s.quote.package_snapshot ? JSON.parse(s.quote.package_snapshot).image : null },
-  }, 'doc');
-}));
-
-router.post('/q/:code/accept', h(async (req, res, next) => {
-  const q = await one('SELECT * FROM quotes WHERE code = ?', req.params.code);
-  if (!q) return next();
-  if (['draft', 'sent'].includes(q.status)) {
-    await run("UPDATE quotes SET status = 'accepted', updated_at = datetime('now') WHERE id = ?", q.id);
-    await notify(q.agency_id, 'Quote accepted', `Your customer accepted "${q.title}". Book it to confirm.`, `/agent/quotes/${q.id}`);
-  }
-  req.flash('success', 'Thank you! Your travel agent has been notified and will confirm your booking.');
-  res.redirect(`/q/${q.code}`);
-}));
-
-router.get('/q/:code/invoice/:id', h(async (req, res, next) => {
-  const q = await one('SELECT id FROM quotes WHERE code = ?', req.params.code);
-  const inv = q && await one("SELECT * FROM invoices WHERE id = ? AND quote_id = ? AND kind != 'b2b'", num(req.params.id), q.id);
-  if (!inv) return next();
-  res.page('invoice', { title: `Invoice ${inv.number}`, inv, ...await invoiceView(inv), back: `/q/${req.params.code}`, noindex: true }, 'doc');
-}));
-
 // Back from PhonePe after a wallet top-up (GET, or POST for older PhonePe set-ups): confirm it and show where it stands.
 router.all('/payments/return/:orderId', h(async (req, res, next) => {
   let p = await one('SELECT * FROM payments WHERE order_id = ?', String(req.params.orderId).slice(0, 64));
@@ -378,19 +315,6 @@ router.all('/payments/return/:orderId', h(async (req, res, next) => {
   req.flash(...msg);
   res.redirect('/agent/wallet');
 }));
-
-// The customer's travel voucher, once the quote is booked.
-router.get('/q/:code/voucher', h(async (req, res, next) => {
-  const q = await one('SELECT id FROM quotes WHERE code = ?', req.params.code);
-  const v = q && await voucherFor(await one('SELECT * FROM bookings WHERE quote_id = ? ORDER BY id DESC', q.id));
-  if (!v) return next();
-  res.page('voucher', {
-    title: `Travel voucher ${v.booking.code}`, ...v, back: `/q/${req.params.code}`, noindex: true,
-    site: v.favicon ? v.agency : undefined, meta: { description: `Your travel voucher for ${v.quote.title}.` },
-  }, 'doc');
-}));
-
-
 
 // Public pages for search engines: VaayuTrip's own pages (the portal itself is private).
 router.get('/sitemap.xml', h(async (req, res) => {

@@ -12,10 +12,10 @@
     <p><%= quote.code %> · <span class="badge <%= quote.status %>"><%= quote.status %></span><%= customer ? ` · ${customer.name}` : '' %><%= quote.travel_date ? ` · ${fmtDate(quote.travel_date)}` : '' %></p>
   </div>
   <div class="actions">
-    <span class="quote-views" title="Times your customer opened the quote link"><%- icon('external') %><%= quote.view_count ? `Viewed ${quote.view_count}× · last ${fmtDate(quote.last_viewed_at)} ${quote.last_viewed_at.slice(11, 16)} UTC` : 'Not opened yet' %></span>
-    <a class="btn" href="/q/<%= quote.code %>" target="_blank">Preview customer view<%- icon('external') %></a>
+    <a class="btn btn-primary" href="/agent/quotes/<%= quote.id %>/pdf" target="_blank"><%- icon('download') %>Quote PDF</a>
     <form method="post" action="/agent/quotes/<%= quote.id %>/duplicate"><button class="btn" title="Make a new draft with the same services">Duplicate</button></form>
     <% if (quote.status === 'draft') { %><form method="post" action="/agent/quotes/<%= quote.id %>/send"><button class="btn">Mark as sent</button></form><% } %>
+    <% if (['draft', 'sent'].includes(quote.status)) { %><form method="post" action="/agent/quotes/<%= quote.id %>/accepted"><button class="btn">Customer accepted</button></form><% } %>
     <% if (!locked) { %>
       <form method="post" action="/agent/quotes/<%= quote.id %>/book" data-confirm="Book now? <%= inr(netPayable.total) %> <%= netPayable.tax ? '(net + GST) ' : '' %>will be paid to VaayuTrip from your wallet/credit.">
         <button class="btn btn-accent" <%= agency.status !== 'active' || !items.length || profileGaps.length ? 'disabled' : '' %> <%- profileGaps.length ? `title="Complete your company profile first"` : '' %>>Book now · pay <%= inr(netPayable.total) %></button>
@@ -98,15 +98,9 @@
     <% } %>
 
     <div class="card" id="share">
-      <div class="card-head"><h3>Share with your customer</h3></div>
-      <div class="field">
-        <label>Customer link</label>
-        <div style="display:flex;gap:8px"><input type="text" readonly value="<%= shareUrl %>" aria-label="Link to share with your customer"><button class="btn" type="button" data-copy="<%= shareUrl %>">Copy</button></div>
-        <div class="hint">Shows the quote with your branding and an Accept button. Payment is between you and your customer.
-          <%# Opens a chat with the customer directly when we have their number (Indian 10-digit numbers get +91). %>
-          <% const waDigits = customer && customer.phone ? customer.phone.replace(/\D/g, '') : ''; const waTo = waDigits.length === 10 ? `91${waDigits}` : waDigits; %>
-          <a href="https://wa.me/<%= waTo %>?text=<%= encodeURIComponent(`Hi${customer ? ' ' + customer.name : ''}, here is your quote for ${quote.title}: ${shareUrl}`) %>" target="_blank" rel="noopener">Send on WhatsApp<%= waTo ? ` to ${customer.phone}` : '' %><%- icon('external') %></a></div>
-      </div>
+      <div class="card-head"><h3>For your customer</h3></div>
+      <p class="muted" style="font-size:13px;margin:0 0 10px">Download the PDF and send it to your customer yourself, on WhatsApp or email. It carries your agency's name and logo; payment is between you and your customer.</p>
+      <a class="btn btn-primary" href="/agent/quotes/<%= quote.id %>/pdf" target="_blank"><%- icon('download') %>Quote PDF</a>
     </div>
 
     <div class="card flush">

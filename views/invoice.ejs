@@ -1,7 +1,7 @@
 <%#
   Tax invoice (CGST Rule 46): supplier and recipient with GSTIN, PAN and state; number and date; place of supply;
   SAC; taxable value; CGST + SGST or IGST; TCS; total in figures and words; signatory.
-  Locals: inv, doc, gst, words, booking, payment, bank, terms (src/invoice-view.js), back, shareUrl
+  Locals: inv, doc, gst, words, booking, payment, bank, terms (src/invoice-view.js), back
 %>
 <%
   const title = gst.registered && gst.charged ? (inv.kind === 'b2b' ? 'Tax Invoice (B2B)' : 'Tax Invoice') : inv.kind === 'b2b' ? 'Invoice (B2B)' : 'Invoice';
@@ -12,8 +12,7 @@
 <div class="doc-wrap">
   <div class="doc-toolbar no-print">
     <% if (typeof back !== 'undefined' && back) { %><a class="btn" href="<%= back %>"><%- icon('arrowLeft') %>Back</a><% } %>
-    <% if (typeof shareUrl !== 'undefined' && shareUrl) { %><button class="btn" data-copy="<%= shareUrl %>">Copy customer link</button><% } %>
-    <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
+    <button class="btn btn-primary" onclick="window.print()"><%- icon('download') %>Download PDF</button>
   </div>
 
   <article class="doc invoice" style="--doc-color: <%= doc.seller.color || '#0077c0' %>">

@@ -1,7 +1,7 @@
 <%#
   Travel voucher for the customer: what is booked, for whom and whom to call. No prices.
-  Shown to the agent (/agent/bookings/:id/voucher) and shared with the customer (/q/:code/voucher).
-  Locals: booking, quote, customer, priced, doc (seller = agency or VaayuTrip), agency, settings, pkgView, kinds, back, shareUrl
+  Opened by the agent (/agent/bookings/:id/voucher), who sends it to the customer as a PDF.
+  Locals: booking, quote, customer, priced, doc (seller = agency or VaayuTrip), agency, settings, pkgView, kinds, back
 %>
 <%
   const brandColor = doc.seller.color || '#0077c0';
@@ -11,8 +11,7 @@
 <div class="doc-wrap">
   <div class="doc-toolbar no-print">
     <% if (typeof back !== 'undefined' && back) { %><a class="btn" href="<%= back %>"><%- icon('arrowLeft') %>Back</a><% } %>
-    <% if (typeof shareUrl !== 'undefined' && shareUrl) { %><button class="btn" data-copy="<%= shareUrl %>">Copy customer link</button><% } %>
-    <button class="btn btn-primary" onclick="window.print()">Print / Save as PDF</button>
+    <button class="btn btn-primary" onclick="window.print()"><%- icon('download') %>Download PDF</button>
   </div>
 
   <article class="doc voucher" style="--doc-color: <%= brandColor %>">

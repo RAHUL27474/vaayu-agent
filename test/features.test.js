@@ -64,19 +64,15 @@ const resend = http.createServer((req, res) => {
   check('dashboard lists follow-ups due, overdue first', dash.includes('Follow-ups due') && dash.includes('Follow Me') && dash.includes('overdue'));
   check('leads page has a due tab', (await page('/agent/leads?due=1', owner)).includes('Send Bali quote'));
 
-  // ---------- quote viewed ----------
+  // ---------- customers have no links; agents send PDFs ----------
   const q = await one("SELECT * FROM quotes WHERE agency_id = ? AND status IN ('sent', 'draft') ORDER BY id LIMIT 1", agencyId);
-  await db.prepare('UPDATE quotes SET view_count = 0, first_viewed_at = NULL, last_viewed_at = NULL WHERE id = ?').run(q.id);
-  const n0 = (await one("SELECT COUNT(*) AS n FROM notifications WHERE agency_id = ? AND title = 'Customer opened your quote'", agencyId)).n;
-  await fetch(`${c.B}/q/${q.code}`, { headers: { 'user-agent': 'WhatsApp/2.23.20.0' } });
-  await c.get(`/q/${q.code}`, owner);
-  check("WhatsApp's link preview and the agent's own preview don't count", (await one('SELECT view_count FROM quotes WHERE id = ?', q.id)).view_count === 0);
-  await fetch(`${c.B}/q/${q.code}`, { headers: { 'user-agent': 'Mozilla/5.0 (iPhone)' } });
-  await fetch(`${c.B}/q/${q.code}`, { headers: { 'user-agent': 'Mozilla/5.0 (iPhone)' } });
-  const viewed = await one('SELECT view_count, first_viewed_at FROM quotes WHERE id = ?', q.id);
-  check('customer views are counted', viewed.view_count === 2 && viewed.first_viewed_at);
-  check('agent is told once when the customer first opens it', (await one("SELECT COUNT(*) AS n FROM notifications WHERE agency_id = ? AND title = 'Customer opened your quote'", agencyId)).n === n0 + 1);
-  check('quote page shows the views', (await page(`/agent/quotes/${q.id}`, owner)).includes('Viewed 2×'));
+  check('customer links are gone', (await c.get(`/q/${q.code}`)).status === 404 && (await c.get(`/q/${q.code}/voucher`)).status === 404);
+  const pdfPage = await page(`/agent/quotes/${q.id}/pdf`, owner);
+  check('agent opens the quote as a PDF page with its branding', pdfPage.includes('QUOTATION') && pdfPage.includes('Download PDF') && pdfPage.includes('Skyline'));
+  const otherPdf = await c.get(`/agent/quotes/${q.id}/pdf`, await c.login(...ROLES.agent2));
+  check("another agency can't open it", otherPdf.status !== 200 && !(await otherPdf.text()).includes('QUOTATION'));
+  await c.post(`/agent/quotes/${q.id}/accepted`, owner, {});
+  check('agent marks the quote accepted', (await one('SELECT status FROM quotes WHERE id = ?', q.id)).status === 'accepted');
 
   // ---------- wallet alert, credit due and repayment ----------
   await db.prepare('UPDATE agencies SET wallet_balance = 12000, low_balance_alert = 10000, credit_used = 0, credit_since = NULL WHERE id = ?').run(agencyId);
@@ -125,7 +121,7 @@ const resend = http.createServer((req, res) => {
 
   // ---------- email ----------
   const ownerMails = mails.filter((m) => m.to.includes(ROLES.agent[0]));
-  check('notifications are emailed to the agency owner', ownerMails.some((m) => m.subject === 'Customer opened your quote') && ownerMails[0].html.includes('Open in VaayuTrip'));
+  check('notifications are emailed to the agency owner', ownerMails.some((m) => m.subject === 'Low wallet balance') && ownerMails[0].html.includes('Open in VaayuTrip'));
   check('staff (non-owners) are not emailed agency notifications', !mails.some((m) => m.to.includes('sunil@skyline.com')));
   mails.length = 0;
   await c.post('/forgot-password', '', { email: 'anita@skyline.com' });

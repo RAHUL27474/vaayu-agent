@@ -13,7 +13,7 @@ const payments = require('../payments');
 const { invoiceView } = require('../invoice-view');
 const { tcsRows, sendTcsCsv } = require('../tcs-report');
 const { PKG_CORE, withPrices, insertPackage, newPackageDetails, productCatalogue, packageCore, builderData: buildWith, vaayuPackage } = require('../package-builder');
-const { priceQuote, emiPlans, agencyHasBranding, withTax, markupRule } = require('../pricing');
+const { priceQuote, agencyHasBranding, withTax, markupRule, buildInvoice } = require('../pricing');
 const {
   MEAL_PLANS, STAY_TYPES, EXTRA_TYPES, emptyDetails, parseDetails, itemIds, detailsFromForm, calcPackage, priceLines, fromPrice, publishProblems, present,
 } = require('../packages');
@@ -114,9 +114,8 @@ router.get('/', h(async (req, res) => {
   const a = req.agency.id;
   const month = new Date().toISOString().slice(0, 7);
   // Independent lookups run in parallel.
-  const [followUps, viewedQuotes, stats, openLeads, quotes, bookings, leads, upcoming, featuredRows, hasPackage, months, offers] = await Promise.all([
+  const [followUps, stats, openLeads, quotes, bookings, leads, upcoming, featuredRows, hasPackage, months, offers] = await Promise.all([
     all(`SELECT l.*, u.name AS assignee FROM leads l LEFT JOIN users u ON u.id = l.assigned_to WHERE ${DUE_FOLLOW_UPS} ORDER BY l.follow_up_on, l.id LIMIT 8`, a, indiaToday()),
-    all("SELECT q.id, q.title, q.status, q.view_count, q.last_viewed_at, c.name AS customer FROM quotes q LEFT JOIN customers c ON c.id = q.customer_id WHERE q.agency_id = ? AND q.last_viewed_at > datetime('now', '-2 days') AND q.status IN ('sent', 'draft', 'accepted') ORDER BY q.last_viewed_at DESC LIMIT 5", a),
     one(
       `SELECT COUNT(*) AS bookings, COALESCE(SUM(total_sell), 0) AS sales, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS earnings
        FROM bookings WHERE agency_id = ? AND status != 'cancelled' AND substr(created_at, 1, 7) = ?`, a, month,
@@ -158,7 +157,7 @@ router.get('/', h(async (req, res) => {
   const services = Object.entries(KIND_BY_PATH).map(([path, kind]) => ({ path, kind, label: KINDS[kind].plural, icon: KINDS[kind].icon }));
   const credit = svc.creditStatus(req.agency);
   const lowWallet = req.agency.low_balance_alert > 0 && req.agency.wallet_balance < req.agency.low_balance_alert;
-  res.page('agent/dashboard', { title: 'Dashboard', followUps, viewedQuotes, credit, lowWallet, today: indiaToday(), stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers, services, destinations: Object.keys(DESTINATIONS) });
+  res.page('agent/dashboard', { title: 'Dashboard', followUps, credit, lowWallet, today: indiaToday(), stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers, services, destinations: Object.keys(DESTINATIONS) });
 }));
 
 // ---------- VaayuTrip inventory: activities, hotels, airfares, transfers, visas, insurance ----------
@@ -503,7 +502,6 @@ router.get('/quotes/:id', h(async (req, res) => {
     title: full.quote.title, ...full, invoices, booking, customerTotal, netPayable,
     customers: await customersOf(req.agency.id), branded: agencyHasBranding(req.agency),
     pkgView: full.quote.package_snapshot ? JSON.parse(full.quote.package_snapshot) : null,
-    shareUrl: `${req.protocol}://${req.get('host')}/q/${full.quote.code}`,
   });
 }));
 
@@ -587,11 +585,30 @@ router.post('/quotes/:id/duplicate', h(async (req, res, next) => {
   res.redirect(`/agent/quotes/${id}`);
 }));
 
+// The quote for the customer, as a page to print or save as PDF (customers have no access to the portal).
+router.get('/quotes/:id/pdf', h(async (req, res) => {
+  const full = await ownQuote(req);
+  const settings = await getSettings();
+  const doc = buildInvoice('customer_agent', { ...full, agency: req.agency, settings });
+  res.page('public/quote', {
+    title: `${full.quote.title} — quote`, ...full, agency: req.agency, settings, kind: 'customer_agent', doc, agentItems: [], total: doc.totals.total,
+    pkgView: full.quote.package_snapshot ? JSON.parse(full.quote.package_snapshot) : null, back: `/agent/quotes/${full.quote.id}`, noindex: true, site: req.agency,
+  }, 'doc');
+}));
+
+// The customer said yes (by phone, WhatsApp …): the agent records it.
+router.post('/quotes/:id/accepted', h(async (req, res) => {
+  const { quote } = await ownQuote(req);
+  if (['draft', 'sent'].includes(quote.status)) await run("UPDATE quotes SET status = 'accepted', updated_at = datetime('now') WHERE id = ?", quote.id);
+  req.flash('success', 'Marked as accepted by your customer. Book it to confirm.');
+  res.redirect(`/agent/quotes/${quote.id}`);
+}));
+
 router.post('/quotes/:id/send', h(async (req, res) => {
   const { quote, items } = await ownQuote(req);
   if (!items.length) throw new svc.AppError('Add items before sharing the quote.');
   if (quote.status === 'draft') await run("UPDATE quotes SET status = 'sent', updated_at = datetime('now') WHERE id = ?", quote.id);
-  req.flash('success', 'Quote marked as sent. Share the link below with your customer.');
+  req.flash('success', 'Quote marked as sent.');
   res.redirect(`/agent/quotes/${quote.id}`);
 }));
 
@@ -645,8 +662,7 @@ router.get('/bookings/:id/voucher', h(async (req, res, next) => {
   const booking = await one('SELECT * FROM bookings WHERE id = ? AND agency_id = ?', num(req.params.id), req.agency.id);
   const v = await svc.voucherFor(booking);
   if (!v) return next();
-  const shareUrl = `${req.protocol}://${req.get('host')}/q/${v.quote.code}/voucher`;
-  res.page('voucher', { title: `Voucher ${booking.code}`, ...v, back: `/agent/bookings/${booking.id}`, shareUrl, noindex: true }, 'doc');
+  res.page('voucher', { title: `Voucher ${booking.code}`, ...v, back: `/agent/bookings/${booking.id}`, noindex: true }, 'doc');
 }));
 
 router.post('/bookings/:id/cancel', h(async (req, res, next) => {
@@ -891,8 +907,7 @@ router.get('/invoices/:id', h(async (req, res, next) => {
   const inv = await one('SELECT * FROM invoices WHERE id = ? AND agency_id = ?', num(req.params.id), req.agency.id);
   if (!inv) return next();
   const quote = inv.quote_id ? await one('SELECT code FROM quotes WHERE id = ?', inv.quote_id) : null;
-  const shareUrl = quote && inv.kind !== 'b2b' ? `${req.protocol}://${req.get('host')}/q/${quote.code}/invoice/${inv.id}` : null;
-  res.page('invoice', { title: `Invoice ${inv.number}`, inv, ...await invoiceView(inv), back: '/agent/invoices', shareUrl, noindex: true }, 'doc');
+  res.page('invoice', { title: `Invoice ${inv.number}`, inv, ...await invoiceView(inv), back: '/agent/invoices', noindex: true }, 'doc');
 }));
 
 // ---------- website, API, notifications, settings ----------

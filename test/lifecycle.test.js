@@ -23,7 +23,7 @@ const all = (sql, ...p) => db.prepare(sql).all(...p);
   check('package edit form still works', (await c.get(`/agent/packages/${pkg.id}/edit`, agent)).status === 200);
   for (const { quote_id: qid } of quotesUsing.slice(0, 3)) {
     const q = await one('SELECT * FROM quotes WHERE id = ?', qid);
-    check(`quote ${q.code} still opens (agent and customer)`, (await c.get(`/agent/quotes/${qid}`, agent)).status === 200 && (await c.get(`/q/${q.code}`)).status === 200);
+    check(`quote ${q.code} still opens (page and PDF)`, (await c.get(`/agent/quotes/${qid}`, agent)).status === 200 && (await c.get(`/agent/quotes/${qid}/pdf`, agent)).status === 200);
   }
   const r = await c.post(`/agent/packages/${pkg.id}/quote`, agent, { adults: '2', rooms: '1' });
   check('quoting a package with a withdrawn item does not crash', r.status === 302);

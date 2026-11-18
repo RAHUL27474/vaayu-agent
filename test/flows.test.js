@@ -57,9 +57,8 @@ const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000
   await act('send the quote', `/agent/quotes/${qid}/send`, agent, {});
   const quote = await one('SELECT * FROM quotes WHERE id = ?', qid);
   check('quote marked sent', quote.status === 'sent');
-  const shared = await c.get(`/q/${quote.code}`);
-  check('customer can open the shared quote', shared.status === 200);
-  await act('customer accepts the quote', `/q/${quote.code}/accept`, '', {});
+  check('agent downloads the quote PDF', (await c.get(`/agent/quotes/${qid}/pdf`, agent)).status === 200);
+  await act('agent records that the customer accepted', `/agent/quotes/${qid}/accepted`, agent, {});
   check('quote accepted', (await one('SELECT status FROM quotes WHERE id = ?', qid)).status === 'accepted');
   check('no customer payment links (customers pay their agent directly)', (await c.get('/agent/payment-links', agent)).status === 404);
 
@@ -72,7 +71,7 @@ const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000
   check('B2B invoice issued for the booking', Boolean(await one("SELECT 1 FROM invoices WHERE booking_id = ? AND kind = 'b2b'", booking.id)));
   await act('agent issues the customer invoice', `/agent/quotes/${qid}/invoice`, agent, {});
   const custInv = await one("SELECT * FROM invoices WHERE quote_id = ? AND kind <> 'b2b' ORDER BY id DESC", qid);
-  check('customer invoice opens for agent and customer', custInv && (await c.get(`/agent/invoices/${custInv.id}`, agent)).status === 200 && (await c.get(`/q/${quote.code}/invoice/${custInv.id}`)).status === 200);
+  check('customer invoice opens for the agent (to send as PDF)', custInv && (await c.get(`/agent/invoices/${custInv.id}`, agent)).status === 200 && (await c.get(`/q/${quote.code}/invoice/${custInv.id}`)).status === 404);
   check('booking page renders', (await c.get(`/agent/bookings/${booking.id}`, agent)).status === 200);
   await act('agent requests cancellation', `/agent/bookings/${booking.id}/cancel`, agent, { reason: 'Customer fell ill' });
   check('booking cancel requested', (await one('SELECT status FROM bookings WHERE id = ?', booking.id)).status === 'cancel_requested');

@@ -2,6 +2,10 @@
   const brandColor = kind === 'customer_agent' ? (agency.brand_color || '#0077c0') : '#0077c0';
 %>
 <div class="doc-wrap">
+  <div class="doc-toolbar no-print">
+    <% if (typeof back !== 'undefined' && back) { %><a class="btn" href="<%= back %>"><%- icon('arrowLeft') %>Back</a><% } %>
+    <button class="btn btn-primary" onclick="window.print()"><%- icon('download') %>Download PDF</button>
+  </div>
   <article class="doc" style="--doc-color: <%= brandColor %>">
     <header class="doc-head">
       <div>
@@ -12,7 +16,6 @@
         <h1>QUOTATION</h1>
         <div><b><%= quote.code %></b></div>
         <div class="muted"><%= fmtDate(quote.updated_at) %></div>
-        <div style="margin-top:6px"><span class="badge <%= quote.status %>"><%= quote.status %></span></div>
       </div>
     </header>
 
@@ -60,13 +63,6 @@
     <% if (quote.notes) { %><div class="alert info" style="margin-top:20px;white-space:pre-line"><%= quote.notes %></div><% } %>
 
 
-    <div class="actions no-print" style="margin-top:28px">
-      <% if (!empty && ['draft', 'sent'].includes(quote.status)) { %>
-        <form method="post" action="/q/<%= quote.code %>/accept"><button class="btn btn-primary btn-lg" style="background:<%= brandColor %>;border-color:<%= brandColor %>">Accept this quote</button></form>
-      <% } %>
-      <% if (quote.status === 'booked') { %><a class="btn btn-primary btn-lg" style="background:<%= brandColor %>;border-color:<%= brandColor %>" href="/q/<%= quote.code %>/voucher">Your travel voucher</a><% } %>
-      <button class="btn btn-lg" onclick="window.print()">Download PDF</button>
-    </div>
 
     <footer class="doc-foot">
       Prices are valid for 7 days and subject to availability at the time of booking.
