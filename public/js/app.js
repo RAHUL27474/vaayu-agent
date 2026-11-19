@@ -287,3 +287,20 @@ document.addEventListener('keydown', (e) => {
   const box = document.querySelector('[data-search-key]');
   if (box && box.offsetParent) { e.preventDefault(); box.focus(); }
 });
+
+// Type-to-filter lists: <input data-filter-list="#list"> filters the rows (data-filter-text) inside #list.
+document.addEventListener('input', (e) => {
+  const input = e.target.closest('[data-filter-list]');
+  if (!input) return;
+  const list = document.querySelector(input.dataset.filterList);
+  if (!list) return;
+  const q = input.value.trim().toLowerCase();
+  let shown = 0;
+  for (const row of list.querySelectorAll('[data-filter-text]')) {
+    const hit = !q || row.dataset.filterText.includes(q);
+    row.hidden = !hit;
+    if (hit) shown += 1;
+  }
+  const empty = list.querySelector('[data-filter-empty]');
+  if (empty) empty.hidden = shown > 0;
+});

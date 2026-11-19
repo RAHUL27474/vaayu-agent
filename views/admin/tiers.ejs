@@ -1,0 +1,65 @@
+<%# Silver / Gold for many agents at once. Locals: agents, gold, silver, values (settings) %>
+<%
+  const offerOn = values.tier_all === 'silver' || values.tier_all === 'gold';
+  const pct = (k) => values[k] ? `${values[k]}%` : 'not set';
+%>
+<div class="page-head">
+  <div><h1>Silver / Gold</h1><p>Give chosen agents lower net rates. Silver lowers VaayuTrip's margin by <b><%= pct('tier_silver_pct') %></b>, Gold by <b><%= pct('tier_gold_pct') %></b>.</p></div>
+  <div class="actions"><a class="btn" href="/admin/settings#tiers">Change % and offer for everyone</a></div>
+</div>
+
+<% if (offerOn) { %>
+  <div class="tier-banner <%= values.tier_all %>"><span class="tier-badge <%= values.tier_all %>"><%= values.tier_all === 'gold' ? 'Gold' : 'Silver' %> for everyone</span>
+    <span><%= values.tier_all_label || 'Offer' %><%= values.tier_all_from ? ` from ${fmtDate(values.tier_all_from)}` : '' %><%= values.tier_all_to ? ` until ${fmtDate(values.tier_all_to)}` : '' %>. Agents you put on a higher tier here keep it.</span></div>
+<% } %>
+<% if (!values.tier_silver_pct && !values.tier_gold_pct) { %>
+  <div class="alert warn">Silver and Gold have no discount yet. <a href="/admin/settings#tiers">Set the % in Settings</a>, otherwise choosing agents here changes nothing.</div>
+<% } %>
+
+<div class="split">
+  <form class="card" method="post" action="/admin/tiers/apply">
+    <h3>Add agents to a tier</h3>
+    <div class="row">
+      <div class="field"><label for="t-tier">Tier</label>
+        <select id="t-tier" name="tier"><option value="gold">Gold</option><option value="silver">Silver</option></select>
+      </div>
+      <div class="field"><label for="t-until">Until <span class="muted">(optional)</span></label><input id="t-until" type="date" name="until" min="<%= today %>"></div>
+    </div>
+    <div class="field">
+      <label for="t-search">Agents</label>
+      <input id="t-search" type="search" placeholder="Search by agency, city or email" data-filter-list="#tier-agents" autocomplete="off">
+    </div>
+    <div class="tier-pick" id="tier-agents">
+      <% agents.forEach(a => { %>
+        <label class="tier-row" data-filter-text="<%= `${a.name} ${a.city || ''} ${a.email || ''}`.toLowerCase() %>">
+          <input type="checkbox" name="ids" value="<%= a.id %>">
+          <span class="tier-who"><b><%= a.name %></b><small class="muted"><%= [a.city, a.email].filter(Boolean).join(' · ') %></small></span>
+          <% if (a.tier !== 'standard') { %><span class="tier-badge <%= a.tier %>"><%= a.tier %></span><% } %>
+        </label>
+      <% }) %>
+      <div class="empty" data-filter-empty hidden>No agent matches.</div>
+    </div>
+    <p class="muted" style="font-size:12.5px;margin:8px 0 12px">Ticked agents are added; agents already on Silver or Gold stay as they are. Ticking someone who is already on the other tier moves them.</p>
+    <button class="btn btn-primary">Apply to selected</button>
+  </form>
+
+  <div>
+    <% [['gold', 'Gold', gold], ['silver', 'Silver', silver]].forEach(([key, label, list]) => { %>
+      <div class="card flush">
+        <div class="card-head"><h3><span class="tier-badge <%= key %>"><%= label %></span> <small class="muted"><%= plural(list.length, 'agent') %></small></h3>
+          <% if (list.length) { %><form method="post" action="/admin/tiers/clear" data-confirm="Move all <%= list.length %> <%= label %> agents back to standard rates?"><input type="hidden" name="tier" value="<%= key %>"><button class="btn btn-sm btn-danger">Clear all</button></form><% } %>
+        </div>
+        <% if (!list.length) { %><div class="empty">No <%= label %> agents.</div><% } else { %>
+        <table class="table">
+          <% list.forEach(a => { %>
+            <tr>
+              <td><a href="/admin/agents/<%= a.id %>"><b><%= a.name %></b></a><br><small class="muted"><%= a.city || '' %><%= a.rate_tier_until ? ` · until ${fmtDate(a.rate_tier_until)}` : '' %></small></td>
+              <td class="num"><form method="post" action="/admin/tiers/<%= a.id %>/remove" class="inline"><button class="btn btn-sm" aria-label="Remove <%= a.name %> from <%= label %>" title="Back to standard rates">✕</button></form></td>
+            </tr>
+          <% }) %>
+        </table>
+        <% } %>
+      </div>
+    <% }) %>
+  </div>
+</div>

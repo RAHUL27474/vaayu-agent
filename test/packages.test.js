@@ -89,6 +89,21 @@ const one = (sql, ...p) => db.prepare(sql).get(...p);
   await c.post('/admin/settings', admin, { tier_all: 'none' });
   await c.post(`/admin/agents/${agencyId}/tier`, admin, { rate_tier: 'standard' });
 
+  // ---------- Silver / Gold page: many agents at once, added on, removable ----------
+  const raviId = (await one('SELECT agency_id FROM users WHERE email = ?', ROLES.agent2[0])).agency_id;
+  const tierOf = async (id) => (await one('SELECT rate_tier FROM agencies WHERE id = ?', id)).rate_tier;
+  check('Silver / Gold page lists agents with a search box', (await page('/admin/tiers', admin)).includes('data-filter-list="#tier-agents"'));
+  await c.post('/admin/tiers/apply', admin, [['tier', 'gold'], ['ids', String(agencyId)]]);
+  await c.post('/admin/tiers/apply', admin, [['tier', 'gold'], ['ids', String(raviId)]]);
+  check('ticking one more adds to Gold, the earlier ones stay', await tierOf(agencyId) === 'gold' && await tierOf(raviId) === 'gold');
+  await c.post('/admin/tiers/apply', admin, [['tier', 'silver'], ['ids', String(raviId)], ['ids', String(agencyId)], ['until', day(5)]]);
+  check('several agents move to Silver in one go, with an end date', await tierOf(agencyId) === 'silver' && await tierOf(raviId) === 'silver' && (await one('SELECT rate_tier_until FROM agencies WHERE id = ?', raviId)).rate_tier_until === day(5));
+  await c.post(`/admin/tiers/${raviId}/remove`, admin, {});
+  check('one agent can be removed', await tierOf(raviId) === 'standard' && await tierOf(agencyId) === 'silver');
+  await c.post('/admin/tiers/clear', admin, { tier: 'silver' });
+  check('clear all puts every Silver agent back to standard', await tierOf(agencyId) === 'standard');
+  check('agents can not open the Silver / Gold page', (await c.get('/admin/tiers', agent)).status === 302);
+
   // ---------- travellers' documents ----------
   const cust = await one('SELECT * FROM customers WHERE agency_id = ? ORDER BY id LIMIT 1', agencyId);
   const fd = new FormData();

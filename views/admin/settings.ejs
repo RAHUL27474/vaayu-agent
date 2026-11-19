@@ -27,7 +27,7 @@
 </div>
 <form class="card" method="post" action="/admin/settings" style="max-width:720px">
   <% keys.filter(k => labels[k]).forEach(k => { %>
-    <% if (k === 'tier_silver_pct') { %><h3 id="tiers" style="margin:28px 0 4px;padding-top:18px;border-top:1px solid var(--line)">Silver / Gold prices &amp; offers</h3><p class="muted" style="font-size:13px;margin:0 0 14px">Set how much cheaper Silver and Gold are, and optionally give every agent Silver or Gold for a period. To make a particular agent Gold, open it in <a href="/admin/agents">Agents</a> → Rate tier.</p><% } %>
+    <% if (k === 'tier_silver_pct') { %><h3 id="tiers" style="margin:28px 0 4px;padding-top:18px;border-top:1px solid var(--line)">Silver / Gold prices &amp; offers</h3><p class="muted" style="font-size:13px;margin:0 0 14px">Set how much cheaper Silver and Gold are, and optionally give every agent Silver or Gold for a period. To put particular agents on Silver or Gold, use <a href="/admin/tiers">Silver / Gold</a>.</p><% } %>
     <div class="field">
       <% if (k === 'gst_enabled') { %>
       <input type="hidden" name="gst_enabled" value="0">

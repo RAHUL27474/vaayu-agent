@@ -1125,3 +1125,13 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .tier-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; margin-bottom: 16px; border-radius: 12px; font-size: 14px; }
 .tier-banner.silver { background: #f1f5f9; border: 1px solid #cbd5e1; }
 .tier-banner.gold { background: #fffbeb; border: 1px solid #fcd34d; }
+
+/* Silver / Gold: pick agents */
+.tier-pick { max-height: 420px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+.tier-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line-2); cursor: pointer; margin: 0; }
+.tier-row:last-of-type { border-bottom: 0; }
+.tier-row:hover { background: var(--bg); }
+.tier-row[hidden] { display: none; }
+.tier-row input { width: 18px; height: 18px; flex: none; }
+.tier-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tier-who small { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -232,6 +232,53 @@ router.post('/agents/:id/website', h(async (req, res, next) => {
   res.redirect(`/admin/agents/${a.id}#website`);
 }));
 
+// ---------- Silver / Gold for many agents at once ----------
+
+router.get('/tiers', h(async (req, res) => {
+  const today = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+  const rows = await all(`SELECT a.id, a.name, a.city, a.rate_tier, a.rate_tier_until,
+      (SELECT u.email FROM users u WHERE u.agency_id = a.id ORDER BY u.id LIMIT 1) AS email
+    FROM agencies a WHERE a.status = 'active' ORDER BY a.name`);
+  // An expired tier counts as standard.
+  const agents = rows.map((a) => ({ ...a, tier: TIERS[a.rate_tier] && a.rate_tier !== 'standard' && (!a.rate_tier_until || a.rate_tier_until >= today) ? a.rate_tier : 'standard' }));
+  res.page('admin/tiers', {
+    title: 'Silver / Gold', agents, values: await getSettings(),
+    gold: agents.filter((a) => a.tier === 'gold'), silver: agents.filter((a) => a.tier === 'silver'),
+  });
+}));
+
+router.post('/tiers/apply', h(async (req, res) => {
+  const tier = req.body.tier === 'gold' ? 'gold' : 'silver';
+  const until = /^\d{4}-\d{2}-\d{2}$/.test(req.body.until || '') ? req.body.until : null;
+  const ids = [...new Set([].concat(req.body.ids || []).map((v) => num(v, 0)).filter((v) => v > 0))];
+  if (!ids.length) throw new svc.AppError('Tick at least one agent.');
+  const agencies = await all(`SELECT id, name, rate_tier FROM agencies WHERE status = 'active' AND id IN (${ids.map(() => '?').join(', ')})`, ...ids);
+  for (const a of agencies) {
+    await run('UPDATE agencies SET rate_tier = ?, rate_tier_until = ? WHERE id = ?', tier, until, a.id);
+    if (a.rate_tier !== tier) await notify(a.id, `You're now a ${TIERS[tier]} partner`, `Your net rates on VaayuTrip inventory and packages are now lower${until ? ` until ${until}` : ''}. Prices update across the portal.`, '/agent/vaayutrip-packages');
+  }
+  await audit(req.user, 'agency.tier_bulk', { entity: 'agency', summary: `${TIERS[tier]}: ${agencies.map((a) => a.name).join(', ')}${until ? ` until ${until}` : ''}`, link: '/admin/tiers' });
+  req.flash('success', `${agencies.length} agent${agencies.length === 1 ? '' : 's'} added to ${TIERS[tier]}.`);
+  res.redirect('/admin/tiers');
+}));
+
+router.post('/tiers/:id/remove', h(async (req, res, next) => {
+  const a = await one('SELECT id, name, rate_tier FROM agencies WHERE id = ?', num(req.params.id));
+  if (!a) return next();
+  await run("UPDATE agencies SET rate_tier = 'standard', rate_tier_until = NULL WHERE id = ?", a.id);
+  await audit(req.user, 'agency.tier', { entity: 'agency', id: a.id, agencyId: a.id, summary: `${a.name}: ${TIERS[a.rate_tier] || a.rate_tier} → Standard`, link: '/admin/tiers' });
+  req.flash('success', `${a.name} is back on standard rates.`);
+  res.redirect('/admin/tiers');
+}));
+
+router.post('/tiers/clear', h(async (req, res) => {
+  const tier = req.body.tier === 'gold' ? 'gold' : 'silver';
+  const n = (await run("UPDATE agencies SET rate_tier = 'standard', rate_tier_until = NULL WHERE rate_tier = ?", tier)).changes;
+  await audit(req.user, 'agency.tier_cleared', { entity: 'agency', summary: `All ${TIERS[tier]} agents (${n}) back to standard`, link: '/admin/tiers' });
+  req.flash('success', `${n} ${TIERS[tier]} agent${n === 1 ? '' : 's'} moved back to standard rates.`);
+  res.redirect('/admin/tiers');
+}));
+
 router.post('/agents/:id/tier', h(async (req, res, next) => {
   const a = await one('SELECT id, name, rate_tier FROM agencies WHERE id = ?', num(req.params.id));
   if (!a) return next();
