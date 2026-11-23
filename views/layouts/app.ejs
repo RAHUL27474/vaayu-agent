@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <script>document.documentElement.classList.add('js')</script>
+  <script>(function(){var d=document.documentElement;d.classList.add('js');var t='system';try{t=localStorage.getItem('vt-theme')||'system'}catch(e){}var m=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)');d.dataset.themePref=t;d.dataset.theme=t==='dark'||(t==='system'&&m&&m.matches)?'dark':'light'})()</script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
@@ -47,7 +47,7 @@
 
     <% if (agency) { %>
       <a class="workspace" href="/agent/settings" title="<%= agency.name %>">
-        <span class="ws-mark ws-brand" style="--ws:<%= /^#[0-9a-f]{6}$/i.test(agency.brand_color || '') ? agency.brand_color : '#0077c0' %>"><%= initialsOf(agency.name) %></span>
+        <span class="ws-mark ws-brand" style="--ws:#0088cc"><%= initialsOf(agency.name) %></span>
         <span class="lbl ws-text"><b><%= agency.name %></b><small><span class="ws-dot <%= agency.status %>"></span><%= agency.status === 'active' ? ((typeof tierNow !== 'undefined' && tierNow.source === 'own' && { gold: 'Gold partner', silver: 'Silver partner' }[tierNow.tier]) || 'Verified partner') : agency.status.charAt(0).toUpperCase() + agency.status.slice(1) %></small></span>
       </a>
     <% } else { %>
@@ -185,6 +185,10 @@
             <a href="/backend/import"><%- icon('upload') %>Bulk import</a>
           <% } %>
           <a href="/account"><%- icon('shield') %>My account &amp; password</a>
+          <div class="menu-theme" role="group" aria-label="Theme">
+            <span>Theme</span>
+            <div class="seg"><button type="button" data-theme-set="light" aria-pressed="false"><%- icon('sun') %>Light</button><button type="button" data-theme-set="dark" aria-pressed="false"><%- icon('moon') %>Dark</button><button type="button" data-theme-set="system" aria-pressed="false"><%- icon('monitor') %>System</button></div>
+          </div>
           <form method="post" action="/logout"><button type="submit"><%- icon('logout') %>Log out</button></form>
         </div>
       </details>

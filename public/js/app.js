@@ -413,3 +413,24 @@ document.querySelectorAll('[data-chart]').forEach((chart) => {
     try { localStorage.setItem(key, b.dataset.viewBtn); } catch {}
   });
 });
+
+// Theme: light / dark / follow the system. The choice lives in this browser; the head script applies it before paint.
+(() => {
+  const root = document.documentElement;
+  const media = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+  const apply = (pref) => {
+    root.dataset.themePref = pref;
+    root.dataset.theme = pref === 'dark' || (pref === 'system' && media && media.matches) ? 'dark' : 'light';
+    document.querySelectorAll('[data-theme-set]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeSet === pref)));
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = root.dataset.theme === 'dark' ? '#0d171e' : '#ffffff';
+  };
+  apply(root.dataset.themePref || 'system');
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-theme-set]');
+    if (!b) return;
+    try { localStorage.setItem('vt-theme', b.dataset.themeSet); } catch { /* private mode: this page only */ }
+    apply(b.dataset.themeSet);
+  });
+  if (media && media.addEventListener) media.addEventListener('change', () => { if ((root.dataset.themePref || 'system') === 'system') apply('system'); });
+})();
