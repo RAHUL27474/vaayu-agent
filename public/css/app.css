@@ -287,7 +287,7 @@ input[type=checkbox], input[type=radio] { accent-color: var(--brand); width: 16p
 .kv { display: grid; grid-template-columns: fit-content(150px) minmax(0, 1fr); gap: 10px 14px; margin: 0; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
-.totals { width: 100%; }
+.totals { width: 100%; border-collapse: collapse; }
 .totals td { padding: 5px 0; }
 .totals tr.grand td { font-size: 17px; font-weight: 700; border-top: 1px solid var(--line); padding-top: 10px; }
 .profit { color: var(--ok); font-weight: 700; }
@@ -558,7 +558,8 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 }
 @media (max-width: 1500px) {
   .split:has(table.edit) { grid-template-columns: minmax(0, 1fr); }
-  .split:has(table.edit) > :last-child { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 20px; align-items: start; }
+  .split:has(table.edit) > :last-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; align-items: start; }
+  .split:has(table.edit) > :last-child > :not(.card) { grid-column: 1 / -1; }
 }
 @media (max-width: 1280px) {
   :root { --gutter: 24px; }
@@ -1456,3 +1457,5 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .auth .art li::before { background: #6cc400; color: #fff; }
 .nowrap { white-space: nowrap; }
 .filter-bar .field:has(> input[type=date]) { flex: 0 0 190px; min-width: 0; }
+
+@media (max-width: 860px) { .split:has(table.edit) > :last-child { grid-template-columns: minmax(0, 1fr); } }

@@ -158,7 +158,9 @@ async function calcPackage(pkg, d, rawParty, products, agency = null) {
   const pax = o.adults + o.children;
   const lines = [];
 
-  for (const entry of d.items) {
+  // Day by day, so trip-wide items (insurance, visas) on day 1 come before day 2; same-day items keep their order.
+  const byDay = [...d.items].sort((x, y) => (x.day || 1) - (y.day || 1));
+  for (const entry of byDay) {
     const p = products.get(entry.id);
     if (!p) {
       warnings.push(`${entry.title} is no longer offered by VaayuTrip; replace it in the package.`);

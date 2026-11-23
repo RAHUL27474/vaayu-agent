@@ -314,6 +314,8 @@ if (hero) {
   const dots = hero.querySelectorAll('[data-slide]');
   const word = hero.querySelector('[data-hero-word]');
   const line = hero.querySelector('[data-hero-line]');
+  const destSel = hero.querySelector('[data-hero-dest]');
+  if (destSel) destSel.addEventListener('change', () => { destSel.dataset.touched = '1'; });
   const MS = 6000;
   hero.style.setProperty('--slide-ms', `${MS}ms`);
   let at = 0;
@@ -326,9 +328,10 @@ if (hero) {
       if (k === at) { void d.offsetWidth; d.classList.add('on'); }
     });
     if (line) line.textContent = dots[at].dataset.line;
+    if (destSel && !destSel.dataset.touched) destSel.value = dots[at].dataset.dest;
     if (word) {
       word.classList.add('out');
-      setTimeout(() => { word.textContent = dots[at].querySelector('span').textContent; word.classList.remove('out'); }, 300);
+      setTimeout(() => { word.textContent = dots[at].dataset.word; word.classList.remove('out'); }, 300);
     }
   };
   const play = () => { clearInterval(timer); if (!calmMotion) timer = setInterval(() => { if (!document.hidden) show(at + 1); }, MS); };

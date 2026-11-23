@@ -25,12 +25,12 @@
   <div class="inner">
     <div class="hx-copy">
       <span class="hx-pill"><i class="live-dot"></i>B2B platform for travel agents · 6 destinations</span>
-      <h1>Sell <span class="hx-rot" data-hero-word><%= HERO[0].name %></span> holidays<br>under <em>your own brand</em>.</h1>
+      <h1>Sell holidays to<br><span class="hx-rot" data-hero-word><%= HERO[0].name %></span><br>under <em>your own brand</em>.</h1>
       <p class="lead">Airfares, hotels, activities, transfers, visas and insurance at agent net rates. Build your packages, set your price, send quotes with your logo.</p>
 
       <form class="hx-search" method="get" action="/agent/find" role="search" aria-label="Search net rates">
         <label class="hs-field"><span><%- icon('globe') %>Where to?</span>
-          <select name="dest"><% HERO.forEach(h => { %><option><%= h.name %></option><% }) %></select>
+          <select name="dest" data-hero-dest><% HERO.forEach(h => { %><option><%= h.name %></option><% }) %></select>
         </label>
         <label class="hs-field"><span><%- icon('search') %>What do you need?</span>
           <select name="svc"><% SVCS.forEach(([v, l]) => { %><option value="<%= v %>"><%= l %></option><% }) %></select>
@@ -72,7 +72,7 @@
   </div>
   <div class="hx-dots" role="tablist" aria-label="Destinations">
     <% HERO.forEach((h, i) => { %>
-      <button type="button" class="<%= i === 0 ? 'on' : '' %>" data-slide="<%= i %>" data-line="<%= h.line %>" aria-label="Show <%= h.name %>"><span><%= h.name %></span><i></i></button>
+      <button type="button" class="<%= i === 0 ? 'on' : '' %>" data-slide="<%= i %>" data-line="<%= h.line %>" data-word="<%= h.name === 'United Kingdom' ? 'the UK' : h.name %>" data-dest="<%= h.name %>" aria-label="Show <%= h.name %>"><span><%= h.name %></span><i></i></button>
     <% }) %>
   </div>
   <p class="hx-caption" data-hero-line><%= HERO[0].line %></p>
