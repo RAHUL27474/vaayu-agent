@@ -93,7 +93,7 @@
   <div class="stat"><div class="label">Wallet balance</div><div class="value"><%= inr(agency.wallet_balance) %></div><div class="sub"><a href="/agent/wallet">Top up →</a></div></div>
   <div class="stat"><div class="label">Credit available</div><div class="value"><%= inr(agency.credit_limit - agency.credit_used) %></div><div class="sub">of <%= inr(agency.credit_limit) %> limit</div></div>
   <div class="stat"><div class="label">Sales this month</div><div class="value"><%= inr(stats.sales) %></div><div class="sub"><%= stats.bookings %> booking<%= stats.bookings === 1 ? '' : 's' %></div></div>
-  <div class="stat"><div class="label">Your earnings this month</div><div class="value profit"><%= inr(stats.earnings) %></div><div class="sub"><%= openLeads %> open lead<%= openLeads === 1 ? '' : 's' %></div></div>
+  <div class="stat"><div class="label">Your earnings this month</div><div class="value profit"><%= inr(stats.earnings) %></div><div class="sub"><%= stats.sales > 0 ? `${(stats.earnings / stats.sales * 100).toFixed(1)}% of your sales` : 'No sales yet this month' %></div></div>
 </div>
 
 <div class="card">

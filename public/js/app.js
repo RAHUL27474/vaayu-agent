@@ -180,6 +180,8 @@ document.querySelectorAll('table.table').forEach((table) => {
     let col = 0;
     [...tr.children].forEach((td) => {
       if (td.tagName === 'TD' && !td.hasAttribute('data-label')) td.setAttribute('data-label', labels[col] || '');
+      // Mixed content (badge + text + ref) stays together as one value in the stacked card.
+      if (td.tagName === 'TD' && td.childNodes.length > 1 && !td.querySelector('input, select, textarea, form, button')) { const w = document.createElement('span'); w.className = 'cell'; w.append(...td.childNodes); td.append(w); }
       col += td.colSpan || 1;
     });
   });

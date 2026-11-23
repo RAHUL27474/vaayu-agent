@@ -1523,3 +1523,13 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .auth .art { justify-content: center; }
 .ws-mark.ws-brand { background: var(--ws); border-color: transparent; color: #fff; font-size: 13px; letter-spacing: .02em; }
 td code { white-space: nowrap; }
+@media (max-width: 860px) { .table.stack td > .cell { min-width: 0; } .table.stack td:first-child > .cell { display: block; } }
+/* Hero on laptops: keep the floating chips inside the screen; caption at bottom left, clear of WhatsApp */
+.hx-caption { right: auto; left: var(--gutter); bottom: 32px; }
+@media (max-width: 1440px) { .fc2 { right: -16px; } .fc1 { left: -56px; } .fc3 { right: -14px; } }
+@media (max-width: 1300px) { .float-chip { display: none; } }
+@media (max-height: 820px) and (min-width: 1101px) {
+  .hx { min-height: 0; }
+  .hx .inner { padding-top: 110px; padding-bottom: 110px; }
+  .hx h1 { font-size: 56px; }
+}
