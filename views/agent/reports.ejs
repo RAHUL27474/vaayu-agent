@@ -52,7 +52,7 @@
   <div class="stat"><div class="label">Bookings</div><div class="value"><%= totals.bookings %></div><div class="sub"><%= totals.cancelled %> cancelled</div></div>
   <div class="stat"><div class="label">Sales (your price)</div><div class="value"><%= inr(totals.sales) %></div><div class="sub">before tax</div></div>
   <div class="stat"><div class="label">Paid to VaayuTrip (net)</div><div class="value"><%= inr(totals.net) %></div><div class="sub"><%= totals.refunds ? `${inr(totals.refunds)} refunded` : 'no refunds' %></div></div>
-  <div class="stat"><div class="label">Your earnings</div><div class="value profit"><%= inr(totals.earnings) %></div><div class="sub"><%= margin %>% of sales</div></div>
+  <div class="stat"><div class="label">Your earnings</div><div class="value profit"><%= inr(totals.earnings) %></div><div class="sub"><%= totals.sales ? margin + "% of sales" : "no sales in this period" %></div></div>
 </div>
 
 <div class="card">
@@ -63,10 +63,10 @@
 </div>
 
 <div class="grid grid-2">
-  <div class="card">
-    <div class="card-head"><h3>Top destinations</h3></div>
+  <div class="card flush">
+    <div class="card-head"><h3>Top destinations</h3><a href="/agent/bookings">All bookings</a></div>
     <% if (!destinations.length) { %><div class="empty">Nothing booked yet.</div><% } else { %>
-      <div class="hbars">
+      <div class="hbars" style="padding:16px 20px 20px">
         <% destinations.forEach(d => { %>
           <div class="hbar">
             <div class="hbar-top"><b><%= d.destination %></b><span><%= inr(d.sales) %> <small class="muted">· <%= d.bookings %> booking<%= d.bookings === 1 ? '' : 's' %></small></span></div>
@@ -78,7 +78,7 @@
     <% } %>
   </div>
   <div class="card flush">
-    <div class="card-head" style="padding:18px 20px 0"><h3>Top customers</h3><a href="/agent/customers">All customers</a></div>
+    <div class="card-head"><h3>Top customers</h3><a href="/agent/customers">All customers</a></div>
     <% if (!customers.length) { %><div class="empty">Link bookings to customers to see who buys most.</div><% } else { %>
     <table class="table" style="margin-top:10px">
       <% customers.forEach(c => { %><tr class="click" data-href="/agent/customers/<%= c.id %>"><td><b><%= c.name %></b><br><small><%= c.bookings %> booking<%= c.bookings === 1 ? '' : 's' %></small></td><td class="num"><%= inr(c.sales) %></td></tr><% }) %>

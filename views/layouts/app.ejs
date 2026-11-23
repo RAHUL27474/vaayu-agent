@@ -153,7 +153,7 @@
       <% } %>
       <% if (agency && agency.status === 'active') { %>
         <a class="balance" href="/agent/wallet"><span>Wallet</span><b><%= inr(agency.wallet_balance) %></b></a>
-        <a class="balance" href="/agent/wallet"><span>Credit available</span><b><%= inr(agency.credit_limit - agency.credit_used) %></b></a>
+        <% if (agency.credit_limit > 0) { %><a class="balance" href="/agent/wallet"><span>Credit available</span><b><%= inr(agency.credit_limit - agency.credit_used) %></b></a><% } %>
       <% } %>
       <% if (!isBackend) { %><a class="icon-btn bell" href="<%= home %>/notifications" aria-label="Notifications<%= unread ? ` (${unread} unread)` : '' %>"><%- icon('bell') %><% if (unread) { %><span class="dot"><%= unread %></span><% } %></a><% } %>
       <details class="user-menu" data-dropdown>
