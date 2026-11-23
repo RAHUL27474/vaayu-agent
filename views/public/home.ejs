@@ -41,22 +41,35 @@
     </div>
 
     <div class="hx-stage">
+      <% if (!user) { %>
       <div class="float-chip fc1" aria-hidden="true"><span class="fc-ico ok">✓</span><div><b>Booking confirmed</b><small>Dubai hotel · 4 nights</small></div></div>
       <div class="float-chip fc2" aria-hidden="true"><span class="fc-ico wa"><svg viewBox="0 0 32 32" width="16" height="16"><path fill="#fff" d="M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 7L3 29l6.4-2c2 1.1 4.3 1.7 6.6 1.7 7.2 0 13-5.7 13-12.8S23.2 3 16 3z"/></svg></span><div><b>Quote sent</b><small>With your logo, on WhatsApp</small></div></div>
       <div class="float-chip fc3" aria-hidden="true"><span class="fc-ico money">₹</span><div><small>Your margin</small><b class="fc-big">+₹10,488</b></div></div>
+      <% } %>
       <div class="hero-login glass">
-        <% if (user) { %>
-          <span class="hx-hello">👋</span>
-          <h3>Welcome back, <%= user.name.split(' ')[0] %></h3>
-          <p class="muted">You're logged in. Pick up where you left off.</p>
-          <a class="btn btn-primary btn-lg" style="width:100%" href="<%= user.role === 'admin' ? '/admin' : user.role === 'backend' ? '/backend' : '/agent' %>">Open your portal<%- icon('arrowRight') %></a>
-          <% if (user.role === 'agent') { %>
-            <div class="hx-quick">
-              <a href="/agent/hotels"><%- icon('bed') %>Hotels</a>
-              <a href="/agent/wallet"><%- icon('wallet') %>Wallet</a>
-              <a href="/agent/bookings"><%- icon('receipt') %>Bookings</a>
+        <% if (user) {
+          const home = user.role === 'admin' ? '/admin' : user.role === 'backend' ? '/backend' : '/agent';
+          const roleLabel = user.role === 'admin' ? 'Administrator' : user.role === 'backend' ? 'Backend team' : (agency ? agency.name : 'Partner');
+          const QUICK = {
+            admin: [['/admin/agents', 'building', 'Agents'], ['/admin/bookings', 'receipt', 'Bookings'], ['/admin/topups', 'wallet', 'Top-ups'], ['/admin/ledger', 'briefcase', 'Ledger']],
+            backend: [['/backend/products', 'briefcase', 'Inventory'], ['/backend/products?kind=hotel', 'bed', 'Hotels'], ['/backend/import', 'download', 'Import'], ['/backend/packages', 'globe', 'Packages']],
+            agent: [['/agent/hotels', 'bed', 'Hotels'], ['/agent/vaayutrip-packages', 'briefcase', 'Packages'], ['/agent/quotes', 'receipt', 'Quotes'], ['/agent/wallet', 'wallet', 'Wallet']],
+          }[user.role] || [];
+          const initials = user.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase(); %>
+          <div class="hu-head">
+            <span class="hu-av"><%= initials %></span>
+            <div><small>Welcome back</small><h3><%= user.name.replace(/^VaayuTrip /i, '').split(' ')[0] %></h3><span class="hu-role"><i class="live-dot"></i><%= roleLabel %></span></div>
+          </div>
+          <% if (user.role === 'agent' && agency) { %>
+            <div class="hu-money">
+              <div><small>Wallet</small><b><%= inr(agency.wallet_balance) %></b></div>
+              <div><small>Credit available</small><b><%= inr(Math.max(0, (agency.credit_limit || 0) - (agency.credit_used || 0))) %></b></div>
             </div>
           <% } %>
+          <div class="hu-grid">
+            <% QUICK.forEach(([href, ic, label]) => { %><a href="<%= href %>"><span><%- icon(ic) %></span><%= label %></a><% }) %>
+          </div>
+          <a class="btn btn-primary btn-lg hu-open" href="<%= home %>">Open your portal<%- icon('arrowRight') %></a>
         <% } else { %>
           <h3>Partner login</h3>
           <p class="muted">Agents and VaayuTrip team members.</p>
