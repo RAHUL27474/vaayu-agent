@@ -382,3 +382,11 @@ if (calc) {
   slider.addEventListener('input', render);
   calc.querySelectorAll('input[name="calc-trip"]').forEach((r) => r.addEventListener('change', render));
 }
+
+// Home: the header over the hero turns solid once the page scrolls.
+const overlayHeader = document.querySelector('.site-header.overlay');
+if (overlayHeader) {
+  const sync = () => overlayHeader.classList.toggle('scrolled', window.scrollY > 40);
+  window.addEventListener('scroll', sync, { passive: true });
+  sync();
+}

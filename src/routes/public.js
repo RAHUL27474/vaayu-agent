@@ -28,7 +28,7 @@ router.get('/', h(async (req, res) => {
     if (d) { d.cities.add(r.city); d.items += r.n; }
   }
   const destinations = Object.values(byDest).map((d) => ({ name: d.name, cities: [...d.cities], items: d.items }));
-  res.page('public/home', { title: 'B2B travel platform for agents', activities, stats, destinations }, 'public');
+  res.page('public/home', { title: 'B2B travel platform for agents', activities, stats, destinations, overlayNav: true }, 'public');
 }));
 
 router.get('/photo-credits', (req, res) => {

@@ -15,7 +15,7 @@
 </head>
 <body class="public">
 <% if (typeof bare === 'undefined' || !bare) { %>
-<header class="site-header">
+<header class="site-header<%= typeof overlayNav !== 'undefined' && overlayNav && !flash.length ? ' overlay' : '' %>">
 <nav class="site-nav" aria-label="Main">
   <a class="logo" href="/"><img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip" width="171" height="58"></a>
   <button class="icon-btn site-menu-toggle" type="button" data-site-menu aria-label="Menu" aria-expanded="false" aria-controls="site-menu"><%- icon('menu') %></button>
