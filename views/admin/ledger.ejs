@@ -55,8 +55,8 @@
         <td style="white-space:nowrap"><%= fmtDate(t.created_at) %></td>
         <td><a href="/admin/agents/<%= t.agency_id %>"><%= t.agency_name %></a></td>
         <td><span class="badge as-is"><%= txnLabel(t.type) %></span> <%= t.note || '' %><% if (t.ref) { %><br><small class="muted"><%= t.ref %></small><% } %></td>
-        <td class="num <%= t.amount < 0 ? 'neg' : 'pos' %>"><b><%= t.amount < 0 ? '−' : '+' %> <%= inr(Math.abs(t.amount), { decimals: 2 }) %></b></td>
-        <td class="num"><%= inr(t.balance_after, { decimals: 2 }) %></td>
+        <td class="num nowrap <%= t.amount < 0 ? 'neg' : 'pos' %>"><b><%= t.amount < 0 ? '−' : '+' %> <%= inr(Math.abs(t.amount), { decimals: 2 }) %></b></td>
+        <td class="num nowrap"><%= inr(t.balance_after, { decimals: 2 }) %></td>
       </tr>
     <% }) %>
   </table></div>

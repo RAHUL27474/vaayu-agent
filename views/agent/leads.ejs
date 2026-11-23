@@ -15,7 +15,7 @@
           <td><%= l.package_title || l.destination || '—' %><br><small><%= l.travel_date ? fmtDate(l.travel_date) : '' %><%= l.pax ? ` · ${l.pax} pax` : '' %><%= l.budget ? ` · budget ${inr(l.budget)}` : '' %></small><% if (l.notes) { %><br><small class="muted"><%= l.notes %></small><% } %></td>
           <td>
             <form method="post" action="/agent/leads/<%= l.id %>/status">
-              <select name="status" onchange="this.form.submit()" aria-label="Status"><% statuses.forEach(s => { %><option value="<%= s %>" <%= l.status === s ? 'selected' : '' %>><%= s %></option><% }) %></select>
+              <select name="status" onchange="this.form.submit()" aria-label="Status"><% statuses.forEach(s => { %><option value="<%= s %>" <%= l.status === s ? 'selected' : '' %>><%= s[0].toUpperCase() + s.slice(1) %></option><% }) %></select>
             </form>
             <% const overdue = l.follow_up_on && l.follow_up_on < today && !['won', 'lost'].includes(l.status); const isToday = l.follow_up_on === today; %>
             <details class="follow-up">

@@ -130,7 +130,7 @@
     <form class="card" method="post" action="/admin/agents/<%= agent.id %>/status">
       <h3>KYC</h3>
       <div style="display:flex;gap:8px">
-        <select name="kyc_status" aria-label="KYC status"><% ['pending', 'verified', 'rejected'].forEach(s => { %><option <%= agent.kyc_status === s ? 'selected' : '' %>><%= s %></option><% }) %></select>
+        <select name="kyc_status" aria-label="KYC status"><% ['pending', 'verified', 'rejected'].forEach(s => { %><option value="<%= s %>" <%= agent.kyc_status === s ? 'selected' : '' %>><%= s[0].toUpperCase() + s.slice(1) %></option><% }) %></select>
         <button class="btn">Save</button>
       </div>
     </form>

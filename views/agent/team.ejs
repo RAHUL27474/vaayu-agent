@@ -46,7 +46,7 @@
       <div class="field"><label for="t-email">Work email</label><input id="t-email" type="email" name="email" required autocomplete="off"></div>
       <div class="field"><label for="t-phone">Mobile <span class="muted">(optional)</span></label><input id="t-phone" name="phone" inputmode="tel"></div>
       <div class="field"><label for="t-role">Role</label>
-        <select id="t-role" name="role"><% Object.entries(roles).filter(([k]) => k !== 'owner').concat([['owner', roles.owner]]).forEach(([k, r]) => { %><option value="<%= k %>"><%= r.label %>: <%= r.hint %></option><% }) %></select>
+        <select id="t-role" name="role"><% Object.entries(roles).filter(([k]) => k !== 'owner').concat([['owner', roles.owner]]).forEach(([k, r]) => { %><option value="<%= k %>"><%= r.label %></option><% }) %></select>
       </div>
       <div class="field"><label for="t-pw">Temporary password</label><input id="t-pw" type="password" name="password" minlength="8" required autocomplete="new-password"><div class="hint">At least 8 characters. Share it privately; they can change it in My account.</div></div>
       <button class="btn btn-primary">Add staff member</button>

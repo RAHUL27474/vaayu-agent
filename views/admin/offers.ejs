@@ -8,7 +8,7 @@
         <tr>
           <td><b><%= o.title %></b><% if (o.body) { %><br><small><%= o.body %></small><% } %></td>
           <td><% if (o.code) { %><code><%= o.code %></code><% } else { %>—<% } %></td>
-          <td><%= o.valid_until ? fmtDate(o.valid_until) : 'No end date' %></td>
+          <td class="nowrap"><%= o.valid_until ? fmtDate(o.valid_until) : 'No end date' %></td>
           <td><span class="badge <%= o.live ? 'active' : o.is_active ? 'expired' : '' %>"><%= o.live ? 'live' : o.is_active ? 'expired' : 'paused' %></span></td>
           <td class="num" style="white-space:nowrap">
             <form method="post" action="/admin/offers/<%= o.id %>/toggle" class="inline"><button class="btn btn-sm"><%= o.is_active ? 'Pause' : 'Resume' %></button></form>
