@@ -108,7 +108,7 @@
           <div><b class="dest-name"><%= d.name %></b><small><%= d.cities.length %> <%= d.cities.length === 1 ? 'city' : 'cities' %></small></div>
           <span class="dest-go"><%- icon('arrowRight') %></span>
         </div>
-        <% if (d.cities.length) { %><div class="dest-cities"><%= d.cities.slice(0, 5).join(' · ') %><%= d.cities.length > 5 ? ' …' : '' %></div><% } %>
+        <% if (d.cities.length && !(d.cities.length === 1 && d.cities[0] === d.name)) { %><div class="dest-cities"><%= d.cities.slice(0, 5).join(' · ') %><%= d.cities.length > 5 ? ' …' : '' %></div><% } %>
       </a>
     <% }) %>
   </div>

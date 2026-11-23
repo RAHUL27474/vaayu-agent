@@ -32,7 +32,7 @@ router.get('/', h(async (req, res) => {
 }));
 
 router.get('/photo-credits', (req, res) => {
-  res.page('public/photo-credits', { title: 'Photo credits', photos: require('../destination-photos').DEST_PHOTOS }, 'public');
+  res.page('public/photo-credits', { title: 'Photo credits', photos: require('../destination-photos').DEST_PHOTOS, cities: require('../destination-photos').CITY_PHOTOS }, 'public');
 });
 
 // Generated cover card for packages and hotels without an uploaded photo.

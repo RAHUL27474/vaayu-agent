@@ -1,10 +1,10 @@
-<%# Credits for the destination photos (CC licences). Locals: photos %>
+<%# Credits for the destination photos (CC licences). Locals: photos, cities %>
 <section class="section" style="max-width:820px">
   <h1>Photo credits</h1>
   <p class="muted">Destination photos come from Wikimedia Commons and are used under the licences shown. Each links to its original.</p>
   <div class="card flush"><table class="table">
     <thead><tr><th>Destination</th><th>Photo</th><th>By</th><th>Licence</th></tr></thead>
-    <% Object.entries(photos).forEach(([name, p]) => { %>
+    <% Object.entries({ ...photos, ...cities }).forEach(([name, p]) => { %>
       <tr><td><b><%= name %></b></td><td><a href="<%= p.source %>" rel="noopener" target="_blank"><%= p.title %></a></td><td><%= p.artist %></td>
         <td><a href="https://creativecommons.org/licenses/<%= p.license.replace(/^CC /, '').split(' ')[0].toLowerCase() %>/<%= p.license.split(' ').pop() %>/" rel="noopener" target="_blank"><%= p.license %></a></td></tr>
     <% }) %>
