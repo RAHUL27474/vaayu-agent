@@ -5,7 +5,7 @@
     <thead><tr><th>Booking</th><th>Customer</th><th>Travel</th><th>Status</th><th class="num">Paid to VaayuTrip</th><th class="num">Sold for</th><th class="num">Earning</th></tr></thead>
     <% bookings.forEach(b => { %>
       <tr class="click" data-href="/agent/bookings/<%= b.id %>">
-        <td><b><%= b.title %></b><br><small><%= b.code %> · <%= fmtDate(b.created_at) %></small></td>
+        <td><b><%= b.title.split(" — ")[0] %></b><br><small class="nowrap"><%= b.code %></small></td>
         <td><% const cn = b.customer_name || (b.title.split(' — ')[1] || ''); if (cn) { %><span class="cust"><span class="av sm" style="--h:<%= [...cn].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7) %>"><%= cn.split(/[\s&]+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() %></span><%= cn %></span><% } else { %>—<% } %></td>
         <td class="nowrap"><%= fmtDate(b.travel_date) || '—' %><% const dd = b.travel_date && b.status === 'confirmed' ? Math.round((Date.parse(b.travel_date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 864e5) : null; if (dd !== null && dd >= 0) { %><br><small class="<%= dd <= 7 ? 'soon-txt' : 'muted' %>"><%= dd === 0 ? 'travelling today' : dd === 1 ? 'tomorrow' : 'in ' + dd + ' days' %></small><% } else if (dd !== null && dd < 0) { %><br><small class="muted">travelled</small><% } %></td>
         <td><span class="badge <%= b.status %>"><%= b.status.replace('_', ' ') %></span></td>
