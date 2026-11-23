@@ -30,7 +30,7 @@ const MEAL_PLANS = {
   CP: 'Breakfast (CP)',
   MAP: 'Breakfast + dinner (MAP)',
   AP: 'All meals (AP)',
-  AI: 'All inclusive (AI)',
+  AI: 'All inclusive',
 };
 const STAY_TYPES = ['Hotel', 'Resort', 'Villa', 'Boutique hotel', 'Apartment', 'Houseboat', 'Cruise'];
 /** Who provides a hotel in a package. */

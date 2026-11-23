@@ -24,7 +24,7 @@
   <div class="hx-shade"></div>
   <div class="inner">
     <div class="hx-copy">
-      <span class="hx-pill"><i class="live-dot"></i>B2B platform for travel agents · 6 destinations</span>
+      <p class="hx-kicker">For travel agents · Dubai, Bali, Vietnam, Cambodia, UK and Europe</p>
       <h1>Sell holidays to<br><span class="hx-rot" data-hero-word><%= HERO[0].name %></span><br>under <em>your own brand</em>.</h1>
       <p class="lead">Airfares, hotels, activities, transfers, visas and insurance at agent net rates. Build your packages, set your price, send quotes with your logo.</p>
 
@@ -41,11 +41,6 @@
     </div>
 
     <div class="hx-stage">
-      <% if (!user) { %>
-      <div class="float-chip fc1" aria-hidden="true"><span class="fc-ico ok">✓</span><div><b>Booking confirmed</b><small>Dubai hotel · 4 nights</small></div></div>
-      <div class="float-chip fc2" aria-hidden="true"><span class="fc-ico wa"><svg viewBox="0 0 32 32" width="16" height="16"><path fill="#fff" d="M16 3C8.8 3 3 8.7 3 15.8c0 2.5.7 4.9 2 7L3 29l6.4-2c2 1.1 4.3 1.7 6.6 1.7 7.2 0 13-5.7 13-12.8S23.2 3 16 3z"/></svg></span><div><b>Quote sent</b><small>With your logo, on WhatsApp</small></div></div>
-      <div class="float-chip fc3" aria-hidden="true"><span class="fc-ico money">₹</span><div><small>Your margin</small><b class="fc-big">+₹10,488</b></div></div>
-      <% } %>
       <div class="hero-login glass">
         <% if (user) {
           const home = user.role === 'admin' ? '/admin' : user.role === 'backend' ? '/backend' : '/agent';
@@ -91,14 +86,6 @@
   <p class="hx-caption" data-hero-line><%= HERO[0].line %></p>
 </section>
 
-<div class="ticker" aria-hidden="true">
-  <div class="ticker-track">
-    <% for (let k = 0; k < 2; k++) { %>
-      <% ['Dubai', 'Airfares', 'Bali', 'Hotels', 'Vietnam', 'Activities', 'Cambodia', 'Transfers', 'United Kingdom', 'Visas', 'Europe', 'Insurance'].forEach((w, i) => { %><span class="<%= i % 2 ? 'tk-svc' : 'tk-dest' %>"><%= w %></span><% }) %>
-    <% } %>
-  </div>
-</div>
-
 <section class="stats-strip" aria-label="VaayuTrip in numbers">
   <div class="inner">
     <div><b data-count="<%= stats.hotels %>"><%= stats.hotels %></b><span>hotels at net rates</span></div>
@@ -131,42 +118,9 @@
   <span class="eyebrow">The portal</span>
   <h2 class="big">Your whole agency on one screen</h2>
   <p class="center">Search rates, build packages, send quotes, book and get paid, without switching between ten tabs and five suppliers.</p>
-  <div class="browser" data-reveal aria-label="Illustration of the agent portal" role="img">
-    <div class="br-bar"><i></i><i></i><i></i><span>vaayutrip · agent portal</span></div>
-    <div class="pv">
-      <aside class="pv-side">
-        <div class="pv-logo"></div>
-        <span class="on"><%- icon('briefcase') %>Dashboard</span>
-        <span><%- icon('bed') %>Hotels</span>
-        <span><%- icon('plane') %>Airfares</span>
-        <span><%- icon('ticket') %>Activities</span>
-        <span><%- icon('receipt') %>Quotes</span>
-        <span><%- icon('wallet') %>Wallet</span>
-      </aside>
-      <div class="pv-main">
-        <div class="pv-head"><div><b>Good morning, Skyline Holidays</b><small>Here's your business today</small></div><span class="pv-btn">+ New package</span></div>
-        <div class="pv-tiles">
-          <div><small>Wallet balance</small><b>₹2,45,300</b><em class="up">Topped up today</em></div>
-          <div><small>Bookings this month</small><b>18</b><em class="up">▲ 6 vs last month</em></div>
-          <div class="hl"><small>Your margin this month</small><b>₹1,12,400</b><em>across 18 trips</em></div>
-          <div><small>Quotes sent</small><b>42</b><em class="up">11 accepted</em></div>
-        </div>
-        <div class="pv-row">
-          <div class="pv-card">
-            <b>Recent bookings</b>
-            <div class="pv-tr"><span>Sharma family · Dubai 5N</span><span class="pv-badge ok">Confirmed</span></div>
-            <div class="pv-tr"><span>Mehta honeymoon · Bali 6N</span><span class="pv-badge ok">Confirmed</span></div>
-            <div class="pv-tr"><span>Corporate group · Vietnam 7N</span><span class="pv-badge wait">On request</span></div>
-            <div class="pv-tr"><span>Kapoor · London + Paris 9N</span><span class="pv-badge ok">Confirmed</span></div>
-          </div>
-          <div class="pv-card">
-            <b>Margin, last 6 months</b>
-            <div class="pv-bars"><i style="--h:38%"></i><i style="--h:52%"></i><i style="--h:45%"></i><i style="--h:68%"></i><i style="--h:74%"></i><i style="--h:92%"></i></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <figure class="shot">
+    <img src="/img/portal-dashboard.png?v=1" alt="The VaayuTrip agent portal: dashboard with searches, quotes, upcoming trips and earnings" loading="lazy" width="1440" height="900">
+  </figure>
 </section>
 
 <section class="feat-dark" id="features">

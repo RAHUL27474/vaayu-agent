@@ -4,7 +4,7 @@
   const isHotel = kind === 'hotel';
   const perPerson = p.price_basis === 'per_person';
   const facts = [];
-  if (kind === 'hotel') facts.push(['Room', `${d.stars ? `${d.stars}★ · ` : ''}${d.room || ''}`], ['Meals', d.mealPlan ? `${d.mealPlan} · ${mealPlans[d.mealPlan] || ''}` : ''], ['Area', d.area], ['Max guests per room', d.maxGuests]);
+  if (kind === 'hotel') facts.push(['Room', `${d.stars ? `${d.stars}★ · ` : ''}${d.room || ''}`], ['Meals', d.mealPlan ? `${mealPlans[d.mealPlan] || ''}` : ''], ['Area', d.area], ['Max guests per room', d.maxGuests]);
   if (kind === 'flight') facts.push(['Flight', `${d.airline || ''} ${d.flightNo || ''} · ${d.from || ''} → ${d.to || ''} · ${d.depart || ''}–${d.arrive || ''}`],
     ['Return', d.trip === 'return' ? `${d.returnFlightNo || ''} · ${d.to || ''} → ${d.from || ''} · ${d.returnDepart || ''}–${d.returnArrive || ''}` : 'One-way fare'],
     ['Cabin', p.category], ['Baggage', d.baggage], ['Stops', d.stops], ['Refundable', d.refundable]);

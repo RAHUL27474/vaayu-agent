@@ -43,9 +43,9 @@
 %>
 <% if (totals.bookings) { %>
 <div class="highlights">
-  <% if (best) { %><div class="hl-card"><span class="hl-ico">🏆</span><div><small>Your best month</small><b><%= monthName(best.month) %></b><span><%= inr(best.earnings) %> earned from <%= best.bookings %> booking<%= best.bookings === 1 ? '' : 's' %></span></div></div><% } %>
-  <% if (topDest) { %><div class="hl-card"><span class="hl-ico">🌏</span><div><small>Your customers love</small><b><%= topDest.destination %></b><span><%= topDest.bookings %> trip<%= topDest.bookings === 1 ? '' : 's' %> · <%= inr(topDest.sales) %> in sales</span></div></div><% } %>
-  <% if (topCust) { %><a class="hl-card" href="/agent/customers/<%= topCust.id %>"><span class="hl-ico">⭐</span><div><small>Your top customer</small><b><%= topCust.name %></b><span><%= inr(topCust.sales) %> across <%= topCust.bookings %> trip<%= topCust.bookings === 1 ? '' : 's' %></span></div></a><% } %>
+  <% if (best) { %><div class="hl-card"><span class="hl-ico"><%- icon('chart') %></span><div><small>Your best month</small><b><%= monthName(best.month) %></b><span><%= inr(best.earnings) %> earned from <%= best.bookings %> booking<%= best.bookings === 1 ? '' : 's' %></span></div></div><% } %>
+  <% if (topDest) { %><div class="hl-card"><span class="hl-ico"><%- icon('globe') %></span><div><small>Your customers love</small><b><%= topDest.destination %></b><span><%= topDest.bookings %> trip<%= topDest.bookings === 1 ? '' : 's' %> · <%= inr(topDest.sales) %> in sales</span></div></div><% } %>
+  <% if (topCust) { %><a class="hl-card" href="/agent/customers/<%= topCust.id %>"><span class="hl-ico"><%- icon('user') %></span><div><small>Your top customer</small><b><%= topCust.name %></b><span><%= inr(topCust.sales) %> across <%= topCust.bookings %> trip<%= topCust.bookings === 1 ? '' : 's' %></span></div></a><% } %>
 </div>
 <% } %>
 <div class="grid grid-4" style="margin-bottom:20px">

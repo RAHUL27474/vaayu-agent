@@ -61,7 +61,7 @@
           <% if (s.source === 'client') { %><br><span class="stay-src client"><%= typeof showSource !== 'undefined' && showSource ? "Customer's own" : 'Arranged by you' %></span>
           <% } else if (typeof showSource !== 'undefined' && showSource) { %><br><span class="stay-src <%= s.source %>"><%= s.source === 'vaayu' ? 'From VaayuTrip' : 'Your own' %></span><% } %></td>
         <td><%= s.room || '—' %></td>
-        <td><span class="badge"><%= s.mealPlan %></span> <small class="muted"><%= mealPlanNames[s.mealPlan] %></small></td>
+        <td><span class="badge"><%= s.mealPlan === 'AI' ? 'All-inc' : s.mealPlan %></span> <small class="muted"><%= mealPlanNames[s.mealPlan] %></small></td>
         <td class="num"><%= s.nights %></td>
       </tr>
     <% }) %>
