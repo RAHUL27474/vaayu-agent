@@ -14,7 +14,7 @@
     <div class="chart-tools" role="group" aria-label="Chart type">
       <button type="button" data-view-btn="bars" aria-pressed="true" title="Bars"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 8h8M2 13h5"/></svg></button>
       <button type="button" data-view-btn="donut" aria-pressed="false" title="Donut"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5V8l4 3.5"/></svg></button>
-      <button type="button" data-view-btn="table" aria-pressed="false" title="Table"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 8h12M2 13h12"/></svg></button>
+      <button type="button" data-view-btn="tiles" aria-pressed="false" title="Treemap"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M9 2v12M9 8h5M2 10h7"/></svg></button>
     </div>
   </div>
   <div class="chart-view" data-view-of="bars">
@@ -43,11 +43,31 @@
       </ul>
     </div>
   </div>
-  <div class="chart-view" data-view-of="table" hidden>
-    <table class="table chart-table no-stack">
-      <thead><tr><th>Name</th><th class="num">Amount</th><th class="num">Share</th></tr></thead>
-      <% rows.forEach(r => { %><tr><td><% if (r.href) { %><a href="<%= r.href %>"><%= r.label %></a><% } else { %><%= r.label %><% } %><% if (r.sub) { %><br><small class="muted"><%= r.sub %></small><% } %></td><td class="num"><%= format(r.value) %></td><td class="num muted"><%= pct(r.value) %>%</td></tr><% }) %>
-    </table>
+  <%
+    // Treemap: split the (largest-first) list into two halves of equal value, along the longer side, recursively.
+    const tiles = [];
+    const items = rows.map((r, i) => ({ r, i, v: Math.max(r.value || 0, total * 0.004 || 1) }));
+    const split = (list, x0, y0, w, h) => {
+      if (!list.length) return;
+      if (list.length === 1) { tiles.push({ ...list[0], x: x0, y: y0, w, h }); return; }
+      const sum = list.reduce((s, t) => s + t.v, 0);
+      let k = 0, acc2 = 0;
+      while (k < list.length - 1 && acc2 + list[k].v / 2 < sum / 2) acc2 += list[k++].v;
+      if (k === 0) { acc2 = list[0].v; k = 1; }
+      const f = acc2 / sum;
+      if (w * 1.5 >= h) { split(list.slice(0, k), x0, y0, w * f, h); split(list.slice(k), x0 + w * f, y0, w * (1 - f), h); }
+      else { split(list.slice(0, k), x0, y0, w, h * f); split(list.slice(k), x0, y0 + h * f, w, h * (1 - f)); }
+    };
+    split(items, 0, 0, 100, 100);
+  %>
+  <div class="chart-view" data-view-of="tiles" hidden>
+    <div class="treemap" role="img" aria-label="<%= rows.map(r => `${r.label}: ${pct(r.value)}%`).join(', ') %>">
+      <% tiles.forEach(t => { const big = t.w >= 30 && t.h >= 26, mid = t.w >= 18 && t.h >= 16; %>
+        <<%= t.r.href ? 'a' : 'div' %> class="tm-tile<%= big ? ' big' : mid ? '' : ' tiny' %>"<% if (t.r.href) { %> href="<%= t.r.href %>"<% } %> style="left:<%= t.x.toFixed(2) %>%;top:<%= t.y.toFixed(2) %>%;width:<%= t.w.toFixed(2) %>%;height:<%= t.h.toFixed(2) %>%;--c:<%= COLORS[t.i % COLORS.length] %>" title="<%= t.r.label %>: <%= format(t.r.value) %> (<%= pct(t.r.value) %>%)<%= t.r.sub ? ` · ${t.r.sub}` : '' %>">
+          <% if (mid) { %><span class="tm-name"><%= t.r.label %></span><b><%= pct(t.r.value) %>%</b><% if (big) { %><small><%= format(t.r.value) %></small><% } %><% } %>
+        </<%= t.r.href ? 'a' : 'div' %>>
+      <% }) %>
+    </div>
   </div>
 </div>
 <% } %>

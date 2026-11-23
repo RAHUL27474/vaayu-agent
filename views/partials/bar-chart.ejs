@@ -6,7 +6,7 @@
   const change = prev.value > 0 ? Math.round((last.value - prev.value) / prev.value * 100) : null;
   const cid = typeof id !== 'undefined' && id ? id : 'm-' + bars.map(b => b.label).join('').length + '-' + Math.round(total % 997);
   // Line view, drawn on the server so it works without JavaScript too.
-  const W = 760, H = 220, pad = 16, n = bars.length;
+  const W = 560, H = 200, pad = 18, n = bars.length;
   const x = (i) => n > 1 ? pad + i * (W - 2 * pad) / (n - 1) : W / 2;
   const y = (v) => H - pad - (v / max) * (H - 2 * pad - 16);
   const pts = bars.map((b, i) => `${x(i).toFixed(1)},${y(b.value).toFixed(1)}`).join(' ');
@@ -17,7 +17,7 @@
     <div class="chart-tools" role="group" aria-label="Chart type">
       <button type="button" data-view-btn="columns" aria-pressed="true" title="Columns"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14V8M6 14V4M10 14V7M14 14V2"/></svg></button>
       <button type="button" data-view-btn="line" aria-pressed="false" title="Line"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 12l4-5 4 3 6-7"/></svg></button>
-      <button type="button" data-view-btn="table" aria-pressed="false" title="Table"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 8h12M2 13h12"/></svg></button>
+      <button type="button" data-view-btn="growth" aria-pressed="false" title="Running total"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14h12M3 12l3-3 3 1 4-6M10 4h3v3"/></svg></button>
     </div>
   </div>
   <div class="chart-view" data-view-of="columns">
@@ -43,10 +43,26 @@
       <% }) %>
     </svg>
   </div>
-  <div class="chart-view" data-view-of="table" hidden>
-    <table class="table chart-table no-stack">
-      <thead><tr><th>Month</th><th class="num">Amount</th><th class="num">Share</th></tr></thead>
-      <% bars.slice().reverse().forEach(b => { %><tr><td><%= b.label %><% if (b.note) { %> <small class="muted">· <%= b.note %></small><% } %></td><td class="num"><%= format(b.value) %></td><td class="num muted"><%= total ? Math.round(b.value / total * 100) + '%' : '—' %></td></tr><% }) %>
-    </table>
+  <%
+    let run = 0; const cum = bars.map(b => (run += b.value || 0));
+    const cy = (v) => H - pad - (v / Math.max(1, total)) * (H - 2 * pad - 16);
+    const cpts = cum.map((v, i) => `${x(i).toFixed(1)},${cy(v).toFixed(1)}`).join(' ');
+    const avg = n ? total / n : 0;
+  %>
+  <div class="chart-view" data-view-of="growth" hidden>
+    <svg class="line-chart" viewBox="0 0 <%= W %> <%= H + 22 %>" role="img" aria-label="Running total: <%= bars.map((b, i) => `${b.label} ${format(cum[i])}`).join(', ') %>">
+      <% [0.25, 0.5, 0.75, 1].forEach(f => { %><line class="lc-grid" x1="<%= pad %>" x2="<%= W - pad %>" y1="<%= cy(total * f) %>" y2="<%= cy(total * f) %>"/><% }) %>
+      <% bars.forEach((b, i) => { if (!b.value) return; const bw = Math.min(28, (W - 2 * pad) / Math.max(1, n) * 0.45); %>
+        <rect class="gc-step" x="<%= (x(i) - bw / 2).toFixed(1) %>" y="<%= cy(cum[i]).toFixed(1) %>" width="<%= bw.toFixed(1) %>" height="<%= (cy(cum[i] - b.value) - cy(cum[i])).toFixed(1) %>" rx="3"><title><%= b.label %>: +<%= format(b.value) %></title></rect>
+      <% }) %>
+      <polygon class="gc-area" points="<%= x(0) %>,<%= H - pad %> <%= cpts %> <%= x(n - 1) %>,<%= H - pad %>"/>
+      <polyline class="gc-line" points="<%= cpts %>"/>
+      <% bars.forEach((b, i) => { %>
+        <g><title><%= b.label %>: <%= format(cum[i]) %> so far<%= b.value ? ` (+${format(b.value)})` : '' %></title><circle class="lc-dot gc-dot" cx="<%= x(i) %>" cy="<%= cy(cum[i]) %>" r="<%= i === n - 1 ? 5 : 3.5 %>"/></g>
+        <% if (i === n - 1 && total) { %><text class="lc-val" x="<%= x(i) - 6 %>" y="<%= cy(cum[i]) - 10 %>" style="text-anchor:end"><%= format(total) %></text><% } %>
+        <text class="lc-lab" x="<%= x(i) %>" y="<%= H + 14 %>"><%= b.label %></text>
+      <% }) %>
+    </svg>
+    <p class="chart-note"><i class="gc-key"></i>Added that month <i class="gc-key line"></i>Running total · average <%= format(Math.round(avg)) %> a month</p>
   </div>
 </div>

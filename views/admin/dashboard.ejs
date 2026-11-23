@@ -35,7 +35,7 @@
     <div class="stat"><div class="label">Cancellation rate</div><div class="value"><%= biz.cancelRate %>%</div><div class="sub">of bookings in 12 months</div></div>
   </div>
   <div class="grid grid-2">
-    <div class="card"><h3>Revenue by month</h3><%- include('../partials/bar-chart', { id: 'revenue', bars: biz.months.map(m => ({ label: m.label, value: Math.round(m.revenue), note: `${m.bookings || 0} bookings` })), format: short }) %></div>
+    <div class="card"><h3>Revenue by month</h3><%- include('../partials/bar-chart', { id: 'revenue', bars: biz.months.map(m => ({ label: m.label, value: Math.round(m.revenue), note: plural(m.bookings || 0, 'booking') })), format: short }) %></div>
     <div class="card"><h3>Estimated VaayuTrip margin</h3><%- include('../partials/bar-chart', { id: 'margin', bars: biz.months.map(m => ({ label: m.label, value: Math.round(m.margin) })), format: short }) %><p class="muted" style="font-size:12px;margin:8px 0 0">From each service's margin % in Settings.</p></div>
   </div>
   <div class="grid grid-3">
