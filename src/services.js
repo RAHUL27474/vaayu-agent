@@ -215,8 +215,26 @@ async function issueInvoice(agency, quoteId, kind, bookingId = null) {
   });
 }
 
-/** Books a quote: pays VaayuTrip the net amount from the wallet first, then the credit line. */
-async function bookQuote(agencyId, quoteId) {
+/** Can this quote be booked right now (funds aside)? Returns { agency, full, payable }; throws an AppError if not. */
+async function bookable(agencyId, quoteId) {
+  const agency = await one('SELECT * FROM agencies WHERE id = ?', agencyId);
+  if (agency.status !== 'active') throw new AppError('Your account must be approved before you can book');
+  const gaps = profileGaps(agency);
+  if (gaps.length) throw new AppError(`Complete your company profile before booking. Missing: ${gaps.join(', ')}. Go to Company & branding.`);
+  const full = await getQuote(quoteId, agencyId);
+  if (!full) throw new AppError('Quote not found');
+  if (['booked', 'cancelled'].includes(full.quote.status)) throw new AppError('This quote is already booked');
+  if (!full.items.some((i) => i.supplier === 'vaayu')) throw new AppError('Nothing on this quote is supplied by VaayuTrip');
+  if (full.quote.package_id) await assertSeats(full.quote.package_id, full.quote.travel_date, full.quote.adults + full.quote.children);
+  const payable = round2(full.priced.net * (1 + taxRate(await getSettings()) / 100));
+  return { agency, full, payable };
+}
+
+/**
+ * Books a quote: pays VaayuTrip the net amount from the wallet first, then the credit line.
+ * online: rupees just paid online for this booking (already added to the wallet); such a booking never uses credit.
+ */
+async function bookQuote(agencyId, quoteId, { online = 0 } = {}) {
   return await tx(async () => {
     // Row locks: a second booking for this agency (or of this quote) waits until this one has paid.
     const agency = await one('SELECT * FROM agencies WHERE id = ? FOR UPDATE', agencyId);
@@ -238,6 +256,7 @@ async function bookQuote(agencyId, quoteId) {
     }
     const fromWallet = Math.min(Math.max(agency.wallet_balance, 0), payable);
     const fromCredit = round2(payable - fromWallet);
+    if (online && fromCredit) throw new AppError(`The amount paid online (₹${online.toLocaleString('en-IN')}) no longer covers this booking (₹${payable.toLocaleString('en-IN')}). It is in your wallet.`);
     if (fromCredit && creditStatus(agency).overdue) {
       throw new AppError(`Your credit of ₹${agency.credit_used.toLocaleString('en-IN')} is overdue. Repay it from your wallet (Wallet & credit) or top up enough to pay this booking from your wallet.`);
     }
@@ -247,9 +266,9 @@ async function bookQuote(agencyId, quoteId) {
 
     const bookingCode = code('VT');
     const bookingId = (await run(
-      `INSERT INTO bookings (agency_id, quote_id, customer_id, code, title, travel_date, total_net, total_sell, total_cost, paid_wallet, paid_credit)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      agencyId, quoteId, full.quote.customer_id, bookingCode, full.quote.title, full.quote.travel_date, full.priced.net, full.priced.sell, full.priced.agentCost, fromWallet, fromCredit,
+      `INSERT INTO bookings (agency_id, quote_id, customer_id, code, title, travel_date, total_net, total_sell, total_cost, paid_wallet, paid_credit, paid_online)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      agencyId, quoteId, full.quote.customer_id, bookingCode, full.quote.title, full.quote.travel_date, full.priced.net, full.priced.sell, full.priced.agentCost, fromWallet, fromCredit, round2(Math.min(online, fromWallet)),
     )).lastInsertRowid;
     if (fromWallet) await moveWallet(agencyId, 'booking', -fromWallet, bookingCode, full.quote.title);
     if (fromCredit) await run("UPDATE agencies SET credit_used = credit_used + ?, credit_since = COALESCE(credit_since, to_char(CURRENT_DATE, 'YYYY-MM-DD')) WHERE id = ?", fromCredit, agencyId);
@@ -318,6 +337,7 @@ async function voucherFor(booking) {
 
 module.exports = {
   departuresOf, assertSeats,
+  bookable,
   creditStatus, repayCredit, creditReminders, tripReminders,
   voucherFor,
   AppError, getQuote, createQuote, createQuoteFromPackage, addProductToQuote, addQuoteItem, moveWallet, issueInvoice,

@@ -82,6 +82,61 @@ const fake = http.createServer((req, res) => {
 
   check('customers can not pay through VaayuTrip', (await c.get('/pay/anything')).status === 404);
 
+  // ---------- paying for a booking online (UPI / card / net banking) instead of wallet or credit ----------
+  const newQuote = async (title) => {
+    const qid = Number((await c.post('/agent/quotes', agent, { title })).headers.get('location').match(/(\d+)$/)[1]);
+    const act1 = await one("SELECT * FROM products WHERE kind = 'activity' AND status = 'published' ORDER BY id LIMIT 1");
+    await c.post(`/agent/activities/${act1.id}/quote`, agent, { quote_id: String(qid) });
+    return qid;
+  };
+  const credit = async () => (await one('SELECT credit_used FROM agencies WHERE id = ?', agencyId)).credit_used;
+  let qid = await newQuote('Online-paid trip');
+  check('quote page offers paying online', (await (await c.get(`/agent/quotes/${qid}`, agent)).text()).includes('Pay online'));
+  const wb = await balance(), cb = await credit();
+  r = await c.post(`/agent/quotes/${qid}/pay-online`, agent, {});
+  check('pay online goes to PhonePe checkout', r.status === 303 && r.headers.get('location').startsWith('https://pay.example/'));
+  id = lastOrder();
+  const pay = await one('SELECT * FROM payments WHERE order_id = ?', id);
+  check('payment is for this quote', pay.purpose === 'booking' && pay.ref_id === qid && pay.amount > 0);
+  r = await c.post(`/agent/quotes/${qid}/pay-online`, agent, {});
+  check('a second payment is refused while the first is being confirmed', r.status !== 303 && orders.size && lastOrder() === id);
+  r = await c.get(`/payments/return/${id}`, agent);
+  check('pending payment books nothing yet', !(await one('SELECT id FROM bookings WHERE quote_id = ?', qid)) && r.headers.get('location') === `/agent/quotes/${qid}`);
+  orders.get(id).state = 'COMPLETED';
+  r = await c.get(`/payments/return/${id}`, agent);
+  let bk = await one('SELECT * FROM bookings WHERE quote_id = ?', qid);
+  check('completed payment books the quote', bk && r.headers.get('location') === `/agent/bookings/${bk.id}`);
+  check('booking marked paid online, wallet and credit untouched', bk.paid_online === pay.amount && bk.paid_credit === 0 && await balance() === wb && await credit() === cb, `${bk.paid_online} ${await balance()} ${wb}`);
+  await c.get(`/payments/return/${id}`, agent);
+  await c.get(`/agent/quotes/${qid}`, agent);
+  check('returning again does not book twice', (await one('SELECT COUNT(*)::int AS n FROM bookings WHERE quote_id = ?', qid)).n === 1);
+  check('booking page shows the online payment', (await (await c.get(`/agent/bookings/${bk.id}`, agent)).text()).includes('Paid online'));
+  check('a booked quote cannot be paid again', (await c.post(`/agent/quotes/${qid}/pay-online`, agent, {})).status !== 303);
+
+  qid = await newQuote('Online-paid, failed');
+  await c.post(`/agent/quotes/${qid}/pay-online`, agent, {});
+  orders.get(lastOrder()).state = 'FAILED';
+  await c.get(`/payments/return/${lastOrder()}`, agent);
+  check('failed online payment books nothing and takes nothing', !(await one('SELECT id FROM bookings WHERE quote_id = ?', qid)) && await balance() === wb);
+
+  // Paid, but the quote was booked from the wallet meanwhile: the money stays in the wallet.
+  await c.post(`/agent/quotes/${qid}/pay-online`, agent, {});
+  id = lastOrder();
+  const amt = (await one('SELECT amount FROM payments WHERE order_id = ?', id)).amount;
+  await c.post(`/agent/quotes/${qid}/book`, agent, {});
+  orders.get(id).state = 'COMPLETED';
+  await c.get(`/payments/return/${id}`, agent);
+  check('payment for an already-booked quote lands in the wallet, no double booking',
+    (await one('SELECT COUNT(*)::int AS n FROM bookings WHERE quote_id = ?', qid)).n === 1 && Math.abs(await balance() - (wb - amt + amt)) < 0.01);
+
+  // Settled by the webhook alone (payer closed the page): the booking is still made.
+  qid = await newQuote('Online-paid by webhook');
+  await c.post(`/agent/quotes/${qid}/pay-online`, agent, {});
+  id = lastOrder();
+  orders.get(id).state = 'COMPLETED';
+  const hook2 = await fetch(`${c.B}/payments/phonepe/webhook`, { method: 'POST', headers: { 'Content-Type': 'application/json', authorization: sig }, body: JSON.stringify({ event: 'checkout.order.completed', payload: { merchantOrderId: id, state: 'COMPLETED' } }) });
+  check('webhook books an online-paid quote', hook2.status === 200 && !!(await one('SELECT id FROM bookings WHERE quote_id = ?', qid)));
+
   fake.close();
   finish(c);
 })().catch((e) => { console.error(e); process.exit(1); });

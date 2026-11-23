@@ -1,21 +1,21 @@
-// Agents' wallet top-ups through PhonePe: start one, and settle it once PhonePe confirms it. (Customers pay their
-// agent directly; VaayuTrip takes no customer payments.) Settling is idempotent, so the
-// payer's return, PhonePe's webhook and the background check can all call it for the same order safely.
+// Online payments through PhonePe: an agent's wallet top-up, or paying for a booking by UPI / card / net banking (the money
+// goes to the wallet, then the booking pays from it). Customers pay their agent directly; VaayuTrip takes no customer payments.
+// Settling is idempotent, so the payer's return, PhonePe's webhook and the background check can all call it for the same order safely.
 const crypto = require('crypto');
 const { one, all, run, tx, notify } = require('./db');
 const { round2 } = require('./util');
 const phonepe = require('./phonepe');
-const { moveWallet, AppError } = require('./services');
+const { moveWallet, bookQuote, AppError } = require('./services');
 
 const newOrderId = (prefix) => `VT${prefix}${Date.now().toString(36).toUpperCase()}${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
 /**
  * Creates the payment and returns PhonePe's checkout URL.
- * purpose: 'topup'; refId = topup_requests.id.
+ * purpose: 'topup' (refId = topup_requests.id) or 'booking' (refId = quotes.id: paying for a booking online).
  */
 async function startPayment({ purpose, agencyId, refId, amount, origin, note, payerRef }) {
   if (!phonepe.enabled()) throw new AppError('Online payment is not set up yet.');
-  const orderId = newOrderId('T');
+  const orderId = newOrderId(purpose === 'booking' ? 'B' : 'T');
   await run('INSERT INTO payments (order_id, purpose, agency_id, ref_id, amount) VALUES (?, ?, ?, ?, ?)', orderId, purpose, agencyId, refId, round2(amount));
   try {
     const { redirectUrl } = await phonepe.createPayment({
@@ -35,6 +35,21 @@ async function startPayment({ purpose, agencyId, refId, amount, origin, note, pa
  * Money moves only when PhonePe says COMPLETED for exactly the amount we asked for.
  */
 async function settle(orderId) {
+  const r = await settlePayment(orderId);
+  if (r?.bookNow) {
+    delete r.bookNow;
+    try {
+      r.bookingId = await bookQuote(r.agency_id, r.ref_id, { online: r.amount });
+    } catch (e) {
+      const q = await one('SELECT id, title FROM quotes WHERE id = ?', r.ref_id);
+      await notify(r.agency_id, 'Paid, but not booked yet', `₹${r.amount.toLocaleString('en-IN')} you paid online is safe in your wallet, but ${q ? q.title : 'the trip'} could not be booked: ${String(e.message).replace(/.?$/, '.')} Open the quote to book it again.`, q ? `/agent/quotes/${q.id}` : '/agent/wallet');
+      await notify(null, 'Online payment not booked', `Order ${orderId}: paid ₹${r.amount} but booking failed (${e.message}). The money is in the agent's wallet.`, `/admin/agents/${r.agency_id}`);
+    }
+  }
+  return r;
+}
+
+async function settlePayment(orderId) {
   const p = await one('SELECT * FROM payments WHERE order_id = ?', orderId);
   if (!p || p.status !== 'pending') return p;
   const s = await phonepe.checkStatus(orderId);
@@ -51,6 +66,12 @@ async function settle(orderId) {
     }
     await run("UPDATE payments SET status = 'completed', provider_txn = ?, mode = ?, completed_at = datetime('now') WHERE id = ?", s.transactionId || null, s.mode || null, cur.id);
     const ref = `PhonePe ${s.transactionId || orderId}`;
+    if (cur.purpose === 'booking') {
+      // The money lands in the wallet first, so it is never lost; the booking then pays from it (below, after this commits).
+      const q = await one('SELECT code, title FROM quotes WHERE id = ?', cur.ref_id);
+      await moveWallet(cur.agency_id, 'topup', cur.amount, ref, `Paid online for ${q ? q.code : 'a booking'}`);
+      return { ...cur, status: 'completed', bookNow: true };
+    }
     await run("UPDATE topup_requests SET status = 'approved', utr = ? WHERE id = ?", ref, cur.ref_id);
     await moveWallet(cur.agency_id, 'topup', cur.amount, ref, 'Wallet top-up (PhonePe)');
     await notify(cur.agency_id, 'Wallet topped up', `₹${cur.amount.toLocaleString('en-IN')} added to your wallet via PhonePe.`, '/agent/wallet');

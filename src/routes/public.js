@@ -387,6 +387,14 @@ router.all('/payments/return/:orderId', h(async (req, res, next) => {
   let p = await one('SELECT * FROM payments WHERE order_id = ?', String(req.params.orderId).slice(0, 64));
   if (!p) return next();
   try { p = await payments.settle(p.order_id); } catch { /* status unknown for now; shown as processing */ }
+  if (p.purpose === 'booking') {
+    const b = p.status === 'completed' && await one('SELECT id, code FROM bookings WHERE quote_id = ? AND agency_id = ? ORDER BY id DESC', p.ref_id, p.agency_id);
+    if (b) { req.flash('success', `Payment received and booking confirmed. Booking ID ${b.code}.`); return res.redirect(`/agent/bookings/${b.id}`); }
+    req.flash(...(p.status === 'completed' ? ['error', `Payment received: ₹${p.amount.toLocaleString('en-IN')} is in your wallet, but the booking could not be completed. See your notifications, then book again.`]
+      : p.status === 'failed' ? ['error', 'The payment did not go through and no money was taken. You can try again.']
+        : ['info', 'PhonePe is still confirming your payment. The booking will be made automatically in a few minutes; please do not pay again.']));
+    return res.redirect(`/agent/quotes/${p.ref_id}`);
+  }
   const msg = p.status === 'completed' ? ['success', `Payment received. ₹${p.amount.toLocaleString('en-IN')} added to your wallet.`]
     : p.status === 'failed' ? ['error', 'The payment did not go through and no money was taken. You can try again.']
       : ['info', 'Your payment is being confirmed by PhonePe. This page will show it as paid within a few minutes; please don\'t pay again.'];

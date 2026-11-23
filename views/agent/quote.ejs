@@ -17,8 +17,14 @@
     <% if (quote.status === 'draft') { %><form method="post" action="/agent/quotes/<%= quote.id %>/send"><button class="btn">Mark as sent</button></form><% } %>
     <% if (['draft', 'sent'].includes(quote.status)) { %><form method="post" action="/agent/quotes/<%= quote.id %>/accepted"><button class="btn">Customer accepted</button></form><% } %>
     <% if (!locked) { %>
+<% const cantBook = agency.status !== 'active' || !items.length || profileGaps.length; %>
+      <% if (phonepeOn) { %>
+      <form method="post" action="/agent/quotes/<%= quote.id %>/pay-online" data-confirm="Pay <%= inr(netPayable.total) %> <%= netPayable.tax ? '(net + GST) ' : '' %>online by UPI, card or net banking? The booking is confirmed as soon as the payment goes through.">
+        <button class="btn" <%= cantBook ? 'disabled' : '' %> title="UPI, debit / credit card or net banking, through PhonePe"><%- icon('card') %>Pay online · UPI / card</button>
+      </form>
+      <% } %>
       <form method="post" action="/agent/quotes/<%= quote.id %>/book" data-confirm="Book now? <%= inr(netPayable.total) %> <%= netPayable.tax ? '(net + GST) ' : '' %>will be paid to VaayuTrip from your wallet/credit.">
-        <button class="btn btn-accent" <%= agency.status !== 'active' || !items.length || profileGaps.length ? 'disabled' : '' %> <%- profileGaps.length ? `title="Complete your company profile first"` : '' %>>Book now · pay <%= inr(netPayable.total) %></button>
+        <button class="btn btn-accent" <%= cantBook ? 'disabled' : '' %> <%- profileGaps.length ? `title="Complete your company profile first"` : '' %>>Book from <%= agency.credit_limit > 0 ? "wallet / credit" : "wallet" %> · <%= inr(netPayable.total) %></button>
       </form>
     <% } else if (booking) { %>
       <a class="btn btn-primary" href="/agent/bookings/<%= booking.id %>">View booking <%= booking.code %></a>
@@ -26,6 +32,7 @@
   </div>
 </div>
 
+<% if (typeof payingOnline !== 'undefined' && payingOnline && !locked) { %><div class="alert info">PhonePe is still confirming your online payment for this quote. The booking will be made automatically once it goes through; please don't pay again.</div><% } %>
 <% if (profileGaps.length && !locked) { %><div class="alert warn">You can't book yet: complete your company profile first (missing: <%= profileGaps.join(', ') %>). <a href="/agent/settings">Go to Company &amp; branding</a></div><% } %>
 <div class="split">
   <div>

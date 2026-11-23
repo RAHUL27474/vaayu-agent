@@ -513,6 +513,13 @@ router.post('/quotes', h(async (req, res) => {
 
 router.get('/quotes/:id', h(async (req, res) => {
   const full = await ownQuote(req);
+  // Back from paying online but the return page was missed: confirm it now (the booking is made if it went through).
+  const paying = await one("SELECT order_id FROM payments WHERE purpose = 'booking' AND ref_id = ? AND agency_id = ? AND status = 'pending' ORDER BY id DESC", full.quote.id, req.agency.id);
+  if (paying) {
+    const p = await payments.settle(paying.order_id).catch(() => null);
+    if (p?.bookingId) { req.flash('success', 'Your online payment went through and the booking is confirmed.'); return res.redirect(`/agent/bookings/${p.bookingId}`); }
+    if (p?.status === 'pending') full.payingOnline = true;
+  }
   const settings = await getSettings();
   const invoices = await all('SELECT * FROM invoices WHERE quote_id = ? ORDER BY id DESC', full.quote.id);
   const booking = await one('SELECT * FROM bookings WHERE quote_id = ? ORDER BY id DESC', full.quote.id);
@@ -520,7 +527,7 @@ router.get('/quotes/:id', h(async (req, res) => {
   const netPayable = withTax(full.priced.net, settings);
   res.page('agent/quote', {
     kinds: KINDS, kindMarkups, agencyRates: kindMarkups(req.agency),
-    title: full.quote.title, ...full, invoices, booking, customerTotal, netPayable,
+    title: full.quote.title, ...full, invoices, booking, customerTotal, netPayable, phonepeOn: phonepe.enabled(),
     customers: await customersOf(req.agency.id), branded: agencyHasBranding(req.agency),
     pkgView: full.quote.package_snapshot ? JSON.parse(full.quote.package_snapshot) : null,
   });
@@ -640,6 +647,22 @@ router.post('/quotes/:id/book', requireActiveAgency, h(async (req, res) => {
   await audit(req.user, 'booking.created', { entity: 'booking', id: bookingId, summary: `${quote.title} (${bk.code}), net ₹${bk.total_net.toLocaleString('en-IN')}`, link: `/admin/bookings/${bookingId}` });
   req.flash('success', 'Booking confirmed! VaayuTrip has been paid from your wallet/credit.');
   res.redirect(`/agent/bookings/${bookingId}`);
+}));
+
+// Pay for this booking by card / UPI / net banking (PhonePe) instead of the wallet or credit. The booking is made as
+// soon as PhonePe confirms the payment (on return, by webhook or by the background check).
+router.post('/quotes/:id/pay-online', requireActiveAgency, h(async (req, res) => {
+  const { quote } = await ownQuote(req);
+  const { payable } = await svc.bookable(req.agency.id, quote.id);
+  if (payable > MAX_AMOUNT) throw new svc.AppError('This booking is too large to pay online in one go. Pay from your wallet, or contact VaayuTrip.');
+  const waiting = await one("SELECT order_id FROM payments WHERE purpose = 'booking' AND ref_id = ? AND agency_id = ? AND status = 'pending' AND created_at > datetime('now', '-15 minutes')", quote.id, req.agency.id);
+  if (waiting) {
+    try { const p = await payments.settle(waiting.order_id); if (p.bookingId) return res.redirect(`/agent/bookings/${p.bookingId}`); } catch { /* PhonePe unreachable: treat as still pending */ }
+    const still = await one("SELECT status FROM payments WHERE order_id = ?", waiting.order_id);
+    if (still.status === 'pending') throw new svc.AppError('A payment for this quote was started a few minutes ago and PhonePe is still confirming it. Please wait a few minutes before paying again.');
+  }
+  await audit(req.user, 'booking.pay_online_started', { entity: 'quote', id: quote.id, summary: `${quote.title}: ₹${payable.toLocaleString('en-IN')} online` });
+  res.redirect(303, await payments.startPayment({ purpose: 'booking', agencyId: req.agency.id, refId: quote.id, amount: payable, origin: res.locals.origin, note: `Booking ${quote.code}`, payerRef: `A${req.agency.id}` }));
 }));
 
 router.post('/quotes/:id/invoice', requireActiveAgency, h(async (req, res) => {

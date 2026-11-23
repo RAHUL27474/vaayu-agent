@@ -28,7 +28,7 @@
         <dt>Travel date</dt><dd><%= fmtDate(booking.travel_date) || '—' %></dd>
         <dt>Booked</dt><dd><%= fmtDate(booking.created_at) %></dd>
         <dt>Net (pre-tax)</dt><dd><%= inr(booking.total_net) %></dd>
-        <dt>Paid by agent</dt><dd><%= inr(paid) %> <small class="muted">(wallet <%= inr(booking.paid_wallet) %>, credit <%= inr(booking.paid_credit) %>)</small></dd>
+        <dt>Paid by agent</dt><dd><%= inr(paid) %> <small class="muted">(<% if (booking.paid_online > 0) { %>online <%= inr(booking.paid_online) %>, <% } %>wallet <%= inr(booking.paid_wallet - (booking.paid_online || 0)) %>, credit <%= inr(booking.paid_credit) %>)</small></dd>
         <dt>Agent sold for</dt><dd><%= inr(booking.total_sell) %></dd>
         <% if (booking.cancel_reason) { %><dt>Cancel reason</dt><dd><%= booking.cancel_reason %></dd><% } %>
         <% if (booking.refund_amount != null) { %><dt>Refunded</dt><dd><%= inr(booking.refund_amount) %></dd><% } %>

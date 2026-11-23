@@ -41,7 +41,8 @@
       <dl class="kv">
         <dt>Travel date</dt><dd><%= fmtDate(booking.travel_date) || '—' %></dd>
         <dt>Booked on</dt><dd><%= fmtDate(booking.created_at) %></dd>
-        <dt>From wallet</dt><dd><%= inr(booking.paid_wallet) %></dd>
+        <% if (booking.paid_online > 0) { %><dt>Paid online</dt><dd><%= inr(booking.paid_online) %> <small class="muted">UPI / card / net banking</small></dd><% } %>
+        <% if (booking.paid_wallet - (booking.paid_online || 0) > 0.004 || !(booking.paid_online > 0)) { %><dt>From wallet</dt><dd><%= inr(booking.paid_wallet - (booking.paid_online || 0)) %></dd><% } %>
         <dt>From credit</dt><dd><%= inr(booking.paid_credit) %></dd>
         <dt>Sold for</dt><dd><%= inr(booking.total_sell) %><%= gstOn ? ' + GST' : '' %></dd>
         <dt>Your earning</dt><dd class="profit"><%= inr(booking.total_sell - booking.total_net) %></dd>
