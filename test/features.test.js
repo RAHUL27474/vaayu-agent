@@ -205,7 +205,7 @@ const resend = http.createServer((req, res) => {
   const onlyCode = await (await c.post('/login/otp/verify', '', { email: ROLES.admin[0], code: codeIn(mailTo(ROLES.admin[0])) })).text();
   check('with 2-step on, an email code alone does not log in', onlyCode.includes('2-step login is on'));
   const acct = await page('/account', fullCookie);
-  check('account page lists recent logins with where from', acct.includes('Recent logins') && /a browser|Chrome|Windows/.test(acct));
+  check('account page lists recent logins with where from', acct.includes('Recent logins') && /Unknown browser|Chrome|Windows/.test(acct));
   await c.post('/account/2step/off', fullCookie, { current: ROLES.admin[1] });
   check('2-step login can be turned off with the password', (await one('SELECT two_step FROM users WHERE id = ?', adminId)).two_step === 0 && await loginOk(...ROLES.admin));
 
