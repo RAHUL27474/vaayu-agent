@@ -1699,3 +1699,10 @@ form[action$="/status"] select[name=status] { min-width: 120px; }
 .hx h1 { letter-spacing: -.045em; }
 .hx h1 em { box-shadow: none; }
 .bar-fill { background: var(--brand); border-radius: 4px; } .bar-col:hover .bar-fill { background: var(--brand-700); } .bar-track { border-radius: 4px; }
+/* Dashboard greeting: text only */
+.hello-id { gap: 0; }
+.hello h1 { font-size: 26px; letter-spacing: -.02em; }
+.hello-date { font-size: 12px; letter-spacing: .04em; }
+.hello-story { font-size: 14.5px; max-width: 620px; }
+.hello-facts > div { box-shadow: none; }
+.ws-mark.ws-brand { background: color-mix(in srgb, var(--ws) 12%, #fff); color: var(--ws); border: 1px solid color-mix(in srgb, var(--ws) 25%, #fff); }
