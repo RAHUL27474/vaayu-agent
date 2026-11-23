@@ -1,13 +1,53 @@
-<%# Horizontal bars for rankings. Locals: rows = [{ label, value, sub, href }], format(value) -> string %>
+<%# Ranking with a view switch (bars / donut / table). Locals: rows = [{ label, value, sub, href }], format(value) -> string, id (optional) %>
 <% const top = Math.max(1, ...rows.map(r => r.value)); %>
-<% if (!rows.length) { %><div class="empty">No bookings in this period yet.</div><% } else { %>
-<ul class="hbars">
-  <% rows.forEach(r => { %>
-    <li>
-      <div class="hb-head"><% if (r.href) { %><a href="<%= r.href %>"><%= r.label %></a><% } else { %><%= r.label %><% } %><b><%= format(r.value) %></b></div>
-      <div class="hb-track"><div class="hb-fill" style="width:<%= Math.max(2, Math.round(r.value / top * 100)) %>%"></div></div>
-      <% if (r.sub) { %><small class="muted"><%= r.sub %></small><% } %>
-    </li>
-  <% }) %>
-</ul>
+<% if (!rows.length) { %><div class="empty">No bookings in this period yet.</div><% } else {
+  const total = rows.reduce((s, r) => s + (r.value || 0), 0);
+  const pct = (v) => total ? Math.round(v / total * 100) : 0;
+  const COLORS = ['#0088cc', '#3c8f0b', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b', '#ef4444'];
+  const cid = typeof id !== 'undefined' && id ? id : 'r-' + rows.map(r => r.label).join('').length + '-' + rows.length;
+  const R = 54, C = 2 * Math.PI * R;
+  let acc = 0;
+%>
+<div class="chart" data-chart="<%= cid %>" data-view="bars">
+  <div class="chart-top">
+    <div class="chart-sum"><b><%= format(total) %></b><span><%= rows.length %> <%= rows.length === 1 ? 'item' : 'items' %></span></div>
+    <div class="chart-tools" role="group" aria-label="Chart type">
+      <button type="button" data-view-btn="bars" aria-pressed="true" title="Bars"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 8h8M2 13h5"/></svg></button>
+      <button type="button" data-view-btn="donut" aria-pressed="false" title="Donut"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5V8l4 3.5"/></svg></button>
+      <button type="button" data-view-btn="table" aria-pressed="false" title="Table"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 8h12M2 13h12"/></svg></button>
+    </div>
+  </div>
+  <div class="chart-view" data-view-of="bars">
+    <ul class="hbars">
+      <% rows.forEach(r => { %>
+        <li>
+          <div class="hb-head"><% if (r.href) { %><a href="<%= r.href %>"><%= r.label %></a><% } else { %><span><%= r.label %></span><% } %><b><%= format(r.value) %> <small class="muted"><%= pct(r.value) %>%</small></b></div>
+          <div class="hb-track"><div class="hb-fill" style="width:<%= Math.max(2, Math.round(r.value / top * 100)) %>%"></div></div>
+          <% if (r.sub) { %><small class="muted"><%= r.sub %></small><% } %>
+        </li>
+      <% }) %>
+    </ul>
+  </div>
+  <div class="chart-view" data-view-of="donut" hidden>
+    <div class="donut-wrap">
+      <svg class="donut" viewBox="0 0 140 140" role="img" aria-label="<%= rows.map(r => `${r.label}: ${pct(r.value)}%`).join(', ') %>">
+        <circle cx="70" cy="70" r="<%= R %>" fill="none" stroke="var(--line-2)" stroke-width="18"/>
+        <% rows.forEach((r, i) => { const len = total ? r.value / total * C : 0; %>
+          <circle cx="70" cy="70" r="<%= R %>" fill="none" stroke="<%= COLORS[i % COLORS.length] %>" stroke-width="18" stroke-dasharray="<%= len.toFixed(2) %> <%= (C - len).toFixed(2) %>" stroke-dashoffset="<%= (-acc).toFixed(2) %>" transform="rotate(-90 70 70)"><title><%= r.label %>: <%= format(r.value) %> (<%= pct(r.value) %>%)</title></circle>
+        <% acc += len; }) %>
+        <text x="70" y="66" class="donut-total"><%= format(total) %></text>
+        <text x="70" y="84" class="donut-cap">total</text>
+      </svg>
+      <ul class="donut-legend">
+        <% rows.forEach((r, i) => { %><li><i style="background:<%= COLORS[i % COLORS.length] %>"></i><span><%= r.label %></span><b><%= pct(r.value) %>%</b></li><% }) %>
+      </ul>
+    </div>
+  </div>
+  <div class="chart-view" data-view-of="table" hidden>
+    <table class="table chart-table no-stack">
+      <thead><tr><th>Name</th><th class="num">Amount</th><th class="num">Share</th></tr></thead>
+      <% rows.forEach(r => { %><tr><td><% if (r.href) { %><a href="<%= r.href %>"><%= r.label %></a><% } else { %><%= r.label %><% } %><% if (r.sub) { %><br><small class="muted"><%= r.sub %></small><% } %></td><td class="num"><%= format(r.value) %></td><td class="num muted"><%= pct(r.value) %>%</td></tr><% }) %>
+    </table>
+  </div>
+</div>
 <% } %>

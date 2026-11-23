@@ -56,7 +56,7 @@
 </div>
 
 <div class="card">
-  <div class="card-head"><h3>Earnings by month</h3><span class="muted" style="font-size:13px">Hover a bar for bookings and sales</span></div>
+  <div class="card-head"><h3>Earnings by month</h3></div>
   <% if (!totals.bookings) { %><div class="empty">No bookings in this period.</div><% } else { %>
     <%- include('../partials/bar-chart', { bars, format: short }) %>
   <% } %>
@@ -65,17 +65,7 @@
 <div class="grid grid-2">
   <div class="card flush">
     <div class="card-head"><h3>Top destinations</h3><a href="/agent/bookings">All bookings</a></div>
-    <% if (!destinations.length) { %><div class="empty">Nothing booked yet.</div><% } else { %>
-      <div class="hbars" style="padding:16px 20px 20px">
-        <% destinations.forEach(d => { %>
-          <div class="hbar">
-            <div class="hbar-top"><b><%= d.destination %></b><span><%= inr(d.sales) %> <small class="muted">· <%= d.bookings %> booking<%= d.bookings === 1 ? '' : 's' %></small></span></div>
-            <div class="hbar-track"><div class="hbar-fill" style="width:<%= Math.max(2, Math.round(d.sales / maxDest * 100)) %>%"></div></div>
-            <small class="profit">+<%= inr(d.earnings) %> earned</small>
-          </div>
-        <% }) %>
-      </div>
-    <% } %>
+    <div style="padding:16px 20px 20px"><%- include('../partials/hbars', { id: 'my-destinations', rows: destinations.map(d => ({ label: d.destination, value: d.sales, sub: '+' + inr(d.earnings) + ' earned · ' + d.bookings + (d.bookings === 1 ? ' booking' : ' bookings') })), format: (n) => inr(n) }) %></div>
   </div>
   <div class="card flush">
     <div class="card-head"><h3>Top customers</h3><a href="/agent/customers">All customers</a></div>

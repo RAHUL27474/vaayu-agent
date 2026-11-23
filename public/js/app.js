@@ -395,3 +395,21 @@ if (overlayHeader) {
   window.addEventListener('scroll', sync, { passive: true });
   sync();
 }
+
+// Charts: switch between views (columns / line / bars / donut / table); each chart remembers the viewer's choice.
+document.querySelectorAll('[data-chart]').forEach((chart) => {
+  const key = `vt-chart:${location.pathname}:${chart.dataset.chart}`;
+  const show = (view) => {
+    if (!chart.querySelector(`[data-view-of="${view}"]`)) return;
+    chart.querySelectorAll('[data-view-of]').forEach((v) => { v.hidden = v.dataset.viewOf !== view; });
+    chart.querySelectorAll('[data-view-btn]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.viewBtn === view)));
+    chart.dataset.view = view;
+  };
+  try { const saved = localStorage.getItem(key); if (saved) show(saved); } catch {}
+  chart.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-view-btn]');
+    if (!b) return;
+    show(b.dataset.viewBtn);
+    try { localStorage.setItem(key, b.dataset.viewBtn); } catch {}
+  });
+});
