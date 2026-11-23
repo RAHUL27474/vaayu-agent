@@ -1,6 +1,6 @@
 <a href="/admin/agents"><%- icon('arrowLeft') %>All agents</a>
 <div class="page-head" style="margin-top:10px">
-  <div style="display:flex;gap:14px;align-items:center">
+  <div class="agent-head" style="display:flex;gap:14px;align-items:center">
     <% if (agent.logo_path) { %><img src="<%= agent.logo_path %>" alt="" style="height:44px;max-width:140px;object-fit:contain"><% } %>
     <div><h1><%= agent.name %></h1><p><span class="badge <%= agent.status %>"><%= agent.status %></span> · KYC <span class="badge <%= agent.kyc_status %>"><%= agent.kyc_status %></span> · <%= agent.city || '' %></p></div>
   </div>

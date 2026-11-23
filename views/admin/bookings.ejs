@@ -12,7 +12,7 @@
       <tr class="click" data-href="/admin/bookings/<%= b.id %>">
         <td><b><%= b.title %></b><br><small><%= b.code %> · <%= fmtDate(b.created_at) %></small></td>
         <td><%= b.agency_name %></td>
-        <td><%= b.customer_name || '—' %></td>
+        <td><%= b.customer_name || b.title.split(' — ')[1] || '—' %></td>
         <td><%= fmtDate(b.travel_date) || '—' %></td>
         <td><span class="badge <%= b.status %>"><%= b.status.replace('_', ' ') %></span></td>
         <td class="num"><%= inr(b.total_net) %></td>
