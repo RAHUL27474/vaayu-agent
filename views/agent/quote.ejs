@@ -98,9 +98,20 @@
     <% } %>
 
     <div class="card" id="share">
-      <div class="card-head"><h3>For your customer</h3></div>
-      <p class="muted" style="font-size:13px;margin:0 0 10px">Download the PDF and send it to your customer yourself, on WhatsApp or email. It carries your agency's name and logo; payment is between you and your customer.</p>
-      <a class="btn btn-primary" href="/agent/quotes/<%= quote.id %>/pdf" target="_blank"><%- icon('download') %>Quote PDF</a>
+<%
+        const cName = customer ? customer.name : (quote.title.split(' — ')[1] || '');
+        const cFirst = cName.split(/[\s&]+/).filter(Boolean)[0] || '';
+        const cDigits = customer && customer.phone ? customer.phone.replace(/\D/g, '') : '';
+        const cWa = cDigits.length === 10 ? '91' + cDigits : cDigits;
+        const waText = `Hi ${cFirst || 'there'}, here is your quote for ${quote.title.split(' — ')[0]}${quote.travel_date ? ` (${fmtDate(quote.travel_date)})` : ''}. The PDF is attached. Happy to adjust anything. – ${user.name.split(' ')[0]}, ${agency.name}`;
+      %>
+      <div class="card-head"><h3><%= cName ? `For ${cName}` : 'For your customer' %></h3></div>
+      <p class="muted" style="font-size:13px;margin:0 0 12px">Download the PDF with your logo, then send it<%= cFirst ? ` to ${cFirst}` : '' %> on WhatsApp or email. Payment is between you and your customer.</p>
+      <div class="actions" style="flex-wrap:wrap">
+        <a class="btn btn-primary" href="/agent/quotes/<%= quote.id %>/pdf" target="_blank"><%- icon('download') %>Quote PDF</a>
+        <a class="btn btn-wa" href="https://wa.me/<%= cWa %>?text=<%- encodeURIComponent(waText) %>" target="_blank" rel="noopener"><%= cFirst && cWa ? `WhatsApp ${cFirst}` : 'Write on WhatsApp' %></a>
+      </div>
+      <p class="muted" style="font-size:12px;margin:10px 0 0">The message is ready with <%= cFirst ? cFirst + "'s" : 'the' %> name and trip; attach the PDF in WhatsApp.</p>
     </div>
 
     <div class="card flush">

@@ -13,7 +13,7 @@
     <h1><%= customer.name %></h1>
     <p><%= [customer.city, `customer since ${fmtDate(customer.created_at)}`].filter(Boolean).join(' · ') %></p>
     <div class="client-actions">
-      <% if (wa) { %><a class="btn btn-sm btn-wa" href="https://wa.me/<%= wa %>?text=<%= encodeURIComponent(`Hi ${customer.name.split(/[\s&]+/)[0]}, `) %>" target="_blank" rel="noopener">WhatsApp</a><% } %>
+      <% if (wa) { %><a class="btn btn-sm btn-wa" href="https://wa.me/<%= wa %>?text=<%- encodeURIComponent(`Hi ${customer.name.split(/[\s&]+/)[0]}, `) %>" target="_blank" rel="noopener">WhatsApp</a><% } %>
       <% if (customer.phone) { %><a class="btn btn-sm" href="tel:<%= customer.phone.replace(/\s/g, '') %>">Call <%= customer.phone %></a><% } %>
       <% if (customer.email) { %><a class="btn btn-sm" href="mailto:<%= customer.email %>">Email</a><% } %>
     </div>

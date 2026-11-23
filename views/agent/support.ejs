@@ -36,7 +36,7 @@
       <span class="team-av"><%- icon('message') %></span>
       <div><h3>Hi <%= user.name.split(' ')[0] %>, we're here to help</h3><span class="open-pill <%= openNow ? 'on' : '' %>"><i></i><%= openNow ? 'Open now · replies within an hour' : 'Closed · back at 9:30 am IST' %></span></div>
     </div>
-    <% if (waNumber) { %><a class="btn btn-wa" style="width:100%;margin-bottom:14px" href="https://wa.me/<%= waNumber %>?text=<%= encodeURIComponent(`Hi VaayuTrip, this is ${user.name} from ${agency.name}.`) %>" target="_blank" rel="noopener">Chat with us on WhatsApp</a><% } %>
+    <% if (waNumber) { %><a class="btn btn-wa" style="width:100%;margin-bottom:14px" href="https://wa.me/<%= waNumber %>?text=<%- encodeURIComponent(`Hi VaayuTrip, this is ${user.name} from ${agency.name}.`) %>" target="_blank" rel="noopener">Chat with us on WhatsApp</a><% } %>
     <dl class="kv">
       <% if (settings.phone) { %><dt>Phone</dt><dd><a href="tel:<%= settings.phone.replace(/[^\d+]/g, '') %>"><%= settings.phone %></a></dd><% } %>
       <% if (settings.email) { %><dt>Email</dt><dd><a href="mailto:<%= settings.email %>"><%= settings.email %></a></dd><% } %>
