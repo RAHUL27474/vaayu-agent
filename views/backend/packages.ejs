@@ -13,7 +13,7 @@
     <tr>
       <td><a href="/backend/packages/<%= p.id %>/edit"><b><%= p.title %></b></a><br><small class="muted"><%= p.nights %>N · <%= p.destination %> · <%= plural(p.services, 'service') %></small>
         <% if (p.problems.length) { %><br><small style="color:var(--warn)"><%= p.problems.join(' ') %></small><% } %></td>
-      <td><span class="badge <%= p.status === 'published' ? 'active' : '' %>"><%= p.status === 'published' ? 'Live for agents' : 'Draft' %></span></td>
+      <td><span class="badge as-is <%= p.status === 'published' ? 'active' : '' %>"><%= p.status === 'published' ? 'Live for agents' : 'Draft' %></span></td>
       <td class="num"><%= p.price.net ? inr(p.price.net) : '—' %></td>
       <td class="num"><small><%= plural(p.quotes, 'quote') %><br><%= plural(p.copies, 'copy', 'copies') %></small></td>
       <td class="num" style="white-space:nowrap">

@@ -39,18 +39,30 @@
 <%- body %>
 <% if (typeof bare === 'undefined' || !bare) { %>
 <footer class="site-footer">
-  <div class="inner">
-    <div>
+  <div class="inner foot-grid">
+    <div class="foot-brand">
       <img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip DMC" class="footer-logo" width="189" height="64" loading="lazy">
-      <div style="margin-top:8px"><%= settings.legal_name %> · GSTIN <%= settings.gstin %></div>
-      <div><%= settings.address %></div>
+      <p>B2B travel platform for agents: net rates, ready and custom packages, and invoices under your own brand.</p>
+      <% if (waNumber) { %><a class="foot-wa" href="https://wa.me/<%= waNumber %>" target="_blank" rel="noopener">Chat on WhatsApp</a><% } %>
     </div>
     <div>
-      <div><a href="mailto:<%= settings.email %>"><%= settings.email %></a></div>
-      <div><%= settings.phone %></div>
-      <div style="margin-top:8px"><a href="/terms">Terms of use</a> · <a href="/privacy">Privacy policy</a> · <a href="/photo-credits">Photo credits</a></div>
-      <div>© <%= new Date().getFullYear() %> VaayuTrip</div>
+      <h4>Destinations</h4>
+      <a href="/#destinations">Dubai</a><a href="/#destinations">Bali</a><a href="/#destinations">Vietnam</a><a href="/#destinations">Cambodia</a><a href="/#destinations">United Kingdom</a><a href="/#destinations">Europe</a>
     </div>
+    <div>
+      <h4>Partners</h4>
+      <a href="/signup">Become a partner</a><a href="/login">Log in</a><a href="/#calc">Your margin</a><a href="/#how">How it works</a><a href="/#faq">FAQ</a>
+    </div>
+    <div>
+      <h4>Contact</h4>
+      <a href="mailto:<%= settings.email %>"><%= settings.email %></a>
+      <span><%= settings.phone %></span>
+      <span><%= settings.address %></span>
+    </div>
+  </div>
+  <div class="inner foot-bottom">
+    <span>© <%= new Date().getFullYear() %> <%= settings.legal_name %> · GSTIN <%= settings.gstin %></span>
+    <span><a href="/terms">Terms of use</a> · <a href="/privacy">Privacy policy</a> · <a href="/photo-credits">Photo credits</a></span>
   </div>
 </footer>
 <% if (waNumber) { %>

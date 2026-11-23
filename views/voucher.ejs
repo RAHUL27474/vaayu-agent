@@ -38,8 +38,9 @@
           <b><%= customer.name %></b><br>
           <%= [customer.phone, customer.email].filter(Boolean).join(' · ') %>
         <% } else { %>
-          <h4>Guests</h4>
-          <b><%= travellers || doc.meta.travellers %></b>
+          <h4>Booking reference</h4>
+          <b><%= booking.code %></b><br>
+          Show this voucher at check-in and to tour guides.
         <% } %>
       </div>
       <div>
