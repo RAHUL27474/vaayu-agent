@@ -23,7 +23,7 @@
 <div class="page-head"><div><h1>Settings</h1><p>Company details on VaayuTrip's invoices to agents, tax rates, partner tiers and VaayuTrip's margin on inventory.</p></div></div>
 <div class="card" style="max-width:720px">
   <h3>Online payments (PhonePe)</h3>
-  <p style="margin:6px 0"><span class="badge as-is <%= phonepe === 'not set up' ? 'pending' : 'approved' %>"><%= phonepe %></span></p>
+  <p style="margin:6px 0"><span class="badge as-is <%= phonepe === 'not set up' ? 'pending' : 'approved' %>"><%= phonepe.charAt(0).toUpperCase() + phonepe.slice(1) %></span></p>
   <p class="muted" style="font-size:13px;margin:0">Keys are kept in the hosting environment, not here. Webhook URL for the PhonePe dashboard: <code><%= origin %>/payments/phonepe/webhook</code></p>
 </div>
 <form class="card" method="post" action="/admin/settings" style="max-width:720px">
@@ -38,7 +38,7 @@
       <% } else if (k === 'tier_all') { %><select id="tier_all" name="tier_all"><% [['none', 'No offer'], ['silver', 'Silver prices for everyone'], ['gold', 'Gold prices for everyone']].forEach(([v, l]) => { %><option value="<%= v %>" <%= (values.tier_all || 'none') === v ? 'selected' : '' %>><%= l %></option><% }) %></select>
       <% } else if (k === 'tier_all_from' || k === 'tier_all_to') { %><input id="<%= k %>" type="date" name="<%= k %>" value="<%= values[k] || '' %>">
       <% } else if (k === 'bank_details') { %><textarea id="<%= k %>" name="<%= k %>" rows="4"><%= values[k] || '' %></textarea><% } else { %>
-      <input id="<%= k %>" name="<%= k %>" value="<%= values[k] || '' %>" <%= k === 'whatsapp' ? 'placeholder="96676 72467"' : '' %> <%= ['tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'tier_silver_pct', 'tier_gold_pct'].includes(k) ? 'type=number step=0.01 min=0' : '' %>><% } %>
+      <input id="<%= k %>" name="<%= k %>" value="<%= values[k] || '' %>" <%- k === 'whatsapp' ? 'placeholder="96676 72467"' : '' %> <%= ['tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'tier_silver_pct', 'tier_gold_pct'].includes(k) ? 'type=number step=0.01 min=0' : '' %>><% } %>
       <% if (labels[k][1]) { %><div class="hint"><%= labels[k][1] %></div><% } %>
     </div>
   <% }) %>

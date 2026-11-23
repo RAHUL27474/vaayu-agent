@@ -1,9 +1,10 @@
 <%# Ticket conversation, shared by agents (/agent/support) and admins (/admin/tickets). Locals: ticket, messages, base, back %>
 <% const isAdminView = base.startsWith('/admin'); %>
-<div class="page-head">
+<a href="<%= back %>"><%- icon('arrowLeft') %>All tickets</a>
+<div class="page-head" style="margin-top:10px">
   <div>
     <h1><%= ticket.subject %></h1>
-    <p><a class="back-link" href="<%= back %>"><%- icon('arrowLeft') %> All tickets</a> · <%= ticket.code %><% if (isAdminView) { %> · <a href="/admin/agents/<%= ticket.agency_id %>"><%= ticket.agency_name %></a><% } %>
+    <p><%= ticket.code %><% if (isAdminView) { %> · <a href="/admin/agents/<%= ticket.agency_id %>"><%= ticket.agency_name %></a><% } %>
       <% if (ticket.booking_code) { %> · Booking <a href="<%= isAdminView ? '/admin' : '/agent' %>/bookings/<%= ticket.booking_id %>"><%= ticket.booking_code %></a><% } %>
       · <span class="badge <%= ticket.status %>"><%= ticket.status %></span></p>
   </div>
