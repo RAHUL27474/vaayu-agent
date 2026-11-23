@@ -5,9 +5,6 @@
     <div><h1><%= agent.name %></h1><p><span class="badge <%= agent.status %>"><%= agent.status %></span> · KYC <span class="badge <%= agent.kyc_status %>"><%= agent.kyc_status %></span> · <%= agent.city || '' %></p></div>
   </div>
   <div class="actions">
-    <% if (agent.status !== 'active') { %>
-      <form method="post" action="/admin/agents/<%= agent.id %>/status"><input type="hidden" name="status" value="active"><input type="hidden" name="kyc_status" value="verified"><button class="btn btn-primary" <%= missing.length ? 'disabled title="KYC documents incomplete"' : '' %>>Approve as agent</button></form>
-    <% } %>
     <% if (agent.status === 'active') { %>
       <form method="post" action="/admin/agents/<%= agent.id %>/status" data-confirm="Suspend this agency? Its users will be logged out and its API key stops working."><input type="hidden" name="status" value="suspended"><button class="btn btn-danger">Suspend</button></form>
     <% } %>
@@ -52,7 +49,7 @@
 
 <div class="grid grid-4" style="margin-bottom:20px">
   <div class="stat"><div class="label">Wallet</div><div class="value"><%= inr(agent.wallet_balance) %></div></div>
-  <div class="stat"><div class="label">Credit used</div><div class="value"><%= inr(agent.credit_used) %></div><div class="sub">of <%= inr(agent.credit_limit) %></div></div>
+  <div class="stat"><div class="label">Credit used</div><div class="value"><%= inr(agent.credit_used) %></div><div class="sub"><%= agent.credit_limit > 0 ? "of " + inr(agent.credit_limit) + " limit" : "no credit line" %></div></div>
   <div class="stat"><div class="label">Bookings / net revenue</div><div class="value"><%= totals.n %></div><div class="sub"><%= inr(totals.revenue) %></div></div>
   <div class="stat"><div class="label">Agent's commission earned</div><div class="value profit"><%= inr(totals.commission) %></div><div class="sub">Default markup <%= agent.markup_type === 'flat' ? inr(agent.markup_value) : agent.markup_value + '%' %></div></div>
 </div>

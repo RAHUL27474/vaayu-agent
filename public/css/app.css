@@ -1779,3 +1779,7 @@ body.app .app-hero:not(.warn) { background: var(--brand); }
 @media (min-width: 641px) and (max-width: 1100px) { .grid.grid-4:has(> .stat) { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; } .grid.grid-4:has(> .stat) .stat { padding: 14px; } .grid.grid-4:has(> .stat) .stat .value { font-size: 19px; } }
 @media (min-width: 641px) and (max-width: 1100px) { .table th, .table td { padding-left: 10px; padding-right: 10px; } }
 .sidebar .nav a:focus-visible { outline-offset: -3px; }
+/* R43: done steps quiet (no strike-through); alerts with mixed text read as one sentence */
+.checklist li.done { text-decoration: none; color: var(--muted); }
+.alert:not(:has(> .i)) { display: block; }
+.alert:not(:has(> .i)) > b:first-child { margin-right: 4px; }

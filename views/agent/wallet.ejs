@@ -2,7 +2,7 @@
   <div class="actions"><a class="btn" href="/agent/wallet/statement"><%- icon('file') %>Account statement</a></div></div>
 <div class="grid grid-3" style="margin-bottom:20px">
   <div class="stat"><div class="label">Wallet balance</div><div class="value"><%= inr(agency.wallet_balance, { decimals: agency.wallet_balance % 1 ? 2 : 0 }) %></div><div class="sub">ready for your next booking</div></div>
-  <div class="stat"><div class="label">Credit used</div><div class="value"><%= inr(agency.credit_used, { decimals: agency.credit_used % 1 ? 2 : 0 }) %></div><div class="sub">of <%= inr(agency.credit_limit) %> limit<% if (credit.dueOn) { %> · <span class="<%= credit.overdue ? 'bad' : credit.daysLeft <= 3 ? 'warn-text' : '' %>"><%= credit.overdue ? 'overdue since' : 'due' %> <%= fmtDate(credit.dueOn) %></span><% } %></div></div>
+  <div class="stat"><div class="label">Credit used</div><div class="value"><%= inr(agency.credit_used, { decimals: agency.credit_used % 1 ? 2 : 0 }) %></div><div class="sub"><%= agency.credit_limit > 0 ? "of " + inr(agency.credit_limit) + " limit" : "no credit line yet" %><% if (credit.dueOn) { %> · <span class="<%= credit.overdue ? 'bad' : credit.daysLeft <= 3 ? 'warn-text' : '' %>"><%= credit.overdue ? 'overdue since' : 'due' %> <%= fmtDate(credit.dueOn) %></span><% } %></div></div>
   <div class="stat"><div class="label">Available to book</div><div class="value"><%= inr(agency.wallet_balance + agency.credit_limit - agency.credit_used) %></div><div class="sub">wallet + unused credit</div></div>
 </div>
 <% if (credit.dueOn) { %>
