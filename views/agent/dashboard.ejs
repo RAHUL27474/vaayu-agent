@@ -6,7 +6,7 @@
   let story;
   if (stats.bookings) story = `You've earned <b>${inr(stats.earnings)}</b> this month from ${plural(stats.bookings, 'booking')}${personal.prevEarnings > 0 ? (diff >= 0 ? `, <b class="up">${inr(diff)} more</b> than last month` : `, ${inr(-diff)} behind last month so far`) : ''}.`;
   else if (personal.life.n) story = `No bookings yet this month. Last month you earned ${inr(personal.prevEarnings)}; a quote or two today gets you going.`;
-  else story = 'Welcome aboard. Build your first package and send a quote: your customers see only your brand.';
+  else { const nextStep = checklist.find((c) => !c.done); story = nextStep ? 'Welcome aboard. ' + checklist.filter((c) => c.done).length + ' of ' + checklist.length + ' set-up steps done; next: <a href="' + nextStep.href + '">' + nextStep.label.charAt(0).toLowerCase() + nextStep.label.slice(1) + '</a>.' : 'Welcome aboard. Build your first package and send a quote: your customers see only your brand.'; }
   const since = personal.life.first ? new Date(personal.life.first.replace(' ', 'T') + 'Z').toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : null;
 %>
 <section class="hello" style="--brand-agency:<%= brand %>">

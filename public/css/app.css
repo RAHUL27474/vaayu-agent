@@ -1651,3 +1651,6 @@ a.hl-card:hover { text-decoration: none; border-color: var(--brand-100); box-sha
 .feat-ico { flex: none; display: grid; place-items: center; width: 72px; height: 52px; border-radius: 8px; background: var(--brand-50); color: var(--brand); }
 .feat-ico .i { width: 22px; height: 22px; }
 @media (max-width: 640px) { .trip-body small { white-space: normal; } .trip img { width: 54px; height: 44px; } .trip-count { min-width: 60px; } }
+.follow-up summary { white-space: nowrap; }
+form[action$="/status"] select[name=status] { min-width: 120px; }
+@media (max-width: 860px) { .table.stack td:has(> details.follow-up) { flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; } .table.stack td:has(> details.follow-up)::before { margin-right: auto; } }
