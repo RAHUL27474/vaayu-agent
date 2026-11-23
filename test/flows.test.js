@@ -235,7 +235,7 @@ const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000
   check('KYC back to pending', (await one('SELECT kyc_status FROM agencies WHERE id = ?', fa.id)).kyc_status === 'pending');
   check('admin KYC viewer works', (await c.get(`/admin/agents/${fa.id}/kyc/pan_doc/view`, admin)).status === 200);
   await act('admin approves the agency', `/admin/agents/${fa.id}/status`, admin, { status: 'active', kyc_status: 'verified' });
-  check('approved agency gets the full dashboard', (await (await c.get('/agent', fiona)).text()).includes('What are you booking today?'));
+  check('approved agency gets the full dashboard', (await (await c.get('/agent', fiona)).text()).includes('Where are your customers going next'));
   await act('admin sets a credit limit', `/admin/agents/${fa.id}/credit`, admin, { credit_limit: '50000' });
   await act('admin adjusts the wallet', `/admin/agents/${fa.id}/wallet`, admin, { amount: '10000', ref: 'ADJ1', note: 'Welcome credit' });
   const fa2 = await one('SELECT credit_limit, wallet_balance FROM agencies WHERE id = ?', fa.id);
