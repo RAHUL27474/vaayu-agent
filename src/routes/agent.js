@@ -25,6 +25,7 @@ const { withCover, coverFrom } = require('../photos');
 const { persistFile, writePersisted, restoreFile, deleteFile } = require('../files');
 const { INDIAN_STATES } = require('../invoice-view');
 const { paging, pageOf } = require('../paging');
+const { reportPeriod, sendCsv, txnLabel, normUtr, UTR_SQL } = require('../report-utils');
 const { COUNTRIES, isIndia, kycLabel, requiredFiles, withKycDocs, checkTax, checkKycFiles, missingKyc, profileGaps, removeDoc, removeUploaded } = require('../kyc');
 
 const router = express.Router();
@@ -862,6 +863,20 @@ router.get('/wallet', h(async (req, res) => {
   res.page('agent/wallet', { title: 'Wallet & credit', txns, requests, phonepeOn: phonepe.enabled(), credit: svc.creditStatus(req.agency) });
 }));
 
+// A bank-style account statement for a period, printable as a PDF.
+router.get('/wallet/statement', h(async (req, res) => {
+  const { from, to } = reportPeriod(req.query, 30);
+  const before = await one('SELECT balance_after FROM wallet_txns WHERE agency_id = ? AND sqldate(created_at) < ? ORDER BY id DESC LIMIT 1', req.agency.id, from);
+  const txns = await all('SELECT * FROM wallet_txns WHERE agency_id = ? AND sqldate(created_at) BETWEEN ? AND ? ORDER BY id', req.agency.id, from, to);
+  const opening = before ? before.balance_after : 0;
+  const credits = round2(txns.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0));
+  const debits = round2(txns.filter((t) => t.amount < 0).reduce((s, t) => s - t.amount, 0));
+  res.page('agent/statement', {
+    title: `Account statement ${from} to ${to}`, from, to, txns, opening, credits, debits, txnLabel,
+    closing: txns.length ? txns[txns.length - 1].balance_after : opening, settings: await getSettings(), back: '/agent/wallet', noindex: true,
+  }, 'doc');
+}));
+
 router.post('/wallet/repay', requireActiveAgency, h(async (req, res) => {
   const paid = await svc.repayCredit(req.agency.id, round2(num(req.body.amount, 0)) || req.agency.credit_used);
   await audit(req.user, 'credit.repaid', { entity: 'agency', id: req.agency.id, summary: `₹${paid.toLocaleString('en-IN')}`, link: '/agent/wallet' });
@@ -890,10 +905,18 @@ router.post('/wallet/topup', requireActiveAgency, h(async (req, res) => {
       throw e;
     }
   }
-  if (!str(req.body.utr)) throw new svc.AppError('Enter the UTR / reference number of your transfer.');
-  await run('INSERT INTO topup_requests (agency_id, amount, utr) VALUES (?, ?, ?)', req.agency.id, amount, str(req.body.utr) || null);
-  await notify(null, 'Wallet top-up request', `${req.agency.name} requested ₹${amount.toLocaleString('en-IN')} (UTR ${str(req.body.utr) || 'n/a'}).`, '/admin/topups');
-  await audit(req.user, 'topup.requested', { entity: 'topup', summary: `₹${amount.toLocaleString('en-IN')} (UTR ${str(req.body.utr) || 'n/a'})`, link: '/admin/topups' });
+  const utr = normUtr(req.body.utr);
+  if (!utr) throw new svc.AppError('Enter the UTR / reference number of your transfer.');
+  if (utr.length < 6 || utr.length > 30) throw new svc.AppError('That UTR doesn\'t look right. It is usually 12 to 22 letters and digits, as shown in your bank app.');
+  // One transfer can be credited only once, whoever submits it.
+  const seen = await one(`SELECT agency_id, status FROM topup_requests WHERE method = 'bank' AND status IN ('pending', 'approved') AND ${UTR_SQL} = ?`, utr);
+  if (seen) {
+    if (seen.agency_id !== req.agency.id) await notify(null, 'Repeated UTR', `${req.agency.name} tried UTR ${utr}, which is already on another agent's top-up. Check before approving anything with it.`, '/admin/topups');
+    throw new svc.AppError(seen.status === 'approved' ? `UTR ${utr} has already been credited to a wallet. Each transfer can be used once.` : `A top-up with UTR ${utr} is already waiting for verification.`);
+  }
+  await run('INSERT INTO topup_requests (agency_id, amount, utr) VALUES (?, ?, ?)', req.agency.id, amount, utr);
+  await notify(null, 'Wallet top-up request', `${req.agency.name} requested ₹${amount.toLocaleString('en-IN')} (UTR ${utr}).`, '/admin/topups');
+  await audit(req.user, 'topup.requested', { entity: 'topup', summary: `₹${amount.toLocaleString('en-IN')} (UTR ${utr})`, link: '/admin/topups' });
   req.flash('success', 'Top-up request sent. Your wallet is credited once VaayuTrip verifies the payment.');
   res.redirect('/agent/wallet');
 }));
@@ -1083,28 +1106,6 @@ router.post('/support/:id/reply', h(async (req, res, next) => {
 }));
 
 // ---------- reports ----------
-
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-// Period from ?from=&to= (YYYY-MM-DD, inclusive); defaults to the last 6 months.
-function reportPeriod(q) {
-  const today = new Date().toISOString().slice(0, 10);
-  const sixMonths = new Date(Date.now() - 182 * 864e5).toISOString().slice(0, 10);
-  const from = ISO_DATE.test(q.from) ? q.from : sixMonths;
-  const to = ISO_DATE.test(q.to) ? q.to : today;
-  return from <= to ? { from, to } : { from: to, to: from };
-}
-
-// Quotes a CSV cell; text starting with = + - @ is prefixed so spreadsheets don't run it as a formula.
-const csvCell = (v) => {
-  if (v === null || v === undefined) return '';
-  if (typeof v === 'number') return String(v);
-  const s = /^[=+\-@\t\r]/.test(String(v)) ? `'${v}` : String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
-function sendCsv(res, filename, header, rows) {
-  res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${filename}"` });
-  res.send(`﻿${[header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n')}\r\n`);
-}
 
 router.get('/reports', h(async (req, res) => {
   const a = req.agency.id;

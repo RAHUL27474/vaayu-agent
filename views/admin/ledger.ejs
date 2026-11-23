@@ -1,0 +1,65 @@
+<%# Every agent's wallet movements. Locals: from, to, agencyId, type, txns, total, byType, money, pendingBank, mismatches, agencies, txnLabel, TXN_LABELS %>
+<%
+  const qs = new URLSearchParams({ from, to, ...(agencyId ? { agency: agencyId } : {}), ...(type ? { type } : {}) }).toString();
+  const sum = (k) => byType[k] ? byType[k].total : 0;
+  const cnt = (k) => byType[k] ? byType[k].n : 0;
+  const today = new Date(); const iso = (d) => d.toISOString().slice(0, 10);
+  const fyStart = new Date(Date.UTC(today.getUTCMonth() >= 3 ? today.getUTCFullYear() : today.getUTCFullYear() - 1, 3, 1));
+%>
+<div class="page-head">
+  <div><h1>Wallet ledger</h1><p>Every rupee that moved in agents' wallets. Use it to match your bank account with what VaayuTrip owes agents.</p></div>
+  <div class="actions"><a class="btn" href="/admin/ledger.csv?<%= qs %>"><%- icon('download') %>Download CSV</a></div>
+</div>
+
+<% if (mismatches.length) { %>
+  <div class="alert error"><b>Ledger mismatch.</b> These wallets don't equal the sum of their entries, so money moved without a record. Check the activity log before approving anything for them:
+    <% mismatches.forEach((m, i) => { %><%= i ? ', ' : ' ' %><a href="/admin/agents/<%= m.id %>"><%= m.name %></a> (wallet <%= inr(m.wallet_balance, { decimals: 2 }) %>, entries <%= inr(m.ledger, { decimals: 2 }) %>)<% }) %>.</div>
+<% } else { %>
+  <div class="alert success"><%- icon('checkCircle') %> All wallets match their ledger entries.</div>
+<% } %>
+
+<div class="grid grid-4" style="margin-bottom:20px">
+  <div class="stat"><div class="label">Held for agents now</div><div class="value"><%= inr(money.held) %></div><div class="sub">Agents' money in your bank. Not your revenue.</div></div>
+  <div class="stat"><div class="label">Credit given out</div><div class="value"><%= inr(money.credit) %></div><div class="sub">Agents owe you this</div></div>
+  <div class="stat"><div class="label">Bank top-ups to verify</div><div class="value"><%= inr(pendingBank.total) %></div><div class="sub"><a href="/admin/topups"><%= plural(pendingBank.n, 'request') %> →</a></div></div>
+  <div class="stat"><div class="label">Entries in this view</div><div class="value"><%= total %></div><div class="sub"><%= fmtDate(from) %> – <%= fmtDate(to) %></div></div>
+</div>
+
+<form class="card filter-bar" method="get" action="/admin/ledger">
+  <div class="field"><label for="l-agency">Agent</label>
+    <select id="l-agency" name="agency"><option value="">All agents</option><% agencies.forEach(a => { %><option value="<%= a.id %>" <%= agencyId === a.id ? 'selected' : '' %>><%= a.name %></option><% }) %></select></div>
+  <div class="field"><label for="l-type">Type</label>
+    <select id="l-type" name="type"><option value="">All types</option><% Object.entries(TXN_LABELS).forEach(([k, v]) => { %><option value="<%= k %>" <%= type === k ? 'selected' : '' %>><%= v %></option><% }) %></select></div>
+  <div class="field"><label for="l-from">From</label><input id="l-from" type="date" name="from" value="<%= from %>"></div>
+  <div class="field"><label for="l-to">To</label><input id="l-to" type="date" name="to" value="<%= to %>"></div>
+  <button class="btn btn-primary">Apply</button>
+  <div class="chips">
+    <a class="chip" href="/admin/ledger?from=<%= iso(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))) %>&to=<%= iso(today) %>">This month</a>
+    <a class="chip" href="/admin/ledger?from=<%= iso(new Date(Date.now() - 89 * 864e5)) %>&to=<%= iso(today) %>">Last 90 days</a>
+    <a class="chip" href="/admin/ledger?from=<%= iso(fyStart) %>&to=<%= iso(today) %>">This financial year</a>
+  </div>
+</form>
+
+<div class="grid grid-4" style="margin-bottom:20px">
+  <% ['topup', 'booking', 'refund', 'adjustment'].forEach(k => { %>
+    <div class="stat"><div class="label"><%= TXN_LABELS[k] %>s</div><div class="value <%= sum(k) < 0 ? 'neg' : '' %>"><%= inr(Math.abs(sum(k))) %></div><div class="sub"><%= plural(cnt(k), 'entry', 'entries') %><%= k === 'adjustment' && sum(k) < 0 ? ' · net deduction' : '' %></div></div>
+  <% }) %>
+</div>
+
+<div class="card flush">
+  <% if (!txns.length) { %><div class="empty"><span class="big"><%- icon('wallet') %></span><b>No wallet entries</b><p>Nothing matches these filters.</p></div><% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Date</th><th>Agent</th><th>Details</th><th class="num">Amount</th><th class="num">Balance after</th></tr></thead>
+    <% txns.forEach(t => { %>
+      <tr>
+        <td style="white-space:nowrap"><%= fmtDate(t.created_at) %></td>
+        <td><a href="/admin/agents/<%= t.agency_id %>"><%= t.agency_name %></a></td>
+        <td><span class="badge"><%= txnLabel(t.type) %></span> <%= t.note || '' %><% if (t.ref) { %><br><small class="muted"><%= t.ref %></small><% } %></td>
+        <td class="num <%= t.amount < 0 ? 'neg' : 'pos' %>"><b><%= t.amount < 0 ? '−' : '+' %> <%= inr(Math.abs(t.amount), { decimals: 2 }) %></b></td>
+        <td class="num"><%= inr(t.balance_after, { decimals: 2 }) %></td>
+      </tr>
+    <% }) %>
+  </table></div>
+  <% if (total > txns.length) { %><p class="muted" style="padding:12px 18px;margin:0;font-size:13px">Showing the latest <%= txns.length %> of <%= total %>. Download the CSV for all of them.</p><% } %>
+  <% } %>
+</div>

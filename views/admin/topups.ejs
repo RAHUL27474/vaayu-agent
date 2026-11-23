@@ -1,19 +1,23 @@
-<div class="page-head"><div><h1>Wallet top-up requests</h1><p>Bank transfers: verify the UTR in your bank statement, then approve to credit the agent's wallet. PhonePe top-ups are credited automatically.</p></div></div>
+<%# Wallet top-up requests. Locals: requests (with dupOf), pendingTotal, pendingCount %>
+<div class="page-head"><div><h1>Wallet top-up requests</h1><p>Bank transfers: find the UTR <b>and the same amount</b> in your bank statement, then approve to credit the agent's wallet. PhonePe top-ups are credited automatically.</p></div>
+  <div class="actions"><a class="btn" href="/admin/ledger"><%- icon('wallet') %>Wallet ledger</a></div></div>
+<% if (pendingCount) { %><div class="alert warn"><b><%= plural(pendingCount, 'request') %></b> waiting, <b><%= inr(pendingTotal) %></b> in all. Approve only what you can see in the bank.</div><% } %>
 <div class="card flush">
   <% if (!requests.length) { %><div class="empty"><span class="big"><%- icon('topup') %></span><b>No top-up requests</b><p>Agents' wallet top-up requests appear here for you to verify.</p></div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Agent</th><th>UTR</th><th>Requested</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead>
     <% requests.forEach(r => { %>
-      <tr>
+      <tr class="<%= r.dupOf.length && r.status === 'pending' ? 'row-alert' : '' %>">
         <td><a href="/admin/agents/<%= r.agency_id %>"><b><%= r.agency_name %></b></a><br><small>Wallet <%= inr(r.wallet_balance) %></small></td>
-        <td><code><%= r.utr || '—' %></code></td>
+        <td><code><%= r.utr || '—' %></code>
+          <% if (r.dupOf.length) { %><br><span class="badge rejected" title="The same UTR is on: <%= r.dupOf.join(', ') %>">Same UTR as <%= r.dupOf.join(', ') %></span><% } %></td>
         <td><%= fmtDate(r.created_at) %></td>
         <td class="num"><b><%= inr(r.amount) %></b></td>
         <td><span class="badge <%= r.status %>"><%= r.status %></span></td>
         <td class="num">
           <% if (r.method === 'phonepe') { %><small class="muted">PhonePe<%= r.status === 'pending' ? ' · confirming' : '' %></small>
           <% } else if (r.status === 'pending') { %>
-            <form method="post" action="/admin/topups/<%= r.id %>/approve" class="inline"><button class="btn btn-sm btn-primary">Approve</button></form>
+            <form method="post" action="/admin/topups/<%= r.id %>/approve" class="inline" data-confirm="Credit <%= inr(r.amount) %> to <%= r.agency_name %>? Approve only if UTR <%= r.utr %> for exactly this amount is in your bank statement."><button class="btn btn-sm btn-primary">Approve</button></form>
             <form method="post" action="/admin/topups/<%= r.id %>/reject" class="inline" data-confirm="Reject this top-up request? The agent's wallet won't be credited."><button class="btn btn-sm btn-danger">Reject</button></form>
           <% } %>
         </td>

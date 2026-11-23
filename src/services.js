@@ -267,6 +267,9 @@ async function approveTopup(requestId) {
   return await tx(async () => {
     const r = await one("SELECT * FROM topup_requests WHERE id = ? AND status = 'pending' AND method = 'bank' FOR UPDATE", requestId);
     if (!r) throw new AppError('Request not found');
+    const { UTR_SQL, normUtr } = require('./report-utils');
+    const dup = r.utr && await one(`SELECT id FROM topup_requests WHERE id != ? AND method = 'bank' AND status = 'approved' AND ${UTR_SQL} = ?`, r.id, normUtr(r.utr));
+    if (dup) throw new AppError(`UTR ${r.utr} was already credited (request #${dup.id}). Reject this one.`);
     await moveWallet(r.agency_id, 'topup', r.amount, r.utr, 'Wallet top-up');
     await run("UPDATE topup_requests SET status = 'approved' WHERE id = ?", requestId);
     await notify(r.agency_id, 'Wallet topped up', `₹${r.amount.toLocaleString('en-IN')} added to your wallet.`, '/agent/wallet');

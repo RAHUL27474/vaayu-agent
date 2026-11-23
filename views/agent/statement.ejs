@@ -1,0 +1,78 @@
+<%# Wallet account statement for a period, printable. Locals: from, to, txns, opening, closing, credits, debits, settings, txnLabel %>
+<%
+  const money = (n) => inr(n, { decimals: 2 });
+  const vt = settings.legal_name || settings.company_name || 'VaayuTrip';
+%>
+<div class="doc-wrap">
+  <div class="doc-toolbar no-print">
+    <a class="btn" href="<%= back %>"><%- icon('arrowLeft') %>Back</a>
+    <form method="get" action="/agent/wallet/statement" class="statement-range">
+      <label class="sr-only" for="s-from">From</label><input id="s-from" type="date" name="from" value="<%= from %>">
+      <span class="muted">to</span>
+      <label class="sr-only" for="s-to">To</label><input id="s-to" type="date" name="to" value="<%= to %>">
+      <button class="btn">Show</button>
+    </form>
+    <button class="btn btn-primary" onclick="window.print()"><%- icon('download') %>Download PDF</button>
+  </div>
+  <article class="doc statement" style="--doc-color: #0077c0">
+    <header class="doc-head">
+      <div>
+        <img src="/img/vaayutrip-logo.png" alt="VaayuTrip">
+        <div style="margin-top:8px;font-size:12.5px" class="muted">
+          <b style="color:var(--ink)"><%= vt %></b><% if (settings.gstin) { %> · GSTIN <%= settings.gstin %><% } %>
+          <% if (settings.address) { %><br><%= settings.address %><% } %>
+          <% const contact = [settings.phone, settings.email].filter(Boolean).join(' · '); if (contact) { %><br><%= contact %><% } %>
+        </div>
+      </div>
+      <div class="title">
+        <h1>ACCOUNT STATEMENT</h1>
+        <div><b><%= fmtDate(from) %> – <%= fmtDate(to) %></b></div>
+        <div class="muted">Generated <%= fmtDate(new Date().toISOString().slice(0, 10)) %></div>
+      </div>
+    </header>
+
+    <div class="statement-party">
+      <div>
+        <div class="muted">Account holder</div>
+        <b><%= agency.legal_name || agency.name %></b>
+        <% if (agency.legal_name && agency.legal_name !== agency.name) { %><div><%= agency.name %></div><% } %>
+        <div class="muted"><%= [agency.address, agency.city].filter(Boolean).join(', ') %></div>
+        <% if (agency.gstin) { %><div>GSTIN <%= agency.gstin %></div><% } else if (agency.pan) { %><div>PAN <%= agency.pan %></div><% } %>
+      </div>
+      <div>
+        <div class="muted">Partner ID</div><b>VT-A<%= String(agency.id).padStart(5, '0') %></b>
+        <div class="muted" style="margin-top:6px">Credit limit</div><b><%= inr(agency.credit_limit) %></b>
+      </div>
+    </div>
+
+    <div class="statement-sum">
+      <div><span>Opening balance</span><b><%= money(opening) %></b></div>
+      <div><span>Money in</span><b class="pos">+ <%= money(credits) %></b></div>
+      <div><span>Money out</span><b class="neg">− <%= money(debits) %></b></div>
+      <div><span>Closing balance</span><b><%= money(closing) %></b></div>
+    </div>
+
+    <table class="lines">
+      <thead><tr><th>Date</th><th>Details</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
+      <tbody>
+        <tr class="muted"><td><%= fmtDate(from) %></td><td>Opening balance</td><td></td><td></td><td class="num"><%= money(opening) %></td></tr>
+        <% txns.forEach(t => { %>
+          <tr>
+            <td style="white-space:nowrap"><%= fmtDate(t.created_at) %></td>
+            <td><b><%= txnLabel(t.type) %></b><%= t.note ? ` · ${t.note}` : '' %><% if (t.ref) { %><br><small class="muted">Ref <%= t.ref %></small><% } %></td>
+            <td class="num"><%= t.amount < 0 ? money(-t.amount) : '' %></td>
+            <td class="num"><%= t.amount > 0 ? money(t.amount) : '' %></td>
+            <td class="num"><%= money(t.balance_after) %></td>
+          </tr>
+        <% }) %>
+        <% if (!txns.length) { %><tr><td colspan="5" class="muted" style="text-align:center;padding:18px">No transactions in this period.</td></tr><% } %>
+        <tr class="statement-close"><td><%= fmtDate(to) %></td><td><b>Closing balance</b></td><td class="num"><%= money(debits) %></td><td class="num"><%= money(credits) %></td><td class="num"><b><%= money(closing) %></b></td></tr>
+      </tbody>
+    </table>
+
+    <p class="muted" style="font-size:11.5px;margin-top:22px">
+      This statement lists money held in your VaayuTrip partner wallet. The wallet can be used only for bookings on VaayuTrip. Bookings paid from your credit line are not shown here; see Wallet &amp; credit.
+      If anything looks wrong, write to <%= settings.email || 'VaayuTrip support' %> within 15 days of the statement date. This is a computer-generated statement and needs no signature.
+    </p>
+  </article>
+</div>

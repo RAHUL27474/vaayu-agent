@@ -14,6 +14,7 @@ const { KINDS, marginPct, repriceProducts, destinationOf, TIERS } = require('../
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 const { restoreFile } = require('../files');
 const { paging, pageOf } = require('../paging');
+const { reportPeriod, sendCsv, txnLabel, TXN_LABELS, normUtr } = require('../report-utils');
 
 const router = express.Router();
 router.param('id', idParam);
@@ -452,8 +453,16 @@ router.post('/bookings/:id/reject-cancel', h(async (req, res) => {
 
 router.get('/topups', h(async (req, res) => {
   await payments.settlePending().catch(() => 0);
-  const requests = await all('SELECT t.*, a.name AS agency_name, a.wallet_balance FROM topup_requests t JOIN agencies a ON a.id = t.agency_id ORDER BY t.status = \'pending\' DESC, t.id DESC');
-  res.page('admin/topups', { title: 'Top-up requests', requests });
+  const rows = await all('SELECT t.*, a.name AS agency_name, a.wallet_balance FROM topup_requests t JOIN agencies a ON a.id = t.agency_id ORDER BY t.status = \'pending\' DESC, t.id DESC');
+  // The same bank transfer (UTR) on more than one live request: flag it so it isn't credited twice.
+  const byUtr = {};
+  for (const r of rows) if (r.method === 'bank' && r.utr && r.status !== 'rejected') (byUtr[normUtr(r.utr)] ||= []).push(r);
+  const requests = rows.map((r) => {
+    const same = r.utr && r.status !== 'rejected' ? (byUtr[normUtr(r.utr)] || []).filter((o) => o.id !== r.id) : [];
+    return { ...r, dupOf: same.map((o) => `#${o.id} ${o.agency_name} (${o.status})`) };
+  });
+  const pending = requests.filter((r) => r.status === 'pending');
+  res.page('admin/topups', { title: 'Top-up requests', requests, pendingTotal: round2(pending.reduce((s, r) => s + r.amount, 0)), pendingCount: pending.length });
 }));
 
 router.post('/topups/:id/approve', h(async (req, res) => {
@@ -462,6 +471,44 @@ router.post('/topups/:id/approve', h(async (req, res) => {
   await audit(req.user, 'topup.approved', { entity: 'topup', id: num(req.params.id), agencyId: t.agency_id, link: '/admin/topups', summary: `₹${t.amount.toLocaleString('en-IN')} (UTR ${t.utr})` });
   req.flash('success', 'Top-up approved and wallet credited.');
   res.redirect('/admin/topups');
+}));
+
+// ---------- wallet ledger: every agent's money movements, and a check that it adds up ----------
+
+async function ledgerQuery(q) {
+  const { from, to } = reportPeriod(q, 30);
+  const agencyId = num(q.agency, 0) || null;
+  const type = TXN_LABELS[q.type] ? q.type : '';
+  const where = ['sqldate(t.created_at) BETWEEN ? AND ?'];
+  const args = [from, to];
+  if (agencyId) { where.push('t.agency_id = ?'); args.push(agencyId); }
+  if (type) { where.push('t.type = ?'); args.push(type); }
+  return { from, to, agencyId, type, where: where.join(' AND '), args };
+}
+
+router.get('/ledger', h(async (req, res) => {
+  const f = await ledgerQuery(req.query);
+  const txns = await all(`SELECT t.*, a.name AS agency_name FROM wallet_txns t JOIN agencies a ON a.id = t.agency_id WHERE ${f.where} ORDER BY t.id DESC LIMIT 500`, ...f.args);
+  const byType = await all(`SELECT t.type, COUNT(*) AS n, COALESCE(SUM(t.amount), 0) AS total FROM wallet_txns t WHERE ${f.where} GROUP BY t.type`, ...f.args);
+  const count = await one(`SELECT COUNT(*) AS n FROM wallet_txns t WHERE ${f.where}`, ...f.args);
+  const money = await one(`SELECT COALESCE(SUM(wallet_balance), 0) AS wallets, COALESCE(SUM(credit_used), 0) AS credit,
+      COALESCE(SUM(CASE WHEN wallet_balance > 0 THEN wallet_balance ELSE 0 END), 0) AS held FROM agencies`);
+  const pendingBank = await one("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM topup_requests WHERE status = 'pending' AND method = 'bank'");
+  // Each wallet's balance must equal the sum of its ledger entries; anything else means money moved without a record.
+  const mismatches = await all(`SELECT a.id, a.name, a.wallet_balance, COALESCE(SUM(t.amount), 0) AS ledger
+    FROM agencies a LEFT JOIN wallet_txns t ON t.agency_id = a.id GROUP BY a.id, a.name, a.wallet_balance
+    HAVING ABS(a.wallet_balance - COALESCE(SUM(t.amount), 0)) >= 0.01 ORDER BY a.name`);
+  res.page('admin/ledger', {
+    title: 'Wallet ledger', ...f, txns, total: count.n, byType: Object.fromEntries(byType.map((r) => [r.type, r])), money, pendingBank, mismatches,
+    agencies: await all('SELECT id, name FROM agencies ORDER BY name'), txnLabel, TXN_LABELS,
+  });
+}));
+
+router.get('/ledger.csv', h(async (req, res) => {
+  const f = await ledgerQuery(req.query);
+  const rows = await all(`SELECT t.*, a.name AS agency_name FROM wallet_txns t JOIN agencies a ON a.id = t.agency_id WHERE ${f.where} ORDER BY t.id`, ...f.args);
+  sendCsv(res, `vaayutrip-wallet-ledger_${f.from}_to_${f.to}.csv`, ['Date', 'Agent', 'Type', 'Amount', 'Balance after', 'Reference', 'Note'],
+    rows.map((t) => [t.created_at.slice(0, 10), t.agency_name, txnLabel(t.type), t.amount, t.balance_after, t.ref, t.note]));
 }));
 
 router.post('/topups/:id/reject', h(async (req, res) => {

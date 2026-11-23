@@ -1,4 +1,5 @@
-<div class="page-head"><div><h1>Wallet &amp; credit</h1><p>Bookings are paid from your wallet first, then your credit line.</p></div></div>
+<div class="page-head"><div><h1>Wallet &amp; credit</h1><p>Bookings are paid from your wallet first, then your credit line.</p></div>
+  <div class="actions"><a class="btn" href="/agent/wallet/statement"><%- icon('file') %>Account statement</a></div></div>
 <div class="grid grid-3" style="margin-bottom:20px">
   <div class="stat"><div class="label">Wallet balance</div><div class="value"><%= inr(agency.wallet_balance, { decimals: 2 }) %></div></div>
   <div class="stat"><div class="label">Credit used</div><div class="value"><%= inr(agency.credit_used, { decimals: 2 }) %></div><div class="sub">of <%= inr(agency.credit_limit) %> limit<% if (credit.dueOn) { %> · <span class="<%= credit.overdue ? 'bad' : credit.daysLeft <= 3 ? 'warn-text' : '' %>"><%= credit.overdue ? 'overdue since' : 'due' %> <%= fmtDate(credit.dueOn) %></span><% } %></div></div>
@@ -19,7 +20,7 @@
 <% } %>
 <div class="split">
   <div class="card flush">
-    <div class="card-head"><h3>Transactions</h3></div>
+    <div class="card-head"><h3>Transactions</h3><a class="btn btn-sm" href="/agent/wallet/statement">Statement (PDF)</a></div>
     <% if (!txns.length) { %><div class="empty">No transactions yet.</div><% } else { %>
     <div class="table-wrap"><table class="table" style="margin-top:10px">
       <thead><tr><th>Date</th><th>Details</th><th class="num">Amount</th><th class="num">Balance</th></tr></thead>
@@ -46,7 +47,7 @@
       <% if (settings.bank_details) { %><div class="alert info" style="font-size:13px;white-space:pre-line">A/c: <b><%= settings.legal_name %></b>
 <%= settings.bank_details %></div><% } else { %><div class="alert warn" style="font-size:13px">Ask VaayuTrip support for our bank details before transferring.</div><% } %>
       <div class="field"><label for="amount">Amount (₹)</label><input id="amount" type="number" min="100" name="amount" required></div>
-      <div class="field"><label for="utr">UTR / reference no.</label><input id="utr" name="utr" required></div>
+      <div class="field"><label for="utr">UTR / reference no.</label><input id="utr" name="utr" required minlength="6" maxlength="40" autocomplete="off" spellcheck="false" placeholder="e.g. 412345678901"><small class="muted">From your bank app. Each transfer can be credited once.</small></div>
       <button class="btn btn-primary" <%= agency.status !== 'active' ? 'disabled' : '' %>>Submit top-up</button>
     </form>
     <form class="card" method="post" action="/agent/wallet/alert">

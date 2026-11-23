@@ -1135,3 +1135,28 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 .tier-row input { width: 18px; height: 18px; flex: none; }
 .tier-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .tier-who small { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Money: amounts, ledger, statement */
+.pos { color: var(--ok); }
+.neg { color: var(--bad); }
+.stat .value.neg { color: var(--bad); }
+.row-alert td { background: var(--bad-50); }
+.statement-range { display: flex; align-items: center; gap: 6px; margin-right: auto; margin-left: 8px; }
+.statement-range input { width: auto; padding: 7px 10px; }
+.statement-party { display: flex; justify-content: space-between; gap: 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; margin: 18px 0; font-size: 13.5px; line-height: 1.55; }
+.statement-party > div:last-child { text-align: right; }
+.statement-sum { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 18px; overflow: hidden; }
+.statement-sum > div { padding: 12px 14px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+.statement-sum > div:last-child { border-right: 0; background: var(--brand-50); }
+.statement-sum span { font-size: 12px; color: var(--muted); }
+.statement-sum b { font-size: 16px; }
+.statement .lines td, .statement .lines th { font-size: 13px; }
+.statement-close td { border-top: 2px solid var(--ink); }
+@media (max-width: 640px) {
+  .statement-sum { grid-template-columns: 1fr 1fr; }
+  .statement-sum > div:nth-child(2) { border-right: 0; }
+  .statement-party { flex-direction: column; }
+  .statement-party > div:last-child { text-align: left; }
+  .statement-range { margin: 0; width: 100%; }
+}
+@media print { .statement-sum > div:last-child { background: none; } }

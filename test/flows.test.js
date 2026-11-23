@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { start, finish, check, cookieOf, db, ROLES } = require('./helpers');
 
+const run = (sql, ...p) => db.prepare(sql).run(...p);
 const one = (sql, ...p) => db.prepare(sql).get(...p);
 // The last number in the redirect path: /agent/quotes/12, /agent/packages/7/edit …
 const idFrom = (r) => Number(((r.headers.get('location') || '').split('?')[0].match(/\/(\d+)(?!.*\/\d)/) || [])[1]);
@@ -166,6 +167,31 @@ const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010802000
   const tu2 = await one("SELECT * FROM topup_requests WHERE utr = 'UTRFLOW999'");
   await act('admin rejects it', `/admin/topups/${tu2.id}/reject`, admin, {});
   check('rejected top-up not credited', (await one('SELECT status FROM topup_requests WHERE id = ?', tu2.id)).status === 'rejected');
+  // The same transfer can't be credited twice, however the UTR is typed.
+  const nReq = async () => (await one('SELECT COUNT(*) AS n FROM topup_requests WHERE agency_id = ?', ag.id)).n;
+  const n0 = await nReq();
+  await c.post('/agent/wallet/topup', agent, { amount: '25000', utr: 'utr flow-123' });
+  check('an already credited UTR is refused', await nReq() === n0);
+  await c.post('/agent/wallet/topup', agent, { amount: '500', utr: 'UTRDUP777' });
+  await c.post('/agent/wallet/topup', agent, { amount: '500', utr: 'utrdup 777' });
+  check('a UTR already waiting is refused', await nReq() === n0 + 1);
+  await c.post('/agent/wallet/topup', agent, { amount: '500', utr: '12' });
+  check('a too-short UTR is refused', await nReq() === n0 + 1);
+  // Even a duplicate that slipped in (e.g. older data) can't be approved twice.
+  await run("INSERT INTO topup_requests (agency_id, amount, utr) VALUES (?, 25000, 'UTRFLOW123')", ag.id);
+  const dupReq = await one("SELECT id FROM topup_requests WHERE utr = 'UTRFLOW123' AND status = 'pending'");
+  const wb2 = (await one('SELECT wallet_balance FROM agencies WHERE id = ?', ag.id)).wallet_balance;
+  await c.post(`/admin/topups/${dupReq.id}/approve`, admin, {});
+  check('admin cannot credit the same UTR twice', (await one('SELECT wallet_balance FROM agencies WHERE id = ?', ag.id)).wallet_balance === wb2);
+  check('top-ups page flags the repeated UTR', (await (await c.get('/admin/topups', admin)).text()).includes('Same UTR as'));
+  const stmt = await c.get('/agent/wallet/statement?from=2020-01-01', agent);
+  const stmtText = await stmt.text();
+  check('agent account statement opens', stmt.status === 200 && stmtText.includes('ACCOUNT STATEMENT') && stmtText.includes('UTRFLOW123'));
+  const ledger = await (await c.get('/admin/ledger?from=2020-01-01', admin)).text();
+  check('admin wallet ledger shows every agent and matches balances', ledger.includes('All wallets match') && ledger.includes('UTRFLOW123'));
+  const ledgerCsv = await c.get(`/admin/ledger.csv?from=2020-01-01&agency=${ag.id}`, admin);
+  check('admin ledger CSV downloads', ledgerCsv.status === 200 && (await ledgerCsv.text()).includes('UTRFLOW123'));
+  check('agents cannot open the admin ledger', (await c.get('/admin/ledger', agent)).status !== 200);
   for (const csv of ['/agent/reports/bookings.csv', '/agent/reports/ledger.csv']) {
     const res = await c.get(csv, agent);
     check(`${csv} downloads`, res.status === 200 && (res.headers.get('content-type') || '').includes('csv') && (await res.text()).split('\n').length > 1);
