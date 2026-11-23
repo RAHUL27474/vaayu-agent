@@ -52,7 +52,7 @@
       <div><span>Closing balance</span><b><%= money(closing) %></b></div>
     </div>
 
-    <table class="lines">
+    <table class="lines lines-scroll">
       <thead><tr><th>Date</th><th>Details</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
       <tbody>
         <tr class="muted"><td><%= fmtDate(from) %></td><td>Opening balance</td><td></td><td></td><td class="num"><%= money(opening) %></td></tr>

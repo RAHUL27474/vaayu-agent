@@ -1533,3 +1533,13 @@ td code { white-space: nowrap; }
   .hx .inner { padding-top: 110px; padding-bottom: 110px; }
   .hx h1 { font-size: 56px; }
 }
+.row { row-gap: 0; }
+@media (max-width: 860px) { .doc-drop small { flex: 0 1 auto; min-width: 0; text-align: right; overflow-wrap: anywhere; } .photo-drop .d-ico { width: 44px; height: 44px; } }
+@media (max-width: 640px) {
+  .statement-range { flex: 1 1 100%; display: grid !important; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: center; }
+  .statement-range input { min-width: 0; width: 100%; }
+  .statement-range .btn { grid-column: 1 / -1; }
+}
+.pv-tr > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-card { min-width: 0; overflow: hidden; }
+@media (max-width: 640px) { table.lines-scroll { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; } }
