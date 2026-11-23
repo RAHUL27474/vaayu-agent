@@ -1,5 +1,29 @@
 <a href="/agent/customers"><%- icon('arrowLeft') %>All customers</a>
-<div class="page-head" style="margin-top:10px"><div><h1><%= customer.name %></h1><p><%= [customer.phone, customer.email, customer.city].filter(Boolean).join(' · ') %></p></div></div>
+<%
+  const live = bookings.filter((b) => b.status !== 'cancelled');
+  const spent = live.reduce((t, b) => t + (b.total_sell || 0), 0);
+  const days = nextTrip ? Math.round((Date.parse(nextTrip + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 864e5) : null;
+  const phoneDigits = (customer.phone || '').replace(/\D/g, '');
+  const wa = phoneDigits.length === 10 ? '91' + phoneDigits : phoneDigits;
+  const initials = customer.name.split(/[\s&]+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+%>
+<section class="client">
+  <span class="client-av"><%= initials %></span>
+  <div class="client-id">
+    <h1><%= customer.name %></h1>
+    <p><%= [customer.city, `customer since ${fmtDate(customer.created_at)}`].filter(Boolean).join(' · ') %></p>
+    <div class="client-actions">
+      <% if (wa) { %><a class="btn btn-sm btn-wa" href="https://wa.me/<%= wa %>?text=<%= encodeURIComponent(`Hi ${customer.name.split(/[\s&]+/)[0]}, `) %>" target="_blank" rel="noopener">WhatsApp</a><% } %>
+      <% if (customer.phone) { %><a class="btn btn-sm" href="tel:<%= customer.phone.replace(/\s/g, '') %>">Call <%= customer.phone %></a><% } %>
+      <% if (customer.email) { %><a class="btn btn-sm" href="mailto:<%= customer.email %>">Email</a><% } %>
+    </div>
+  </div>
+  <div class="client-facts">
+    <div><b><%= live.length %></b><span><%= live.length === 1 ? 'trip' : 'trips' %> booked</span></div>
+    <div><b><%= inr(spent) %></b><span>spent with you</span></div>
+    <div class="<%= days !== null && days <= 7 ? 'soon' : '' %>"><b><%= days === null ? '—' : days === 0 ? 'Today' : days %></b><span><%= days === null ? 'no trip booked' : days === 0 ? 'travelling' : days === 1 ? 'day to next trip' : 'days to next trip' %></span></div>
+  </div>
+</section>
 <div class="split">
   <div>
     <div class="card flush">

@@ -4,9 +4,9 @@
     <form method="get" style="padding:14px 16px;display:flex;gap:8px"><input type="search" name="q" value="<%= q %>" placeholder="Search name, phone or email" aria-label="Search customers"><button class="btn">Search</button></form>
     <% if (!customers.length) { %><div class="empty"><span class="big"><%- icon('users') %></span><b>No customers yet</b><p>Add your clients with the form, or they're created for you from leads and quotes.</p></div><% } else { %>
     <table class="table">
-      <thead><tr><th>Name</th><th>Contact</th><th class="num">Trips</th><th class="num">Spend</th></tr></thead>
+      <thead><tr><th>Name</th><th>Contact</th><th>Next trip</th><th class="num">Trips</th><th class="num">Spend</th></tr></thead>
       <% customers.forEach(c => { %>
-        <tr class="click" data-href="/agent/customers/<%= c.id %>"><td><b><%= c.name %></b><br><small><%= c.city || '' %></small></td><td><%= c.phone || '' %><br><small><%= c.email || '' %></small></td><td class="num"><%= c.trips %></td><td class="num"><%= inr(c.spend) %></td></tr>
+        <tr class="click" data-href="/agent/customers/<%= c.id %>"><td><span class="cust"><span class="av" style="--h:<%= [...c.name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7) %>"><%= c.name.split(/[\s&]+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() %></span><span><b><%= c.name %></b><br><small><%= c.city || '' %></small></span></span></td><td><%= c.phone || '' %><br><small><%= c.email || '' %></small></td><td><%- c.next_trip ? `<span class="badge as-is approved">${fmtDate(c.next_trip)}</span>` : '<small class="muted">—</small>' %></td><td class="num"><%= c.trips %></td><td class="num"><%= inr(c.spend) %></td></tr>
       <% }) %>
     </table>
     <% } %>

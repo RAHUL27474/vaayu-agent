@@ -1,14 +1,43 @@
-<div class="page-head">
-  <div>
-    <h1>Namaste, <%= user.name.split(' ')[0] %></h1>
-    <p><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) %> · Here's your business today.</p>
+<%
+  const first = user.name.split(' ')[0];
+  const brand = /^#[0-9a-f]{6}$/i.test(agency.brand_color || '') ? agency.brand_color : '#0077c0';
+  const diff = stats.earnings - personal.prevEarnings;
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  let story;
+  if (stats.bookings) story = `You've earned <b>${inr(stats.earnings)}</b> this month from ${plural(stats.bookings, 'booking')}${personal.prevEarnings > 0 ? (diff >= 0 ? `, <b class="up">${inr(diff)} more</b> than last month` : `, ${inr(-diff)} behind last month so far`) : ''}.`;
+  else if (personal.life.n) story = `No bookings yet this month. Last month you earned ${inr(personal.prevEarnings)}; a quote or two today gets you going.`;
+  else story = 'Welcome aboard. Build your first package and send a quote: your customers see only your brand.';
+  const since = personal.life.first ? new Date(personal.life.first.replace(' ', 'T') + 'Z').toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : null;
+%>
+<section class="hello" style="--brand-agency:<%= brand %>">
+  <div class="hello-id">
+    <span class="hello-mark"><%= agency.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase() %></span>
+    <div>
+      <p class="hello-date"><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %></p>
+      <h1><%= personal.greeting %>, <%= first %></h1>
+      <p class="hello-story"><%- story %></p>
+    </div>
   </div>
-</div>
+  <div class="hello-facts">
+    <div><b><%= personal.life.n %></b><span><%= personal.life.n === 1 ? 'trip' : 'trips' %> booked<%= since ? ` since ${since}` : '' %></span></div>
+    <div><b><%= personal.customersCount %></b><span><%= personal.customersCount === 1 ? 'customer' : 'customers' %> in your book</span></div>
+    <div><b><%= personal.weekTrips %></b><span>travelling this week</span></div>
+  </div>
+</section>
+
+<% if (personal.lastQuote) { const q = personal.lastQuote; %>
+  <a class="resume" href="/agent/quotes/<%= q.id %>">
+    <span class="resume-ico"><%- icon('file') %></span>
+    <span><small>Pick up where you left off</small><b><%= q.title %></b></span>
+    <span class="badge <%= q.status %>"><%= q.status %></span>
+    <span class="resume-go">Continue<%- icon('arrowRight') %></span>
+  </a>
+<% } %>
 
 <% if (agentCan('/agent/find')) { %>
 <form class="book-panel" method="get" action="/agent/find">
   <div class="book-head">
-    <h2>What are you booking today?</h2>
+    <h2>Where are your customers going next, <%= first %>?</h2>
     <span>Net rates from VaayuTrip · your markup added automatically</span>
   </div>
   <div class="svc-tabs" role="radiogroup" aria-label="Service">
@@ -28,8 +57,8 @@
 
 <div class="quick-grid">
   <a class="quick" href="/agent/packages/new"><span class="q-ico"><%- icon('briefcase') %></span><b>Build a package</b><small>Day-wise trip from our inventory</small></a>
-  <a class="quick" href="/agent/quotes"><span class="q-ico"><%- icon('file') %></span><b>Quotes</b><small><%= quotes.length ? `${quotes.length} recent` : 'Share prices on WhatsApp' %></small></a>
-  <a class="quick" href="/agent/leads"><span class="q-ico"><%- icon('target') %></span><b>Leads</b><small><%= openLeads %> open lead<%= openLeads === 1 ? '' : 's' %></small></a>
+  <a class="quick" href="/agent/quotes"><span class="q-ico"><%- icon('file') %></span><b>Quotes</b><small><%= personal.awaiting ? `${personal.awaiting} waiting on your customers` : quotes.length ? 'All answered' : 'Share prices on WhatsApp' %></small></a>
+  <a class="quick" href="/agent/leads"><span class="q-ico"><%- icon('target') %></span><b>Leads</b><small><%= followUps.length ? `${followUps.length} to call today` : `${openLeads} open lead${openLeads === 1 ? '' : 's'}` %></small></a>
   <% if (agentCan('/agent/wallet')) { %><a class="quick" href="/agent/wallet"><span class="q-ico"><%- icon('wallet') %></span><b>Top up wallet</b><small>Balance <%= inr(agency.wallet_balance) %></small></a><% } %>
 </div>
 
@@ -128,11 +157,17 @@
 
 <div class="grid grid-2">
   <div class="card flush">
-    <div class="card-head"><h3>Upcoming trips</h3><a href="/agent/bookings">All bookings</a></div>
-    <% if (!upcoming.length) { %><div class="empty">No upcoming trips.</div><% } else { %>
-    <table class="table" style="margin-top:10px">
-      <% upcoming.forEach(b => { %><tr class="click" data-href="/agent/bookings/<%= b.id %>"><td><b><%= b.title %></b><br><small><%= b.code %></small></td><td class="num"><%= fmtDate(b.travel_date) %></td></tr><% }) %>
-    </table>
+    <div class="card-head"><h3>Your customers travelling soon</h3><a href="/agent/bookings">All bookings</a></div>
+    <% if (!personal.trips.length) { %><div class="empty">No trips coming up. Confirmed bookings show here with a countdown.</div><% } else { %>
+    <div class="trips">
+      <% personal.trips.forEach(t => { %>
+        <a class="trip" href="/agent/bookings/<%= t.id %>">
+          <img src="<%= cover({ destination: t.destination, city: t.destination, title: t.trip }) %>" alt="" loading="lazy">
+          <span class="trip-body"><b><%= t.who || t.trip %></b><small><%= t.who ? t.trip : t.code %> · <%= fmtDate(t.travel_date) %></small></span>
+          <span class="trip-count <%= t.days <= 3 ? 'soon' : '' %>"><b><%= t.days === 0 ? 'Today' : t.days === 1 ? '1' : t.days %></b><small><%= t.days === 0 ? 'flying' : t.days === 1 ? 'day to go' : 'days to go' %></small></span>
+        </a>
+      <% }) %>
+    </div>
     <% } %>
   </div>
   <div class="card">

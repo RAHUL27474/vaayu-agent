@@ -125,7 +125,9 @@ router.get('/', h(async (req, res) => {
     all('SELECT * FROM quotes WHERE agency_id = ? ORDER BY updated_at DESC LIMIT 5', a),
     all('SELECT * FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 5', a),
     all("SELECT * FROM leads WHERE agency_id = ? AND status = 'new' ORDER BY id DESC LIMIT 5", a),
-    all("SELECT * FROM bookings WHERE agency_id = ? AND status = 'confirmed' AND travel_date >= sqldate('now') ORDER BY travel_date LIMIT 5", a),
+    all(`SELECT b.*, c.name AS customer_name, c.phone AS customer_phone, p.destination FROM bookings b
+         LEFT JOIN customers c ON c.id = b.customer_id LEFT JOIN quotes q ON q.id = b.quote_id LEFT JOIN packages p ON p.id = q.package_id
+         WHERE b.agency_id = ? AND b.status = 'confirmed' AND b.travel_date >= ? ORDER BY b.travel_date LIMIT 5`, a, indiaToday()),
     all("SELECT * FROM products WHERE status = 'published' ORDER BY created_at DESC, id DESC LIMIT 5"),
     one('SELECT 1 FROM packages WHERE agency_id = ?', a).then(Boolean),
     // Last 6 calendar months, oldest first, including months without bookings.
@@ -135,6 +137,19 @@ router.get('/', h(async (req, res) => {
     ),
     liveOffers(2),
   ]);
+  const prevMonth = (() => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); })();
+  const [prev, life, customersCount, awaiting] = await Promise.all([
+    one("SELECT COALESCE(SUM(total_sell - total_net - total_cost), 0) AS earnings FROM bookings WHERE agency_id = ? AND status != 'cancelled' AND substr(created_at, 1, 7) = ?", a, prevMonth),
+    one("SELECT COUNT(*) AS n, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS earnings, MIN(created_at) AS first FROM bookings WHERE agency_id = ? AND status != 'cancelled'", a),
+    one('SELECT COUNT(*) AS n FROM customers WHERE agency_id = ?', a).then((r) => r.n),
+    one("SELECT COUNT(*) AS n FROM quotes WHERE agency_id = ? AND status = 'sent'", a).then((r) => r.n),
+  ]);
+  const hour = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }));
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const daysTo = (d) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${indiaToday()}T00:00:00Z`)) / 864e5);
+  const trips = upcoming.map((b) => ({ ...b, days: daysTo(b.travel_date), who: b.customer_name || (b.title.split(' — ')[1] || ''), trip: b.title.split(' — ')[0] }));
+  const lastQuote = quotes.find((q) => ['draft', 'sent', 'accepted'].includes(q.status)) || null;
+  const personal = { greeting, prevEarnings: prev.earnings, life, customersCount, trips, lastQuote, awaiting, weekTrips: trips.filter((t) => t.days <= 7).length };
   const featured = featuredRows.map((x) => ({ ...x, price: cardPrice(req.agency, x), path: KINDS[x.kind].path }));
   const branded = agencyHasBranding(req.agency);
   const earned = Object.fromEntries(months.map((m) => [m.month, m]));
@@ -158,7 +173,7 @@ router.get('/', h(async (req, res) => {
   const services = Object.entries(KIND_BY_PATH).map(([path, kind]) => ({ path, kind, label: KINDS[kind].plural, icon: KINDS[kind].icon }));
   const credit = svc.creditStatus(req.agency);
   const lowWallet = req.agency.low_balance_alert > 0 && req.agency.wallet_balance < req.agency.low_balance_alert;
-  res.page('agent/dashboard', { title: 'Dashboard', followUps, credit, lowWallet, today: indiaToday(), stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers, services, destinations: Object.keys(DESTINATIONS) });
+  res.page('agent/dashboard', { title: 'Dashboard', personal, followUps, credit, lowWallet, today: indiaToday(), stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers, services, destinations: Object.keys(DESTINATIONS) });
 }));
 
 // ---------- VaayuTrip inventory: activities, hotels, airfares, transfers, visas, insurance ----------
@@ -688,9 +703,10 @@ router.get('/customers', h(async (req, res) => {
   const p = paging(req);
   const { rows: customers, pager } = pageOf(await all(
     `SELECT c.*, (SELECT COUNT(*) FROM bookings b WHERE b.customer_id = c.id) AS trips,
-       (SELECT COALESCE(SUM(total_sell), 0) FROM bookings b WHERE b.customer_id = c.id AND b.status != 'cancelled') AS spend
+       (SELECT COALESCE(SUM(total_sell), 0) FROM bookings b WHERE b.customer_id = c.id AND b.status != 'cancelled') AS spend,
+       (SELECT MIN(travel_date) FROM bookings b WHERE b.customer_id = c.id AND b.status = 'confirmed' AND b.travel_date >= ?) AS next_trip
      FROM customers c WHERE c.agency_id = ? ${q ? 'AND (c.name ILIKE ? OR c.phone ILIKE ? OR c.email ILIKE ?)' : ''} ORDER BY c.name, c.id ${p.sql}`,
-    req.agency.id, ...(q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []), ...p.params,
+    indiaToday(), req.agency.id, ...(q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []), ...p.params,
   ), p);
   res.page('agent/customers', { title: 'Customers', customers, pager, q });
 }));
