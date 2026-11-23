@@ -1,5 +1,6 @@
 <div class="page-head">
-  <div><h1>VaayuTrip HQ</h1><p>Partner network, catalogue and bookings at a glance.</p></div>
+<% const hr = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' })); const todo = (stats.pendingAgents || 0) + (stats.cancelRequests || 0) + (pendingTopups || 0) + (stats.websiteRequests || 0); %>
+  <div><p class="hello-date"><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %> · VaayuTrip HQ</p><h1><%= hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening' %>, <%= user.name.replace(/^VaayuTrip /i, '').split(' ')[0] %></h1><p><%= todo ? todo + (todo === 1 ? ' thing needs' : ' things need') + ' you today; the rest is running.' : 'Nothing waiting on you. The network is running smoothly.' %></p></div>
   <div class="actions"><a class="btn" href="/admin/agents?status=pending">Review agents</a><a class="btn" href="/admin/log">Activity log</a><a class="btn btn-primary" href="/backend">Inventory</a></div>
 </div>
 

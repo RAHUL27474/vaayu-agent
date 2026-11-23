@@ -35,6 +35,19 @@
   </div>
 </form>
 
+<%
+  const best = months.length ? months.reduce((m, x) => (x.earnings > m.earnings ? x : m)) : null;
+  const topDest = destinations.find((d) => d.destination !== 'Custom trips') || destinations[0];
+  const topCust = customers[0];
+  const monthName = (k) => new Date(k + '-01T00:00:00Z').toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+%>
+<% if (totals.bookings) { %>
+<div class="highlights">
+  <% if (best) { %><div class="hl-card"><span class="hl-ico">🏆</span><div><small>Your best month</small><b><%= monthName(best.month) %></b><span><%= inr(best.earnings) %> earned from <%= best.bookings %> booking<%= best.bookings === 1 ? '' : 's' %></span></div></div><% } %>
+  <% if (topDest) { %><div class="hl-card"><span class="hl-ico">🌏</span><div><small>Your customers love</small><b><%= topDest.destination %></b><span><%= topDest.bookings %> trip<%= topDest.bookings === 1 ? '' : 's' %> · <%= inr(topDest.sales) %> in sales</span></div></div><% } %>
+  <% if (topCust) { %><a class="hl-card" href="/agent/customers/<%= topCust.id %>"><span class="hl-ico">⭐</span><div><small>Your top customer</small><b><%= topCust.name %></b><span><%= inr(topCust.sales) %> across <%= topCust.bookings %> trip<%= topCust.bookings === 1 ? '' : 's' %></span></div></a><% } %>
+</div>
+<% } %>
 <div class="grid grid-4" style="margin-bottom:20px">
   <div class="stat"><div class="label">Bookings</div><div class="value"><%= totals.bookings %></div><div class="sub"><%= totals.cancelled %> cancelled</div></div>
   <div class="stat"><div class="label">Sales (your price)</div><div class="value"><%= inr(totals.sales) %></div><div class="sub">before tax</div></div>
