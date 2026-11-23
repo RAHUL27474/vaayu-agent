@@ -1160,3 +1160,8 @@ a.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
   .statement-range { margin: 0; width: 100%; }
 }
 @media print { .statement-sum > div:last-child { background: none; } }
+
+/* Destination cards with photos */
+.dest .cap { background: linear-gradient(transparent, rgba(8, 12, 26, .82) 70%); padding-top: 48px; }
+.dest .cap > div { display: flex; flex-direction: column; gap: 2px; }
+.dest .cap .dest-name { font-size: 24px; font-weight: 800; letter-spacing: -.3px; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, .35); }

@@ -31,6 +31,10 @@ router.get('/', h(async (req, res) => {
   res.page('public/home', { title: 'B2B travel platform for agents', activities, stats, destinations }, 'public');
 }));
 
+router.get('/photo-credits', (req, res) => {
+  res.page('public/photo-credits', { title: 'Photo credits', photos: require('../destination-photos').DEST_PHOTOS }, 'public');
+});
+
 // Generated cover card for packages and hotels without an uploaded photo.
 const COVER_PALETTES = [['#0369a1', '#0c2a43'], ['#0077c0', '#0f1d4a'], ['#7c3aed', '#2e1065'], ['#c2410c', '#431407'], ['#be123c', '#4c0519'], ['#1d4ed8', '#0f172a'], ['#0e7490', '#083344'], ['#b45309', '#3b1d06']];
 router.get('/cover/:name.svg', (req, res) => {

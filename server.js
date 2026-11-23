@@ -10,6 +10,7 @@ const payments = require('./src/payments');
 const { restoreFile } = require('./src/files');
 const { homeFor } = require('./src/auth');
 const { seed } = require('./src/seed');
+const { destinationPhoto } = require('./src/destination-photos');
 const { ensureProductCosts } = require('./src/products');
 const { inr, fmtDate } = require('./src/util');
 const { icon, SPRITE } = require('./src/icons');
@@ -111,7 +112,7 @@ app.use(async (req, res, next) => {
   res.locals.fmtDate = fmtDate;
   res.locals.icon = icon;
   // Package image, or a generated cover card with the destination name when none is uploaded.
-  res.locals.cover = (p) => p.image_url || `/cover/${encodeURIComponent(p.destination || p.title || 'Holiday')}.svg`;
+  res.locals.cover = (p) => p.image_url || destinationPhoto(p.destination) || `/cover/${encodeURIComponent(p.city || p.destination || p.title || 'Holiday')}.svg`;
   res.locals.path = req.path;
   res.locals.today = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10); // India date, for date pickers' min
   res.locals.origin = `${req.protocol}://${req.get('host')}`;

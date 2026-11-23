@@ -31,6 +31,7 @@
       <% } %>
     </div>
   </div>
+  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
 <section class="svc-strip" aria-label="What you can book">
@@ -42,6 +43,7 @@
     <div><span class="s-ico"><%- icon('passport') %></span><b>Visas</b><small>Processing support</small></div>
     <div><span class="s-ico"><%- icon('shield') %></span><b>Insurance</b><small>Per traveller</small></div>
   </div>
+  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
 <section class="stats-strip" aria-label="VaayuTrip in numbers">
@@ -51,6 +53,7 @@
     <div><b><%= stats.cities %></b><span>cities across 6 destinations</span></div>
     <div><b><%= stats.agents %></b><span>partner agencies selling today</span></div>
   </div>
+  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
 <section class="section" id="features">
@@ -65,6 +68,7 @@
     <div class="feature"><div class="ico"><%- icon('wallet') %></div><h3>Wallet &amp; credit</h3><p class="muted">Book from your wallet or credit line, top up instantly, and track credit due dates. Your customers pay you directly.</p></div>
     <div class="feature"><div class="ico"><%- icon('help') %></div><h3>Support and offers</h3><p class="muted">Raise a ticket from any booking and track the reply. Live deals and extra commission show up on your dashboard.</p></div>
   </div>
+  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
 <section class="section" id="destinations" style="padding-top:0">
@@ -74,11 +78,12 @@
   <div class="dest-grid">
     <% destinations.forEach(d => { %>
       <a class="dest" href="/signup">
-        <img src="<%= cover({ destination: d.name }) %>" alt="" loading="lazy">
-        <div class="cap"><small><%= d.items %> services to book</small><small><%= d.cities.length %> <%= d.cities.length === 1 ? 'city' : 'cities' %></small></div>
+        <img src="<%= cover({ destination: d.name }) %>" alt="<%= d.name %>" loading="lazy">
+        <div class="cap"><div><b class="dest-name"><%= d.name %></b><small><%= d.items %> services to book</small></div><small><%= d.cities.length %> <%= d.cities.length === 1 ? 'city' : 'cities' %></small></div>
       </a>
     <% }) %>
   </div>
+  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
 <section class="section" id="invoices" style="background:var(--bg);max-width:none">
@@ -104,6 +109,7 @@
       <p class="muted" style="margin:12px 0 0;font-size:13px">Day-wise itinerary · Your logo · PDF to send on WhatsApp</p>
     </div>
   </div>
+  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
 <section class="section" id="how">
@@ -146,6 +152,7 @@
       </div>
     </div>
   </div>
+  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
 <section class="section faq" id="faq">
@@ -185,6 +192,7 @@
       <p>Raise a ticket from Help &amp; support in your portal for a written record, or call or WhatsApp our team for anything urgent.</p>
     </details>
   </div>
+  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
 <section class="cta-band">
@@ -192,4 +200,5 @@
     <div><h2>Ready to sell more trips under your own brand?</h2><p>Set up takes ten minutes. We'll verify you within a working day.</p></div>
     <a class="btn btn-lg" href="/signup">Become a partner, free<%- icon('arrowRight') %></a>
   </div>
+  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
