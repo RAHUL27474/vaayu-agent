@@ -29,7 +29,7 @@
 
     <% const empty = !doc.lines.length && !agentItems.length; %>
     <% if (empty) { %><div class="alert info">Your travel agent is still preparing this quote. Please check back soon.</div><% } else { %>
-    <table class="lines">
+    <table class="lines lines-scroll">
       <thead><tr><th>What's included</th><th class="num">Qty</th><th class="num">Amount</th></tr></thead>
       <tbody>
         <% doc.lines.forEach(l => { %>
@@ -46,7 +46,7 @@
 
     <% if (agentItems.length) { %>
       <h3 style="margin-top:24px">Services by <%= agency.name %></h3>
-      <table class="lines">
+      <table class="lines lines-scroll">
         <tbody>
           <% agentItems.forEach(l => { %><tr><td><b><%= l.title %></b><% if (l.description) { %><br><small><%= l.description %></small><% } %></td><td class="num"><%= l.qty %></td><td class="num"><%= inr(l.lineSell) %></td></tr><% }) %>
         </tbody>

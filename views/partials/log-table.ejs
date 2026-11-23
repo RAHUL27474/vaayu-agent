@@ -10,7 +10,7 @@
   <thead><tr><th>When</th><th>Who</th><th>What</th><th>Details</th></tr></thead>
   <% entries.forEach(l => { %>
     <tr <% if (l.link) { %>class="click" data-href="<%= l.link %>"<% } %>>
-      <td style="white-space:nowrap"><small><%= fmtDate(l.created_at) %><br><span class="muted"><%= l.created_at.slice(11, 16) %> UTC</span></small></td>
+      <td style="white-space:nowrap"><small><%= fmtDate(l.created_at) %><br><span class="muted"><%= fmtTime(l.created_at) %></span></small></td>
       <td><b><%= l.user_name || 'System' %></b><br><span class="badge <%= roleBadge[l.role] || '' %>"><%= roleName[l.role] || l.role %></span><% if (l.role === 'agent' && l.agency_name) { %> <small class="muted"><%= l.agency_name %></small><% } %></td>
       <td><span class="muted" style="text-transform:capitalize"><%= area(l.action) %></span> <b><%= verb(l.action) %></b></td>
       <td><%= l.summary || '' %></td>

@@ -39,8 +39,17 @@ function code(prefix, len = 6) {
 
 function fmtDate(d) {
   if (!d) return '';
-  const date = new Date(d.length === 10 ? `${d}T00:00:00` : `${d.replace(' ', 'T')}Z`);
-  return Number.isNaN(date.getTime()) ? d : date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const plain = d.length === 10;
+  const date = new Date(plain ? `${d}T00:00:00Z` : `${d.replace(' ', 'T')}Z`);
+  // Calendar dates as written; timestamps (stored in UTC) shown on the India calendar.
+  return Number.isNaN(date.getTime()) ? d : date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: plain ? 'UTC' : 'Asia/Kolkata' });
+}
+
+/** Time of a UTC timestamp in India, e.g. "4:35 pm IST". */
+function fmtTime(d) {
+  if (!d || d.length <= 10) return '';
+  const date = new Date(`${d.replace(' ', 'T')}Z`);
+  return Number.isNaN(date.getTime()) ? '' : `${date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })} IST`;
 }
 
 const num = (v, fallback = 0) => {
@@ -48,4 +57,4 @@ const num = (v, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-module.exports = { hashPassword, verifyPassword, round2, inr, slugify, uniqueSlug, code, fmtDate, num };
+module.exports = { hashPassword, verifyPassword, round2, inr, slugify, uniqueSlug, code, fmtDate, fmtTime, num };

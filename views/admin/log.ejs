@@ -4,7 +4,7 @@
 <div class="page-head">
   <div><h1>Activity log</h1><p>Everything that changes on VaayuTrip: inventory entered by the backend team, agents' packages, quotes and bookings, and admin decisions.</p></div>
 </div>
-<form class="card" method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:14px 16px">
+<form class="card log-filter" method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:14px 16px">
   <div><label for="l-role">Who</label><select id="l-role" name="role"><option value="">Everyone</option><% roles.forEach(r => { %><option value="<%= r %>" <%= r === f.role ? 'selected' : '' %>><%= { backend: 'Backend team', agent: 'Agents', admin: 'Admins' }[r] %></option><% }) %></select></div>
   <div><label for="l-area">Area</label><select id="l-area" name="area"><option value="">All areas</option><% Object.entries(areas).forEach(([k, v]) => { %><option value="<%= k %>" <%= k === f.area ? 'selected' : '' %>><%= v %></option><% }) %></select></div>
   <div><label for="l-user">Staff member</label><select id="l-user" name="user"><option value="">Anyone</option><% users.forEach(u => { %><option value="<%= u.id %>" <%= u.id === f.user ? 'selected' : '' %>><%= u.name %> (<%= u.role === 'admin' ? 'admin' : 'backend' %>)</option><% }) %></select></div>

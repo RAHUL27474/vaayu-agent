@@ -3,7 +3,7 @@
 <div class="page-head">
   <div>
     <h1><%= ticket.subject %></h1>
-    <p><a href="<%= back %>"><%- icon('arrowLeft') %>All tickets</a> · <%= ticket.code %><% if (isAdminView) { %> · <a href="/admin/agents/<%= ticket.agency_id %>"><%= ticket.agency_name %></a><% } %>
+    <p><a class="back-link" href="<%= back %>"><%- icon('arrowLeft') %> All tickets</a> · <%= ticket.code %><% if (isAdminView) { %> · <a href="/admin/agents/<%= ticket.agency_id %>"><%= ticket.agency_name %></a><% } %>
       <% if (ticket.booking_code) { %> · Booking <a href="<%= isAdminView ? '/admin' : '/agent' %>/bookings/<%= ticket.booking_id %>"><%= ticket.booking_code %></a><% } %>
       · <span class="badge <%= ticket.status %>"><%= ticket.status %></span></p>
   </div>
@@ -11,7 +11,7 @@
 <div class="card thread">
   <% messages.forEach(m => { %>
     <div class="msg <%= m.from_admin ? 'from-admin' : 'from-agent' %>">
-      <div class="msg-head"><b><%= m.from_admin ? 'VaayuTrip support' : (m.author || 'Agent') %></b><small><%= fmtDate(m.created_at) %> <%= m.created_at.slice(11, 16) %> UTC</small></div>
+      <div class="msg-head"><b><%= m.from_admin ? 'VaayuTrip support' : (m.author || 'Agent') %></b><small><%= fmtDate(m.created_at) %> <%= fmtTime(m.created_at) %></small></div>
       <div class="msg-body"><%= m.body %></div>
     </div>
   <% }) %>

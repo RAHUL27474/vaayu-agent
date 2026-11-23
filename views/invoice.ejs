@@ -63,7 +63,7 @@
       </div>
     </section>
 
-    <table class="lines">
+    <table class="lines lines-scroll">
       <thead><tr><th style="width:32px">#</th><th>Description of service</th><th style="width:72px">SAC</th><th class="num" style="width:48px">Qty</th><th class="num" style="width:110px">Rate</th><th class="num" style="width:120px"><%= gst.charged ? 'Taxable value' : 'Amount' %></th></tr></thead>
       <tbody>
         <% doc.lines.forEach((l, i) => { %>

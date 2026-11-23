@@ -12,7 +12,7 @@ const { homeFor } = require('./src/auth');
 const { seed } = require('./src/seed');
 const { destinationPhoto, cityPhoto } = require('./src/destination-photos');
 const { ensureProductCosts } = require('./src/products');
-const { inr, fmtDate } = require('./src/util');
+const { inr, fmtDate, fmtTime } = require('./src/util');
 const { icon, SPRITE } = require('./src/icons');
 const { AppError } = require('./src/services');
 
@@ -110,6 +110,7 @@ app.use(async (req, res, next) => {
 app.use(async (req, res, next) => {
   res.locals.inr = inr;
   res.locals.fmtDate = fmtDate;
+  res.locals.fmtTime = fmtTime;
   res.locals.icon = icon;
   // Package image, or a generated cover card with the destination name when none is uploaded.
   res.locals.cover = (p) => p.image_url || destinationPhoto(p.destination) || cityPhoto(p.city) || `/cover/${encodeURIComponent(p.city || p.destination || p.title || 'Holiday')}.svg`;

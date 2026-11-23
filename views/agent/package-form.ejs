@@ -70,7 +70,7 @@
 <div class="page-head" style="margin-top:10px">
   <div>
     <h1><%= isNew ? (forVaayu ? 'New VaayuTrip package' : 'Build a package') : `Edit: ${pkg.title}` %></h1>
-    <p>Lay out the days, add VaayuTrip airfares, hotels, activities and more to them, then any services you provide yourself at your own prices.</p>
+    <% if (forVaayu) { %><p>Lay out the days and add published inventory to each. Agents see it at their net (your cost plus VaayuTrip's margin) and add their own markup.</p><% } else { %><p>Lay out the days, add VaayuTrip airfares, hotels, activities and more to them, then any services you provide yourself at your own prices.</p><% } %>
   </div>
 </div>
 
@@ -171,7 +171,7 @@
     <div class="card" style="position:sticky;top:76px">
       <button class="btn btn-primary btn-lg" style="width:100%"><%= isNew ? 'Save package' : 'Save changes' %></button>
       <% if (from && from.sell) { %>
-        <div style="margin-top:14px;font-size:13px"><span class="muted">Selling price, saved version</span><br><b style="font-size:20px"><%= inr(from.sell) %></b> <span class="muted">pp, 2 adults</span><br><span class="muted">VaayuTrip cost <%= inr(from.net) %> pp</span><br><span class="profit">You earn <%= inr(from.earning) %> pp</span></div>
+        <div style="margin-top:14px;font-size:13px"><% if (forVaayu) { %><span class="muted">Agents' net, saved version</span><br><b style="font-size:20px"><%= inr(from.net) %></b> <span class="muted">pp, 2 adults</span><% } else { %><span class="muted">Selling price, saved version</span><br><b style="font-size:20px"><%= inr(from.sell) %></b> <span class="muted">pp, 2 adults</span><br><span class="muted">VaayuTrip cost <%= inr(from.net) %> pp</span><br><span class="profit">You earn <%= inr(from.earning) %> pp</span><% } %></div>
       <% } %>
       <% if (problems.length) { %>
         <div class="alert warn" style="margin:14px 0 0;font-size:13px"><b>Before publishing to your website:</b><ul style="margin:6px 0 0;padding-left:18px"><% problems.forEach(p => { %><li><%= p %></li><% }) %></ul></div>

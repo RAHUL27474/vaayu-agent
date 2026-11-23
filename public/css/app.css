@@ -1543,3 +1543,8 @@ td code { white-space: nowrap; }
 .pv-tr > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pv-card { min-width: 0; overflow: hidden; }
 @media (max-width: 640px) { table.lines-scroll { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; } }
+table.lines td.num, table.lines th.num, .statement-sum b { white-space: nowrap; }
+
+.back-link { display: inline-flex; align-items: center; gap: 4px; }
+.log-filter > div { flex: 1 1 150px; min-width: 0; } .log-filter > div:has(> input[type=date]) { flex: 0 0 160px; } .log-filter select { max-width: 100%; }
+@media (max-width: 640px) { .log-filter > div:has(> input[type=date]) { flex: 1 1 140px; } .log-filter > div:has(> input[type=date]) input { width: 100%; min-width: 0; } }
