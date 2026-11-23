@@ -1778,3 +1778,4 @@ body.app .app-hero:not(.warn) { background: var(--brand); }
 @media (max-width: 640px) { .highlights { gap: 8px; } .hl-card { padding: 12px 14px; gap: 12px; } .hl-ico { width: 38px; height: 38px; } .hl-card b { font-size: 15.5px; } }
 @media (min-width: 641px) and (max-width: 1100px) { .grid.grid-4:has(> .stat) { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; } .grid.grid-4:has(> .stat) .stat { padding: 14px; } .grid.grid-4:has(> .stat) .stat .value { font-size: 19px; } }
 @media (min-width: 641px) and (max-width: 1100px) { .table th, .table td { padding-left: 10px; padding-right: 10px; } }
+.sidebar .nav a:focus-visible { outline-offset: -3px; }
