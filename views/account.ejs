@@ -20,9 +20,37 @@
         <dt>Email</dt><dd><%= me.email %></dd>
         <% if (me.phone) { %><dt>Phone</dt><dd><%= me.phone %></dd><% } %>
         <dt>Member since</dt><dd><%= fmtDate(me.created_at) %></dd>
-        <% if (lastLogin) { %><dt>Previous login</dt><dd><%= fmtDate(lastLogin.created_at) %> <%= lastLogin.created_at.slice(11, 16) %> UTC</dd><% } %>
       </dl>
       <p class="muted" style="font-size:13px;margin:12px 0 0">To change your name or email, <%= user.role === 'agent' ? 'contact VaayuTrip support' : 'ask an administrator' %>.</p>
     </div>
+    <div class="card" id="two-step">
+      <h3>2-step login <% if (me.two_step) { %><span class="badge approved">On</span><% } else { %><span class="badge">Off</span><% } %></h3>
+      <% if (me.two_step) { %>
+        <p class="muted" style="font-size:13px">After your password we email a 6-digit code to <b><%= me.email %></b>. Someone who learns your password still can't get in.</p>
+        <form method="post" action="/account/2step/off" data-confirm="Turn off 2-step login? Your password alone will be enough to log in.">
+          <div class="field"><label for="off-pw">Your password</label><input id="off-pw" type="password" name="current" required autocomplete="current-password"></div>
+          <button class="btn">Turn off</button>
+        </form>
+      <% } else if (!emailOn) { %>
+        <p class="muted" style="font-size:13px">Available once email is set up on the portal.</p>
+      <% } else { %>
+        <p class="muted" style="font-size:13px">Recommended<%= user.role !== 'agent' ? ' for every VaayuTrip team member' : ' for owners' %>: after your password, we email a code to <b><%= me.email %></b>. Someone who learns your password still can't get in.</p>
+        <form method="post" action="/account/2step/on">
+          <div class="field"><label for="on-pw">Your password</label><input id="on-pw" type="password" name="current" required autocomplete="current-password"></div>
+          <button class="btn btn-primary"><%- icon('shield') %>Turn on</button>
+        </form>
+      <% } %>
+    </div>
+    <% if (logins.length) { %>
+    <div class="card flush">
+      <div class="card-head"><h3>Recent logins</h3></div>
+      <table class="table" style="margin-top:6px">
+        <% logins.forEach((l, i) => { const where = (l.summary || '').split(' · ').slice(1).join(' · '); %>
+          <tr><td style="white-space:nowrap"><%= fmtDate(l.created_at) %> <small class="muted"><%= l.created_at.slice(11, 16) %> UTC</small></td><td><small><%= where || 'details not recorded' %></small><%- i === 0 ? ' <span class="badge approved">this one</span>' : '' %></td></tr>
+        <% }) %>
+      </table>
+      <p class="muted" style="font-size:12.5px;padding:10px 16px;margin:0">Don't recognise one? Change your password now; that logs out every other device.</p>
+    </div>
+    <% } %>
   </div>
 </div>

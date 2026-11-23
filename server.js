@@ -74,6 +74,7 @@ app.get('/healthz', async (req, res) => {
     await one('SELECT 1 AS ok');
     await payments.settlePending({ olderThanMinutes: 5, limit: 50 }).catch(() => 0);
     await require('./src/services').creditReminders().catch((e) => console.error('credit reminders', e.message));
+    await require('./src/services').tripReminders().catch((e) => console.error('trip reminders', e.message));
     res.set('Cache-Control', 'no-store').json({ ok: true, time: new Date().toISOString() });
   } catch {
     res.status(503).set('Cache-Control', 'no-store').json({ ok: false });

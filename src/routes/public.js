@@ -61,6 +61,14 @@ router.get('/login', (req, res) => {
   res.page('public/login', { title: 'Log in', next: req.query.next || '', email: String(req.query.email || '').slice(0, 120), mode: req.query.mode === 'otp' && mailer.enabled() ? 'otp' : 'password', otpOn: mailer.enabled() }, 'public');
 });
 
+// "Chrome on Windows · 1.2.3.4", recorded with each login so people can spot one that wasn't them.
+function loginPlace(req) {
+  const ua = String(req.get('user-agent') || '');
+  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'a browser';
+  const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iPhone/iPad' : /Windows/.test(ua) ? 'Windows' : /Mac OS/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : '';
+  return ` · ${browser}${os ? ` on ${os}` : ''} · ${req.ip}`;
+}
+
 // Password guessing: 8 failures for one email, or 30 from one address, in 15 minutes pause logins there.
 const LOGIN_LIMITS = { email: 8, ip: 30 };
 
@@ -82,12 +90,49 @@ router.post('/login', h(async (req, res) => {
     return loginError('Wrong email or password.');
   }
   await run('DELETE FROM login_failures WHERE email = ?', email);
+  // 2-step login: the password was right; now a code from their inbox. Nothing is logged in until it's entered.
+  if (user.two_step && mailer.enabled()) {
+    req.session.twoStep = { id: user.id, at: Date.now(), next: String(req.body.next || '') };
+    const r = await otp.sendCode(user, 'login');
+    return twoStepPage(res, user.email, r.sent ? null : { type: 'warn', message: otp.MESSAGES[r.reason] });
+  }
   req.session.userId = user.id;
   req.session.pw = user.password_hash.slice(-12);
-  await audit(user, 'user.login', { entity: 'user', id: user.id, summary: `${user.name} logged in` });
+  await audit(user, 'user.login', { entity: 'user', id: user.id, summary: `${user.name} logged in${loginPlace(req)}` });
   const next = String(req.body.next || '');
   const home = homeFor(user.role);
   res.redirect(next.startsWith(home) ? next : home);
+}));
+
+const twoStepPage = (res, email, flash) => res.page('public/code', {
+  title: '2-step login', noindex: true, purpose: 'twostep', email, action: '/login/2step', resendAction: '/login/2step/resend', ...(flash ? { flash: [flash] } : {}),
+}, 'public');
+
+// The person half-way through a 2-step login (password done), for 15 minutes.
+async function twoStepUser(req) {
+  const p = req.session.twoStep;
+  if (!p || Date.now() - p.at > 15 * 60000) return null;
+  return await one('SELECT * FROM users WHERE id = ? AND is_active = 1', p.id);
+}
+
+router.post('/login/2step', h(async (req, res) => {
+  const user = await twoStepUser(req);
+  if (!user) { req.session.twoStep = null; req.flash('error', 'Your login timed out. Log in again.'); return res.redirect('/login'); }
+  const result = await otp.checkCode(user.id, 'login', req.body.code);
+  if (result !== 'ok') return twoStepPage(res, user.email, { type: 'error', message: otp.MESSAGES[result] });
+  const next = req.session.twoStep.next;
+  req.session.twoStep = null;
+  req.session.userId = user.id;
+  req.session.pw = user.password_hash.slice(-12);
+  await audit(user, 'user.login', { entity: 'user', id: user.id, summary: `${user.name} logged in with password + email code${loginPlace(req)}` });
+  res.redirect(safeNext(user, next));
+}));
+
+router.post('/login/2step/resend', h(async (req, res) => {
+  const user = await twoStepUser(req);
+  if (!user) return res.redirect('/login');
+  const r = await otp.sendCode(user, 'login');
+  twoStepPage(res, user.email, r.sent ? { type: 'success', message: 'A new code is on its way.' } : { type: 'warn', message: otp.MESSAGES[r.reason] });
 }));
 
 // ---------- your own account (any role) ----------
@@ -95,9 +140,40 @@ router.post('/login', h(async (req, res) => {
 const requireLogin = (req, res, next) => (req.user ? next() : res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`));
 
 router.get('/account', requireLogin, h(async (req, res) => {
-  const me = await one('SELECT name, email, phone, created_at FROM users WHERE id = ?', req.user.id);
-  const lastLogin = await one("SELECT created_at FROM audit_log WHERE user_id = ? AND action = 'user.login' ORDER BY id DESC LIMIT 1 OFFSET 1", req.user.id);
-  res.page('account', { title: 'My account', me, lastLogin });
+  const me = await one('SELECT name, email, phone, created_at, two_step FROM users WHERE id = ?', req.user.id);
+  const logins = await all("SELECT created_at, summary FROM audit_log WHERE user_id = ? AND action = 'user.login' ORDER BY id DESC LIMIT 8", req.user.id);
+  res.page('account', { title: 'My account', me, logins, lastLogin: logins[1] || null, emailOn: mailer.enabled() });
+}));
+
+// 2-step login on: confirm the password, then prove the inbox works with a code (so nobody locks themselves out).
+router.post('/account/2step/on', requireLogin, h(async (req, res) => {
+  const u = await one('SELECT * FROM users WHERE id = ?', req.user.id);
+  if (!mailer.enabled()) { req.flash('error', 'Email is not set up on the portal yet, so 2-step login cannot be turned on.'); return res.redirect('/account'); }
+  if (!verifyPassword(String(req.body.current || ''), u.password_hash)) { req.flash('error', 'Your password is not right.'); return res.redirect('/account'); }
+  const r = await otp.sendCode(u, 'verify');
+  if (!r.sent) { req.flash('error', otp.MESSAGES[r.reason]); return res.redirect('/account'); }
+  res.page('public/code', { title: 'Turn on 2-step login', noindex: true, purpose: 'enable', email: u.email, action: '/account/2step/confirm', resendAction: '/account' }, 'public');
+}));
+
+router.post('/account/2step/confirm', requireLogin, h(async (req, res) => {
+  const u = await one('SELECT * FROM users WHERE id = ?', req.user.id);
+  const result = await otp.checkCode(u.id, 'verify', req.body.code);
+  if (result !== 'ok') {
+    return res.page('public/code', { title: 'Turn on 2-step login', noindex: true, purpose: 'enable', email: u.email, action: '/account/2step/confirm', resendAction: '/account', flash: [{ type: 'error', message: otp.MESSAGES[result] }] }, 'public');
+  }
+  await run('UPDATE users SET two_step = 1, email_verified = 1 WHERE id = ?', u.id);
+  await audit(req.user, 'user.two_step_on', { entity: 'user', id: u.id, summary: `${u.name} turned on 2-step login` });
+  req.flash('success', '2-step login is on. From now on you\'ll enter a code from your email after your password.');
+  res.redirect('/account');
+}));
+
+router.post('/account/2step/off', requireLogin, h(async (req, res) => {
+  const u = await one('SELECT * FROM users WHERE id = ?', req.user.id);
+  if (!verifyPassword(String(req.body.current || ''), u.password_hash)) { req.flash('error', 'Your password is not right.'); return res.redirect('/account'); }
+  await run('UPDATE users SET two_step = 0 WHERE id = ?', u.id);
+  await audit(req.user, 'user.two_step_off', { entity: 'user', id: u.id, summary: `${u.name} turned off 2-step login` });
+  req.flash('success', '2-step login is off.');
+  res.redirect('/account');
 }));
 
 router.post('/account/password', requireLogin, h(async (req, res) => {
@@ -244,12 +320,14 @@ router.post('/login/otp/verify', h(async (req, res) => {
     await run('INSERT INTO login_failures (email, ip) VALUES (?, ?)', email, req.ip);
     return again(otp.MESSAGES[result]);
   }
+  // With 2-step login on, an email code alone isn't enough: password first, then the code.
+  if (user.two_step) return again('2-step login is on for this account. Log in with your password; we\'ll then email you a code.');
   // The code proves the person reads this inbox.
   await run('UPDATE users SET email_verified = 1 WHERE id = ?', user.id);
   await run('DELETE FROM login_failures WHERE email = ?', email);
   req.session.userId = user.id;
   req.session.pw = user.password_hash.slice(-12);
-  await audit(user, 'user.login', { entity: 'user', id: user.id, summary: `${user.name} logged in with an email code` });
+  await audit(user, 'user.login', { entity: 'user', id: user.id, summary: `${user.name} logged in with an email code${loginPlace(req)}` });
   res.redirect(safeNext(user, req.body.next));
 }));
 

@@ -105,14 +105,14 @@ router.get('/', h(async (req, res) => {
       (SELECT COALESCE(SUM(credit_used), 0) FROM agencies) AS "creditOut",
       (SELECT COUNT(*) FROM bookings WHERE status = 'cancel_requested') AS "cancelRequests",
       (SELECT COUNT(*) FROM agencies WHERE website_status = 'requested') AS "websiteRequests"`, month, month);
-  const [stats, bookings, pending, topAgents, topProducts, recentLog] = await Promise.all([
+  const [stats, bookings, pending, topAgents, topProducts, recentLog, quietAgents] = await Promise.all([
     statsQuery,
     all('SELECT b.*, a.name AS agency_name FROM bookings b JOIN agencies a ON a.id = b.agency_id ORDER BY b.id DESC LIMIT 8'),
     all("SELECT * FROM agencies WHERE status = 'pending' ORDER BY id DESC LIMIT 5"),
     all(
       `SELECT a.id, a.name, a.city, COUNT(b.id) AS bookings, COALESCE(SUM(b.total_net), 0) AS revenue
-     FROM agencies a LEFT JOIN bookings b ON b.agency_id = a.id AND b.status != 'cancelled'
-     WHERE a.status = 'active' GROUP BY a.id ORDER BY revenue DESC LIMIT 5`,
+     FROM agencies a JOIN bookings b ON b.agency_id = a.id AND b.status != 'cancelled' AND b.created_at > datetime('now', '-90 days')
+     WHERE a.status = 'active' GROUP BY a.id, a.name, a.city ORDER BY revenue DESC LIMIT 5`,
     ),
     all(
       `SELECT p.id, p.kind, p.title, p.city, COUNT(DISTINCT b.id) AS bookings FROM products p
@@ -120,8 +120,16 @@ router.get('/', h(async (req, res) => {
      GROUP BY p.id ORDER BY bookings DESC, p.id LIMIT 5`,
     ),
     all(`${LOG_SQL} WHERE l.action != 'user.login' ORDER BY l.id DESC LIMIT 8`),
+    // Active for a month or more with no booking in 60 days: worth a call.
+    all(`SELECT a.id, a.name, a.city, a.phone, MAX(b.created_at) AS last_booking,
+        (SELECT MAX(l.created_at) FROM audit_log l WHERE l.agency_id = a.id AND l.action = 'user.login') AS last_login
+      FROM agencies a LEFT JOIN bookings b ON b.agency_id = a.id
+      WHERE a.status = 'active' AND a.created_at < datetime('now', '-30 days')
+      GROUP BY a.id, a.name, a.city, a.phone
+      HAVING MAX(b.created_at) IS NULL OR MAX(b.created_at) < datetime('now', '-60 days')
+      ORDER BY MAX(b.created_at) NULLS FIRST LIMIT 6`),
   ]);
-  res.page('admin/dashboard', { title: 'Admin dashboard', stats, bookings, pending, topAgents, topProducts, recentLog, kinds: KINDS, biz: await businessFigures() });
+  res.page('admin/dashboard', { title: 'Admin dashboard', stats, bookings, pending, topAgents, quietAgents, topProducts, recentLog, kinds: KINDS, biz: await businessFigures() });
 }));
 
 // ---------- agents ----------

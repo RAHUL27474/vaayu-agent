@@ -1,8 +1,14 @@
-<%# Enter a 6-digit email code. Locals: purpose ('verify' | 'login'), email, action, resendAction, next %>
+<%# Enter a 6-digit email code. Locals: purpose ('verify' | 'login' | 'twostep' | 'enable'), email, action, resendAction, next %>
+<% const T = {
+  verify: ['One last step', 'Verify your email', 'Verify email'],
+  login: ['Log in without a password', 'Enter your login code', 'Log in'],
+  twostep: ['2-step login', 'Enter the code from your email', 'Log in'],
+  enable: ['Turn on 2-step login', 'Confirm with the emailed code', 'Turn on 2-step login'],
+}[purpose] || ['', 'Enter the code', 'Continue']; %>
 <div class="auth" style="min-height:calc(100vh - 70px)">
   <div class="art">
     <div>
-      <h2><%= purpose === 'verify' ? 'One last step' : 'Log in without a password' %></h2>
+      <h2><%= T[0] %></h2>
       <ul>
         <li>We emailed a 6-digit code to <b><%= email %></b></li>
         <li>It works for 10 minutes</li>
@@ -13,7 +19,7 @@
   </div>
   <div class="form">
     <div>
-      <h1><%= purpose === 'verify' ? 'Verify your email' : 'Enter your login code' %></h1>
+      <h1><%= T[1] %></h1>
       <p class="muted">Code sent to <b><%= email %></b></p>
       <form method="post" action="<%= action %>">
         <input type="hidden" name="email" value="<%= email %>">
@@ -21,15 +27,15 @@
         <div class="field"><label for="code">6-digit code</label>
           <input id="code" class="otp-input" name="code" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" required autofocus autocomplete="one-time-code" placeholder="••••••">
         </div>
-        <button class="btn btn-primary btn-lg" style="width:100%"><%= purpose === 'verify' ? 'Verify email' : 'Log in' %></button>
+        <button class="btn btn-primary btn-lg" style="width:100%"><%= T[2] %></button>
       </form>
-      <form method="post" action="<%= resendAction %>" style="margin-top:14px">
+      <% if (purpose !== 'enable') { %><form method="post" action="<%= resendAction %>" style="margin-top:14px">
         <input type="hidden" name="email" value="<%= email %>">
         <% if (typeof next !== 'undefined' && next) { %><input type="hidden" name="next" value="<%= next %>"><% } %>
         <p class="muted" style="margin:0">Didn't get it? <button class="linklike" type="submit">Send a new code</button></p>
-      </form>
+      </form><% } %>
       <div class="muted" style="margin-top:18px">
-        <% if (purpose === 'verify') { %><form method="post" action="/logout" style="display:inline"><button class="linklike" type="submit">Log out</button></form> and sign up with another email<% } else { %><a href="/login">Log in with password instead</a><% } %>
+        <% if (purpose === 'verify') { %><form method="post" action="/logout" style="display:inline"><button class="linklike" type="submit">Log out</button></form> and sign up with another email<% } else if (purpose === 'enable') { %><a href="/account">Cancel</a><% } else if (purpose === 'twostep') { %><a href="/login">Start again</a><% } else { %><a href="/login">Log in with password instead</a><% } %>
       </div>
     </div>
   </div>

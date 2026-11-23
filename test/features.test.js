@@ -174,6 +174,58 @@ const resend = http.createServer((req, res) => {
   await c.post('/verify-email', vCookie, { code: vCode });
   check('the right code verifies the email and opens the portal', (await one("SELECT email_verified FROM users WHERE email = 'vera@verify.in'")).email_verified === 1 && (await c.get('/agent', vCookie)).status === 200);
 
+  // ---------- 2-step login (password, then an emailed code) ----------
+  const run = (sql, ...p) => db.prepare(sql).run(...p);
+  const { cookieOf } = require('./helpers');
+  const adminId = (await one('SELECT id FROM users WHERE email = ?', ROLES.admin[0])).id;
+  const unthrottle = () => run("UPDATE one_time_codes SET created_at = datetime('now', '-2 minutes') WHERE user_id = ?", adminId);
+  const mailTo = (to) => [...mails].reverse().find((m) => m.to.includes(to));
+  check('account page offers 2-step login', (await page('/account', admin)).includes('2-step login'));
+  await c.post('/account/2step/on', admin, { current: 'wrong-password' });
+  check('turning 2-step on needs the password', (await one('SELECT two_step FROM users WHERE id = ?', adminId)).two_step === 0);
+  mails.length = 0;
+  const onPage = await (await c.post('/account/2step/on', admin, { current: ROLES.admin[1] })).text();
+  check('turning 2-step on asks for an emailed code', onPage.includes('Confirm with the emailed code'));
+  await c.post('/account/2step/confirm', admin, { code: codeIn(mailTo(ROLES.admin[0])) });
+  check('the right code turns 2-step login on', (await one('SELECT two_step FROM users WHERE id = ?', adminId)).two_step === 1);
+  unthrottle();
+  mails.length = 0;
+  const step1 = await c.post('/login', '', { email: ROLES.admin[0], password: ROLES.admin[1] });
+  const halfCookie = cookieOf(step1);
+  check('with 2-step on, the password alone does not log in', step1.status === 200 && (await step1.text()).includes('Enter the code from your email') && (await c.get('/admin', halfCookie)).status === 302);
+  const step2Code = codeIn(mailTo(ROLES.admin[0]));
+  check('a wrong second-step code is refused', (await (await c.post('/login/2step', halfCookie, { code: step2Code === '000000' ? '111111' : '000000' })).text()).includes('That code isn'));
+  const step2 = await c.post('/login/2step', halfCookie, { code: step2Code });
+  const fullCookie = cookieOf(step2) || halfCookie;
+  check('password + the emailed code logs in', step2.status === 302 && step2.headers.get('location') === '/admin' && (await c.get('/admin', fullCookie)).status === 200);
+  check('a second-step code without the password step does nothing', (await c.post('/login/2step', '', { code: step2Code })).headers.get('location') === '/login');
+  unthrottle();
+  mails.length = 0;
+  await c.post('/login/otp', '', { email: ROLES.admin[0] });
+  const onlyCode = await (await c.post('/login/otp/verify', '', { email: ROLES.admin[0], code: codeIn(mailTo(ROLES.admin[0])) })).text();
+  check('with 2-step on, an email code alone does not log in', onlyCode.includes('2-step login is on'));
+  const acct = await page('/account', fullCookie);
+  check('account page lists recent logins with where from', acct.includes('Recent logins') && /a browser|Chrome|Windows/.test(acct));
+  await c.post('/account/2step/off', fullCookie, { current: ROLES.admin[1] });
+  check('2-step login can be turned off with the password', (await one('SELECT two_step FROM users WHERE id = ?', adminId)).two_step === 0 && await loginOk(...ROLES.admin));
+
+  // ---------- trip reminder 2 days before travel ----------
+  const indiaDay = (plus) => new Date(Date.now() + 330 * 60000 + plus * 864e5).toISOString().slice(0, 10);
+  const trip = await one("SELECT id, agency_id, title FROM bookings WHERE status = 'confirmed' ORDER BY id LIMIT 1");
+  run('UPDATE bookings SET travel_date = ?, trip_reminded = 0 WHERE id = ?', indiaDay(1), trip.id);
+  const tripNotes = async () => (await one("SELECT COUNT(*) AS n FROM notifications WHERE agency_id = ? AND title LIKE 'Trip tomorrow:%'", trip.agency_id)).n;
+  await c.get('/healthz');
+  check('the agent is reminded the day before a trip', await tripNotes() === 1 && (await one('SELECT trip_reminded FROM bookings WHERE id = ?', trip.id)).trip_reminded === 1);
+  await c.get('/healthz');
+  check('the trip reminder is sent once', await tripNotes() === 1);
+
+  // ---------- admin dashboard: agents ----------
+  const agentsDash = await page('/admin', admin);
+  check('admin dashboard shows top agents of the last 90 days', agentsDash.includes('Top agents') && agentsDash.includes('last 90 days'));
+  run("UPDATE agencies SET created_at = datetime('now', '-120 days') WHERE id = (SELECT agency_id FROM users WHERE email = ?)", ROLES.agent2[0]);
+  run("UPDATE bookings SET created_at = datetime('now', '-100 days') WHERE agency_id = (SELECT agency_id FROM users WHERE email = ?)", ROLES.agent2[0]);
+  check('admin dashboard lists agents gone quiet', (await page('/admin', admin)).includes('Agents gone quiet'));
+
   resend.close();
   finish(c);
 })().catch((e) => { console.error(e); process.exit(1); });

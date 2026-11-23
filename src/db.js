@@ -452,6 +452,10 @@ ALTER TABLE agencies ADD COLUMN IF NOT EXISTS low_balance_alert DOUBLE PRECISION
 ALTER TABLE agencies ADD COLUMN IF NOT EXISTS credit_days INTEGER NOT NULL DEFAULT 15;
 ALTER TABLE agencies ADD COLUMN IF NOT EXISTS credit_since TEXT;
 ALTER TABLE agencies ADD COLUMN IF NOT EXISTS credit_reminded_on TEXT;
+-- 2-step login: after the password, a code emailed to the user (each person turns it on for themselves).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS two_step INTEGER NOT NULL DEFAULT 0;
+-- Trip reminder sent to the agent a couple of days before travel.
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS trip_reminded INTEGER NOT NULL DEFAULT 0;
 UPDATE agencies SET credit_since = to_char(CURRENT_DATE, 'YYYY-MM-DD') WHERE credit_used > 0 AND credit_since IS NULL;
 -- Shared quote opened by the customer (agents' own previews and link-preview bots don't count).
 ALTER TABLE quotes ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0;

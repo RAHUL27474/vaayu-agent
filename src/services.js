@@ -155,6 +155,24 @@ async function creditReminders() {
   return sent;
 }
 
+/** Daily (from the cron): tells the agent 2 days before a confirmed trip, so the voucher reaches the traveller in time. */
+async function tripReminders() {
+  const today = indiaToday();
+  const until = isoDay(new Date(Date.parse(`${today}T00:00:00Z`) + 2 * 864e5));
+  const trips = await all(
+    `SELECT b.id, b.agency_id, b.code, b.title, b.travel_date, c.name AS customer FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id
+     WHERE b.status = 'confirmed' AND b.trip_reminded = 0 AND b.travel_date BETWEEN ? AND ?`, today, until,
+  );
+  for (const b of trips) {
+    const days = Math.round((Date.parse(`${b.travel_date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 864e5);
+    const when = days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`;
+    await notify(b.agency_id, `Trip ${when}: ${b.title}`,
+      `${b.customer || 'Your customer'} travels ${when} (${b.travel_date}), booking ${b.code}. Download the voucher and send it to them, and share pickup times and emergency contacts.`, `/agent/bookings/${b.id}`);
+    await run('UPDATE bookings SET trip_reminded = 1 WHERE id = ?', b.id);
+  }
+  return trips.length;
+}
+
 function financialYear(d = new Date()) {
   const y = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
   return `${y}-${String((y + 1) % 100).padStart(2, '0')}`;
@@ -300,7 +318,7 @@ async function voucherFor(booking) {
 
 module.exports = {
   departuresOf, assertSeats,
-  creditStatus, repayCredit, creditReminders,
+  creditStatus, repayCredit, creditReminders, tripReminders,
   voucherFor,
   AppError, getQuote, createQuote, createQuoteFromPackage, addProductToQuote, addQuoteItem, moveWallet, issueInvoice,
   bookQuote, approveCancellation, approveTopup, packageSellPrice, defaultInvoiceMode,

@@ -58,7 +58,8 @@
 
 <div class="grid grid-3">
   <div class="card flush">
-    <div class="card-head"><h3>Top agents</h3></div>
+    <div class="card-head"><h3>Top agents</h3><small class="muted">last 90 days</small></div>
+    <% if (!topAgents.length) { %><div class="empty">No bookings in 90 days.</div><% } %>
     <table class="table" style="margin-top:10px">
       <% topAgents.forEach(a => { %><tr class="click" data-href="/admin/agents/<%= a.id %>"><td><b><%= a.name %></b><br><small><%= a.city || '' %> · <%= plural(a.bookings, 'booking') %></small></td><td class="num"><%= inr(a.revenue) %></td></tr><% }) %>
     </table>
@@ -78,6 +79,20 @@
     <% } %>
   </div>
 </div>
+
+<% if (quietAgents.length) { %>
+<div class="card flush">
+  <div class="card-head"><h3>Agents gone quiet</h3><small class="muted">no booking in 60 days · give them a call</small></div>
+  <div class="table-wrap"><table class="table" style="margin-top:6px">
+    <% quietAgents.forEach(a => { %><tr class="click" data-href="/admin/agents/<%= a.id %>">
+      <td><b><%= a.name %></b><br><small><%= a.city || '' %></small></td>
+      <td><small class="muted">Last booking</small><br><%= a.last_booking ? fmtDate(a.last_booking) : 'never' %></td>
+      <td><small class="muted">Last login</small><br><%= a.last_login ? fmtDate(a.last_login) : 'never' %></td>
+      <td class="num"><% if (a.phone) { %><a class="btn btn-sm" href="tel:<%= a.phone %>" onclick="event.stopPropagation()"><%- icon('phone') %>Call</a><% } %></td>
+    </tr><% }) %>
+  </table></div>
+</div>
+<% } %>
 
 <div class="card flush">
   <div class="card-head"><h3>Latest activity</h3><a href="/admin/log">Full activity log</a></div>
