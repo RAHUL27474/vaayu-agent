@@ -304,3 +304,81 @@ document.addEventListener('input', (e) => {
   const empty = list.querySelector('[data-filter-empty]');
   if (empty) empty.hidden = shown > 0;
 });
+
+// ---------- Home page: hero slideshow, count-up numbers, margin calculator, scroll reveal ----------
+const calmMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const hero = document.querySelector('[data-hero]');
+if (hero) {
+  const slides = hero.querySelectorAll('.hx-slide');
+  const dots = hero.querySelectorAll('[data-slide]');
+  const word = hero.querySelector('[data-hero-word]');
+  const line = hero.querySelector('[data-hero-line]');
+  const MS = 6000;
+  hero.style.setProperty('--slide-ms', `${MS}ms`);
+  let at = 0;
+  let timer;
+  const show = (i) => {
+    at = (i + slides.length) % slides.length;
+    slides.forEach((s, k) => s.classList.toggle('on', k === at));
+    dots.forEach((d, k) => {
+      d.classList.remove('on');
+      if (k === at) { void d.offsetWidth; d.classList.add('on'); }
+    });
+    if (line) line.textContent = dots[at].dataset.line;
+    if (word) {
+      word.classList.add('out');
+      setTimeout(() => { word.textContent = dots[at].querySelector('span').textContent; word.classList.remove('out'); }, 300);
+    }
+  };
+  const play = () => { clearInterval(timer); if (!calmMotion) timer = setInterval(() => { if (!document.hidden) show(at + 1); }, MS); };
+  dots.forEach((d) => d.addEventListener('click', () => { show(Number(d.dataset.slide)); play(); }));
+  if (calmMotion) hero.setAttribute('data-paused', '');
+  play();
+}
+
+const io = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
+  entries.forEach((e) => {
+    if (!e.isIntersecting) return;
+    const el = e.target;
+    io.unobserve(el);
+    el.classList.add('in');
+    if (el.dataset.count !== undefined && !calmMotion) {
+      const end = Number(el.dataset.count) || 0;
+      const t0 = performance.now();
+      const step = (t) => {
+        const p = Math.min(1, (t - t0) / 1400);
+        el.textContent = Math.round(end * (1 - (1 - p) ** 3)).toLocaleString('en-IN');
+        if (p < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+  });
+}, { threshold: 0.15 }) : null;
+// Siblings revealed together come in one after another.
+document.querySelectorAll('[data-reveal]').forEach((el) => {
+  const i = [...el.parentElement.children].filter((c) => c.hasAttribute('data-reveal')).indexOf(el);
+  el.style.setProperty('--d', `${Math.min(i, 6) * 80}ms`);
+  if (io) io.observe(el); else el.classList.add('in');
+});
+document.querySelectorAll('[data-count]').forEach((el) => io && io.observe(el));
+
+const calc = document.querySelector('[data-calc]');
+if (calc) {
+  const inr = (n) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+  const slider = calc.querySelector('[data-calc-m]');
+  const profitBox = calc.querySelector('.calc-profit');
+  const render = () => {
+    const trip = calc.querySelector('input[name="calc-trip"]:checked');
+    const lines = JSON.parse(trip.dataset.lines);
+    const net = lines.reduce((s, l) => s + l[1], 0);
+    const m = Number(slider.value);
+    calc.querySelector('[data-calc-lines]').innerHTML = lines.map((l) => `<tr><td>${l[0]}</td><td class="num">${inr(l[1])} <small class="muted">net</small></td></tr>`).join('');
+    calc.querySelector('[data-calc-pct]').textContent = `${m}%`;
+    calc.querySelector('[data-calc-total]').textContent = inr(net * (1 + m / 100));
+    calc.querySelector('[data-calc-profit]').textContent = inr(net * m / 100);
+    profitBox.classList.remove('bump'); void profitBox.offsetWidth; profitBox.classList.add('bump');
+  };
+  slider.addEventListener('input', render);
+  calc.querySelectorAll('input[name="calc-trip"]').forEach((r) => r.addEventListener('change', render));
+}

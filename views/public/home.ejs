@@ -1,24 +1,54 @@
-<section class="hero">
+<%
+  const HERO = [
+    { name: 'Dubai', line: 'City lights from the Burj Khalifa' },
+    { name: 'Bali', line: 'Pura Ulun Danu Bratan, on Lake Bratan' },
+    { name: 'Vietnam', line: 'The islands of Ha Long Bay' },
+    { name: 'Cambodia', line: 'Angkor Wat at first light' },
+    { name: 'United Kingdom', line: 'Tower Bridge, London' },
+    { name: 'Europe', line: 'The Eiffel Tower over the Seine' },
+  ];
+  // Example trips for the margin calculator (illustrative net rates, 2 adults).
+  const TRIPS = [
+    { key: 'dubai', name: 'Dubai · 4 nights', lines: [['Delhi–Dubai return flights', 48000], ['Hotel, 4 nights', 24800], ['Desert safari + Burj Khalifa', 14600]] },
+    { key: 'bali', name: 'Bali · 5 nights', lines: [['Mumbai–Bali return flights', 42000], ['Villa, 5 nights', 21500], ['Ubud day tour + Nusa Penida', 9800]] },
+    { key: 'vietnam', name: 'Vietnam · 6 nights', lines: [['Delhi–Hanoi return flights', 38000], ['Hotels in Hanoi & Da Nang', 18400], ['Ha Long Bay cruise + Ba Na Hills', 12600]] },
+  ];
+  const inr = (n) => '₹' + Math.round(n).toLocaleString('en-IN');
+  const t0 = TRIPS[0], net0 = t0.lines.reduce((s, l) => s + l[1], 0), m0 = 12;
+%>
+<section class="hx" data-hero>
+  <div class="hx-slides" aria-hidden="true">
+    <% HERO.forEach((h, i) => { %><img class="hx-slide<%= i === 0 ? ' on' : '' %>" src="<%= cover({ destination: h.name }) %>" alt="" <%- i === 0 ? 'fetchpriority="high"' : 'loading="lazy"' %>><% }) %>
+  </div>
+  <div class="hx-shade"></div>
   <div class="inner">
-    <div>
-      <span class="badge info" style="text-transform:none;margin-bottom:16px">B2B platform for travel agents · 6 international destinations</span>
-      <h1>Your travel business, <em>powered by VaayuTrip</em>.</h1>
-      <p class="lead">Airfares, hotels, activities, transfers, visas and travel insurance at agent net rates for Dubai, Bali, Vietnam, Cambodia, the UK and Europe. Build your own holiday packages from them, set your price, and send quotes and invoices with your own logo.</p>
-      <div class="actions" style="margin-top:24px">
-        <a class="btn btn-accent btn-lg" href="/signup">Become a partner, free<%- icon('arrowRight') %></a>
-        <a class="btn btn-lg" href="#how">See how it works</a>
+    <div class="hx-copy">
+      <span class="hx-pill"><i class="live-dot"></i>B2B platform for travel agents · 6 destinations</span>
+      <h1>Sell <span class="hx-rot" data-hero-word><%= HERO[0].name %></span> holidays<br>under <em>your own brand</em>.</h1>
+      <p class="lead">Airfares, hotels, activities, transfers, visas and insurance at agent net rates. Build your own packages, set your price, and send quotes and invoices with your logo.</p>
+      <div class="actions">
+        <a class="btn btn-accent btn-lg btn-glow" href="/signup">Become a partner, free<%- icon('arrowRight') %></a>
+        <a class="btn btn-lg btn-glass" href="#calc">See what you'd earn</a>
       </div>
-      <ul class="hero-points">
+      <ul class="hx-points">
         <li>No joining fee</li>
-        <li>Approval in about one working day</li>
+        <li>Approved in about a day</li>
         <li>Your logo on every invoice</li>
       </ul>
     </div>
-    <div class="hero-login">
+    <div class="hero-login glass">
       <% if (user) { %>
+        <span class="hx-hello">👋</span>
         <h3>Welcome back, <%= user.name.split(' ')[0] %></h3>
-        <p class="muted">You're logged in.</p>
+        <p class="muted">You're logged in. Pick up where you left off.</p>
         <a class="btn btn-primary btn-lg" style="width:100%" href="<%= user.role === 'admin' ? '/admin' : user.role === 'backend' ? '/backend' : '/agent' %>">Open your portal<%- icon('arrowRight') %></a>
+        <div class="hx-quick">
+          <% if (user.role === 'agent') { %>
+            <a href="/agent/hotels"><%- icon('search') %>Find hotels</a>
+            <a href="/agent/wallet"><%- icon('wallet') %>Wallet</a>
+            <a href="/agent/bookings"><%- icon('receipt') %>Bookings</a>
+          <% } %>
+        </div>
       <% } else { %>
         <h3>Partner login</h3>
         <p class="muted">Agents and VaayuTrip team members.</p>
@@ -31,109 +61,131 @@
       <% } %>
     </div>
   </div>
-  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
+  <div class="hx-dots" role="tablist" aria-label="Destinations">
+    <% HERO.forEach((h, i) => { %>
+      <button type="button" class="<%= i === 0 ? 'on' : '' %>" data-slide="<%= i %>" data-line="<%= h.line %>" aria-label="Show <%= h.name %>"><span><%= h.name %></span><i></i></button>
+    <% }) %>
+  </div>
+  <p class="hx-caption" data-hero-line><%= HERO[0].line %></p>
 </section>
+
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <% for (let k = 0; k < 2; k++) { %>
+      <% ['Dubai', 'Airfares', 'Bali', 'Hotels', 'Vietnam', 'Activities', 'Cambodia', 'Transfers', 'United Kingdom', 'Visas', 'Europe', 'Insurance'].forEach((w, i) => { %><span class="<%= i % 2 ? 'tk-svc' : 'tk-dest' %>"><%= w %></span><% }) %>
+    <% } %>
+  </div>
+</div>
 
 <section class="svc-strip" aria-label="What you can book">
   <div class="inner">
-    <div><span class="s-ico"><%- icon('plane') %></span><b>Airfares</b><small>Fixed B2B fares</small></div>
-    <div><span class="s-ico"><%- icon('bed') %></span><b>Hotels</b><small>Per room per night</small></div>
-    <div><span class="s-ico"><%- icon('ticket') %></span><b>Activities</b><small>Tours &amp; tickets</small></div>
-    <div><span class="s-ico"><%- icon('car') %></span><b>Transfers</b><small>Airport &amp; intercity</small></div>
-    <div><span class="s-ico"><%- icon('passport') %></span><b>Visas</b><small>Processing support</small></div>
-    <div><span class="s-ico"><%- icon('shield') %></span><b>Insurance</b><small>Per traveller</small></div>
+    <div data-reveal><span class="s-ico"><%- icon('plane') %></span><b>Airfares</b><small>Fixed B2B fares</small></div>
+    <div data-reveal><span class="s-ico"><%- icon('bed') %></span><b>Hotels</b><small>Per room per night</small></div>
+    <div data-reveal><span class="s-ico"><%- icon('ticket') %></span><b>Activities</b><small>Tours &amp; tickets</small></div>
+    <div data-reveal><span class="s-ico"><%- icon('car') %></span><b>Transfers</b><small>Airport &amp; intercity</small></div>
+    <div data-reveal><span class="s-ico"><%- icon('passport') %></span><b>Visas</b><small>Processing support</small></div>
+    <div data-reveal><span class="s-ico"><%- icon('shield') %></span><b>Insurance</b><small>Per traveller</small></div>
   </div>
-  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
 <section class="stats-strip" aria-label="VaayuTrip in numbers">
   <div class="inner">
-    <div><b><%= stats.hotels %></b><span>hotels at net rates</span></div>
-    <div><b><%= stats.activities %></b><span>tours &amp; activities</span></div>
-    <div><b><%= stats.cities %></b><span>cities across 6 destinations</span></div>
-    <div><b><%= stats.agents %></b><span>partner agencies selling today</span></div>
+    <div><b data-count="<%= stats.hotels %>"><%= stats.hotels %></b><span>hotels at net rates</span></div>
+    <div><b data-count="<%= stats.activities %>"><%= stats.activities %></b><span>tours &amp; activities</span></div>
+    <div><b data-count="<%= stats.cities %>"><%= stats.cities %></b><span>cities across 6 destinations</span></div>
+    <div><b data-count="<%= stats.agents %>"><%= stats.agents %></b><span>partner agencies selling today</span></div>
   </div>
-  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
-<section class="section" id="features">
+<section class="section" id="destinations">
+  <span class="eyebrow">Destinations</span>
+  <h2 class="big">Where will your customers go next?</h2>
+  <p class="center">Hotels, fares, sightseeing, transfers and visas in six destinations, contracted and kept up to date by the VaayuTrip team.</p>
+  <div class="bento">
+    <% destinations.forEach((d, i) => { %>
+      <a class="dest" href="<%= user && user.role === 'agent' ? '/agent/find?svc=hotels&dest=' + encodeURIComponent(d.name) : '/signup' %>" data-reveal>
+        <img src="<%= cover({ destination: d.name }) %>" alt="<%= d.name %>" loading="lazy">
+        <span class="dest-tag"><%= d.items %> services</span>
+        <div class="cap">
+          <div><b class="dest-name"><%= d.name %></b><small><%= d.cities.length %> <%= d.cities.length === 1 ? 'city' : 'cities' %></small></div>
+          <span class="dest-go"><%- icon('arrowRight') %></span>
+        </div>
+        <% if (d.cities.length) { %><div class="dest-cities"><%= d.cities.slice(0, 5).join(' · ') %><%= d.cities.length > 5 ? ' …' : '' %></div><% } %>
+      </a>
+    <% }) %>
+  </div>
+  <p class="center muted photo-note">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
+</section>
+
+<section class="section feat-wrap" id="features">
   <span class="eyebrow">Platform</span>
   <h2 class="big">Everything you need to sell travel</h2>
   <p class="center">One login for inventory, sales, money and marketing, built for small and growing agencies.</p>
   <div class="grid grid-3">
-    <div class="feature"><div class="ico"><%- icon('plane') %></div><h3>Every building block at net</h3><p class="muted">Airfares, hotels, activities, transfers, visas and insurance for Dubai, Bali, Vietnam, Cambodia, the UK and Europe, contracted by the VaayuTrip team.</p></div>
-    <div class="feature"><div class="ico"><%- icon('briefcase') %></div><h3>Build your own packages</h3><p class="muted">We don't sell packages; you do. Lay out the days, add our services to each one, and add anything you arrange yourself. Your package, your price.</p></div>
-    <div class="feature"><div class="ico"><%- icon('receipt') %></div><h3>Branded invoices</h3><p class="muted">Every customer invoice, quote and voucher goes out under your own agency name, logo and GSTIN. VaayuTrip stays invisible.</p></div>
-    <div class="feature"><div class="ico"><%- icon('globe') %></div><h3>Your own website</h3><p class="muted">Want one? Our team builds it on your own domain and connects it to the portal, so your packages and prices stay in sync.</p></div>
-    <div class="feature"><div class="ico"><%- icon('wallet') %></div><h3>Wallet &amp; credit</h3><p class="muted">Book from your wallet or credit line, top up instantly, and track credit due dates. Your customers pay you directly.</p></div>
-    <div class="feature"><div class="ico"><%- icon('help') %></div><h3>Support and offers</h3><p class="muted">Raise a ticket from any booking and track the reply. Live deals and extra commission show up on your dashboard.</p></div>
+    <div class="feature fx" data-reveal><div class="ico c1"><%- icon('plane') %></div><h3>Every building block at net</h3><p class="muted">Airfares, hotels, activities, transfers, visas and insurance for six destinations, contracted by the VaayuTrip team.</p></div>
+    <div class="feature fx" data-reveal><div class="ico c2"><%- icon('briefcase') %></div><h3>Build your own packages</h3><p class="muted">We don't sell packages; you do. Lay out the days, add our services and your own. Your package, your price.</p></div>
+    <div class="feature fx" data-reveal><div class="ico c3"><%- icon('receipt') %></div><h3>Branded invoices</h3><p class="muted">Every quote, invoice and voucher goes out under your agency's name, logo and GSTIN. VaayuTrip stays invisible.</p></div>
+    <div class="feature fx" data-reveal><div class="ico c4"><%- icon('globe') %></div><h3>Your own website</h3><p class="muted">Want one? We build it on your domain and connect it to the portal, so your packages and prices stay in sync.</p></div>
+    <div class="feature fx" data-reveal><div class="ico c5"><%- icon('wallet') %></div><h3>Wallet &amp; credit</h3><p class="muted">Book from your wallet or credit line, top up by UPI or bank, and download a bank-style statement any time.</p></div>
+    <div class="feature fx" data-reveal><div class="ico c6"><%- icon('shield') %></div><h3>Secure by default</h3><p class="muted">2-step login, a record of every sign-in, and trip reminders before your customers fly.</p></div>
   </div>
-  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
-<section class="section" id="destinations" style="padding-top:0">
-  <span class="eyebrow">Destinations</span>
-  <h2 class="big">Six destinations, contracted by our team</h2>
-  <p class="center">Hotels, fares, sightseeing, transfers and visas in each, kept up to date by the VaayuTrip backend team.</p>
-  <div class="dest-grid">
-    <% destinations.forEach(d => { %>
-      <a class="dest" href="/signup">
-        <img src="<%= cover({ destination: d.name }) %>" alt="<%= d.name %>" loading="lazy">
-        <div class="cap"><div><b class="dest-name"><%= d.name %></b><small><%= d.items %> services to book</small></div><small><%= d.cities.length %> <%= d.cities.length === 1 ? 'city' : 'cities' %></small></div>
-      </a>
-    <% }) %>
-  </div>
-  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
-</section>
-
-<section class="section" id="invoices" style="background:var(--bg);max-width:none">
-  <div style="max-width:1240px;margin:0 auto" class="grid grid-2">
-    <div>
-      <span class="eyebrow" style="text-align:left">Invoicing</span>
-      <h2 class="big" style="text-align:left">Your brand, your customer</h2>
-      <p class="muted" style="font-size:16px">VaayuTrip works only with agents. Your customers deal with you.</p>
+<section class="section calc-wrap" id="calc">
+  <div class="calc-grid">
+    <div data-reveal>
+      <span class="eyebrow" style="text-align:left">Your margin</span>
+      <h2 class="big" style="text-align:left">See what you'd earn on one trip</h2>
+      <p class="muted" style="font-size:16px">Pick a trip and drag the slider. You set your own markup on every booking, and your customer sees only your price, on your invoice.</p>
       <ol class="steps" style="margin-top:20px">
-        <li><b>Your invoice to your customer.</b> Your company name, logo, GSTIN and colours, with every item in your package, including your own hotels and services. VaayuTrip stays invisible to your customer.</li>
-        <li><b>B2B invoice.</b> Every booking also gets a VaayuTrip invoice to you at net rates, for your accounts.</li>
+        <li><b>Your invoice to your customer.</b> Your name, logo and GSTIN, with every item in your package, including your own hotels and services.</li>
+        <li><b>B2B invoice to you.</b> Every booking also gets a VaayuTrip invoice at net rates, for your accounts.</li>
       </ol>
     </div>
-    <div class="panel margin-panel">
-      <div class="card-head"><h3>Your package, your price</h3><span class="badge ok">Your logo</span></div>
-      <table class="table">
-        <tr><td>Delhi–Dubai return, 2 adults</td><td class="num">₹48,000 <small class="muted">net</small></td></tr>
-        <tr><td>Dubai hotel, 4 nights</td><td class="num">₹24,800 <small class="muted">net</small></td></tr>
-        <tr><td>Desert safari + Burj Khalifa, 2 adults</td><td class="num">₹14,600 <small class="muted">net</small></td></tr>
-        <tr><td>Your markup (12%)</td><td class="num profit">+ ₹10,488</td></tr>
-        <tr><td><b>Customer pays</b></td><td class="num"><b>₹97,888</b> <small class="muted"><%= gstOn ? '+ GST ' : '' %>+ TCS</small></td></tr>
+    <div class="calc" data-calc data-reveal>
+      <div class="calc-trips" role="radiogroup" aria-label="Example trip">
+        <% TRIPS.forEach((t, i) => { %>
+          <label class="chip-radio"><input type="radio" name="calc-trip" value="<%= t.key %>" <%= i === 0 ? 'checked' : '' %> data-lines='<%= JSON.stringify(t.lines) %>'><span><%= t.name %></span></label>
+        <% }) %>
+      </div>
+      <table class="table calc-lines" data-calc-lines>
+        <% t0.lines.forEach(l => { %><tr><td><%= l[0] %></td><td class="num"><%= inr(l[1]) %> <small class="muted">net</small></td></tr><% }) %>
       </table>
-      <p class="muted" style="margin:12px 0 0;font-size:13px">Day-wise itinerary · Your logo · PDF to send on WhatsApp</p>
+      <div class="calc-slider">
+        <label for="calc-m">Your markup <b data-calc-pct><%= m0 %>%</b></label>
+        <input id="calc-m" type="range" min="0" max="30" step="1" value="<%= m0 %>" data-calc-m>
+      </div>
+      <div class="calc-out">
+        <div><small>Customer pays</small><b data-calc-total><%= inr(net0 * (1 + m0 / 100)) %></b><small class="muted"><%= gstOn ? '+ GST ' : '' %>+ TCS</small></div>
+        <div class="calc-profit"><small>You earn</small><b data-calc-profit><%= inr(net0 * m0 / 100) %></b><small>on this one trip</small></div>
+      </div>
+      <p class="muted calc-note">Example net rates for 2 adults, for illustration. Live rates are in the portal.</p>
     </div>
   </div>
-  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
 <section class="section" id="how">
   <span class="eyebrow">How it works</span>
   <h2 class="big">Start selling in a day</h2>
-  <div class="grid grid-4" style="margin-top:28px">
-    <div class="feature"><h3>1. Sign up</h3><p class="muted">Create your agency account.</p></div>
-    <div class="feature"><h3>2. Get verified</h3><p class="muted">We check your GSTIN or tax ID and approve you, usually within a working day.</p></div>
-    <div class="feature"><h3>3. Build your packages</h3><p class="muted">Pick our flights, hotels and activities for each day and set your price.</p></div>
-    <div class="feature"><h3>4. Quote &amp; book</h3><p class="muted">Send branded quotes, collect payment, and book from your wallet.</p></div>
+  <div class="timeline">
+    <div class="tl-step" data-reveal><span class="tl-n">1</span><h3>Sign up</h3><p class="muted">Create your agency account in ten minutes.</p></div>
+    <div class="tl-step" data-reveal><span class="tl-n">2</span><h3>Get verified</h3><p class="muted">We check your GSTIN or tax ID, usually within a working day.</p></div>
+    <div class="tl-step" data-reveal><span class="tl-n">3</span><h3>Build packages</h3><p class="muted">Pick flights, hotels and activities for each day and set your price.</p></div>
+    <div class="tl-step" data-reveal><span class="tl-n">4</span><h3>Quote &amp; book</h3><p class="muted">Send branded quotes on WhatsApp and book from your wallet.</p></div>
   </div>
-  <div style="text-align:center;margin-top:32px"><a class="btn btn-primary btn-lg" href="/signup">Create your free account</a></div>
+  <div style="text-align:center;margin-top:36px"><a class="btn btn-primary btn-lg btn-glow" href="/signup">Create your free account<%- icon('arrowRight') %></a></div>
 </section>
 
 <section class="section apply" id="apply">
   <div class="grid grid-2" style="align-items:start">
-    <div>
+    <div data-reveal>
       <span class="eyebrow" style="text-align:left">Verification</span>
       <h2 class="big" style="text-align:left">What you need to apply</h2>
       <p class="muted" style="font-size:16px">We verify every agency before it can book, to keep the network trusted and invoices compliant.</p>
     </div>
     <div class="grid grid-2">
-      <div class="feature">
-        <div class="ico"><%- icon('building') %></div>
+      <div class="feature fx" data-reveal>
+        <div class="ico c1"><%- icon('building') %></div>
         <h3>Agencies in India</h3>
         <ul class="ticks">
           <li>GSTIN of the agency</li>
@@ -141,8 +193,8 @@
           <li>Work email and mobile number</li>
         </ul>
       </div>
-      <div class="feature">
-        <div class="ico"><%- icon('globe') %></div>
+      <div class="feature fx" data-reveal>
+        <div class="ico c4"><%- icon('globe') %></div>
         <h3>Agencies outside India</h3>
         <ul class="ticks">
           <li>Company tax ID (VAT, TRN, EIN, ABN…)</li>
@@ -152,7 +204,6 @@
       </div>
     </div>
   </div>
-  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
 <section class="section faq" id="faq">
@@ -192,13 +243,11 @@
       <p>Raise a ticket from Help &amp; support in your portal for a written record, or call or WhatsApp our team for anything urgent.</p>
     </details>
   </div>
-  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>
 
-<section class="cta-band">
+<section class="cta-band cta-photo" style="--cta-img:url('<%= cover({ destination: 'Bali' }) %>')">
   <div class="inner">
-    <div><h2>Ready to sell more trips under your own brand?</h2><p>Set up takes ten minutes. We'll verify you within a working day.</p></div>
+    <div><h2>Ready to sell more trips under your own brand?</h2><p>Set-up takes ten minutes. We'll verify you within a working day.</p></div>
     <a class="btn btn-lg" href="/signup">Become a partner, free<%- icon('arrowRight') %></a>
   </div>
-  <p class="center muted" style="font-size:12px;margin-top:14px">Photos: Wikimedia Commons contributors · <a href="/photo-credits">credits</a></p>
 </section>

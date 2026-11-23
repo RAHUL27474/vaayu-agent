@@ -30,7 +30,7 @@
     <h3>Talk to us</h3>
     <dl class="kv">
       <% if (settings.phone) { %><dt>Phone</dt><dd><a href="tel:<%= settings.phone.replace(/[^\d+]/g, '') %>"><%= settings.phone %></a></dd><% } %>
-      <% if (settings.phone) { %><dt>WhatsApp</dt><dd><a href="https://wa.me/<%= settings.phone.replace(/\D/g, '') %>" target="_blank" rel="noopener">Chat on WhatsApp</a></dd><% } %>
+      <% if (waNumber) { %><dt>WhatsApp</dt><dd><a href="https://wa.me/<%= waNumber %>" target="_blank" rel="noopener">Chat on WhatsApp</a></dd><% } %>
       <% if (settings.email) { %><dt>Email</dt><dd><a href="mailto:<%= settings.email %>"><%= settings.email %></a></dd><% } %>
       <dt>Hours</dt><dd>Mon–Sat, 9:30 am – 7:30 pm IST</dd>
     </dl>

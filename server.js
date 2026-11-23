@@ -119,6 +119,8 @@ app.use(async (req, res, next) => {
   res.locals.query = req.query;
   res.locals.settings = await getSettings();
   res.locals.gstOn = gstOn(res.locals.settings);
+  const wa = String(res.locals.settings.whatsapp || '9667672467').replace(/\D/g, '');
+  res.locals.waNumber = wa.length === 10 ? `91${wa}` : wa;
   res.locals.flash = req.session.flash || [];
   req.session.flash = [];
   req.flash = (type, message) => req.session.flash.push({ type, message });
