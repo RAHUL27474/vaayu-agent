@@ -15,11 +15,11 @@
       </table></div>
       <% } %>
     </div>
-    <form class="card" method="post" action="/agent/support">
+    <form class="card" id="new" method="post" action="/agent/support">
       <h3>Raise a ticket</h3>
       <div class="row">
         <div class="field"><label for="category">Topic</label><select id="category" name="category"><% Object.entries(categories).forEach(([k, v]) => { %><option value="<%= k %>"><%= v %></option><% }) %></select></div>
-        <div class="field"><label for="booking_id">Booking <span class="muted">(optional)</span></label><select id="booking_id" name="booking_id"><option value="">Not about a booking</option><% bookings.forEach(b => { %><option value="<%= b.id %>"><%= b.code %> · <%= b.title %></option><% }) %></select></div>
+        <div class="field"><label for="booking_id">Booking <span class="muted">(optional)</span></label><select id="booking_id" name="booking_id"><option value="">Not about a booking</option><% bookings.forEach(b => { %><option value="<%= b.id %>" <%= query.booking === b.code ? 'selected' : '' %>><%= b.code %> · <%= b.title %></option><% }) %></select></div>
       </div>
       <div class="field"><label for="subject">Subject</label><input id="subject" name="subject" maxlength="140" required></div>
       <div class="field"><label for="body">Details</label><textarea id="body" name="body" maxlength="4000" required placeholder="What happened, and what do you need from us?"></textarea></div>
@@ -27,10 +27,18 @@
     </form>
   </div>
   <div class="card">
-    <h3>Talk to us</h3>
+<%
+      const ist = new Date(Date.now() + 330 * 60000);
+      const mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+      const openNow = ist.getUTCDay() !== 0 && mins >= 570 && mins < 1170;
+    %>
+    <div class="team-head">
+      <span class="team-av"><%- icon('message') %></span>
+      <div><h3>Hi <%= user.name.split(' ')[0] %>, we're here to help</h3><span class="open-pill <%= openNow ? 'on' : '' %>"><i></i><%= openNow ? 'Open now · replies within an hour' : 'Closed · back at 9:30 am IST' %></span></div>
+    </div>
+    <% if (waNumber) { %><a class="btn btn-wa" style="width:100%;margin-bottom:14px" href="https://wa.me/<%= waNumber %>?text=<%= encodeURIComponent(`Hi VaayuTrip, this is ${user.name} from ${agency.name}.`) %>" target="_blank" rel="noopener">Chat with us on WhatsApp</a><% } %>
     <dl class="kv">
       <% if (settings.phone) { %><dt>Phone</dt><dd><a href="tel:<%= settings.phone.replace(/[^\d+]/g, '') %>"><%= settings.phone %></a></dd><% } %>
-      <% if (waNumber) { %><dt>WhatsApp</dt><dd><a href="https://wa.me/<%= waNumber %>" target="_blank" rel="noopener">Chat on WhatsApp</a></dd><% } %>
       <% if (settings.email) { %><dt>Email</dt><dd><a href="mailto:<%= settings.email %>"><%= settings.email %></a></dd><% } %>
       <dt>Hours</dt><dd>Mon–Sat, 9:30 am – 7:30 pm IST</dd>
     </dl>

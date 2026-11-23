@@ -1,13 +1,23 @@
 <a href="/agent/bookings"><%- icon('arrowLeft') %>All bookings</a>
-<div class="page-head" style="margin-top:10px">
-  <div><h1><%= booking.title %></h1><p>Booking <b><%= booking.code %></b> · <span class="badge <%= booking.status %>"><%= booking.status.replace('_', ' ') %></span></p></div>
-  <div class="actions">
+<%
+  const [tripName, who] = booking.title.split(' — ');
+  const dest = full && full.quote && full.quote.package_snapshot ? (JSON.parse(full.quote.package_snapshot).destination || '') : '';
+  const dd = booking.travel_date ? Math.round((Date.parse(booking.travel_date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 864e5) : null;
+  const when = dd === null ? '' : booking.status !== 'confirmed' ? '' : dd > 1 ? `in ${dd} days` : dd === 1 ? 'tomorrow' : dd === 0 ? 'today' : 'travelled';
+%>
+<section class="trip-hero" style="--trip-img:url('<%= cover({ destination: dest, city: dest, title: tripName }) %>')">
+  <div>
+    <p class="trip-kicker"><%= who ? `${who}'s trip` : 'Trip' %><%= when ? ` · ${when}` : '' %></p>
+    <h1><%= tripName %></h1>
+    <p>Booking <b><%= booking.code %></b><%= booking.travel_date ? ` · ${fmtDate(booking.travel_date)}` : '' %> · <span class="badge <%= booking.status %>"><%= booking.status.replace('_', ' ') %></span></p>
+  </div>
+  <div class="actions trip-btns">
     <% if (booking.quote_id) { %>
       <% if (booking.status === 'confirmed') { %><a class="btn btn-primary" href="/agent/bookings/<%= booking.id %>/voucher"><%- icon('file') %>Travel voucher</a><% } %>
-      <a class="btn" href="/agent/quotes/<%= booking.quote_id %>">Open quote &amp; invoices</a>
+      <a class="btn btn-glass" href="/agent/quotes/<%= booking.quote_id %>">Open quote &amp; invoices</a>
     <% } %>
   </div>
-</div>
+</section>
 <div class="split">
   <div>
     <% if (full) { %>
@@ -39,7 +49,9 @@
         <% if (booking.cancel_reason) { %><dt>Cancel reason</dt><dd><%= booking.cancel_reason %></dd><% } %>
       </dl>
     </div>
-    <% if (booking.status === 'confirmed') { %>
+    <% if (booking.status === 'confirmed' && dd !== null && dd < 0) { %>
+      <div class="card"><h3>Trip completed</h3><p class="muted" style="font-size:13px;margin-bottom:12px">Hope <%= who || 'your customers' %> had a great time. Anything to sort out after the trip?</p><a class="btn btn-sm" href="/agent/support?booking=<%= booking.code %>#new">Raise a support ticket</a></div>
+    <% } else if (booking.status === 'confirmed') { %>
       <form class="card" method="post" action="/agent/bookings/<%= booking.id %>/cancel" data-confirm="Request cancellation of this booking?">
         <h3>Request cancellation</h3>
         <p class="muted" style="font-size:13px">VaayuTrip checks supplier policies and refunds to your wallet/credit.</p>

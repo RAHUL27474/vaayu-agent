@@ -1610,3 +1610,28 @@ table.lines td.num, table.lines th.num, .statement-sum b { white-space: nowrap; 
 /* Name with a coloured initials avatar */
 .cust { display: inline-flex; align-items: center; gap: 12px; }
 .av { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: hsl(var(--h, 200) 70% 92%); color: hsl(var(--h, 200) 60% 32%); font-weight: 800; font-size: 13px; }
+.av.sm { width: 30px; height: 30px; font-size: 11px; } .soon-txt { color: #b45309; font-weight: 600; }
+
+/* Booking banner */
+.trip-hero { position: relative; margin-top: 10px; padding: 34px 28px 26px; border-radius: 20px; overflow: hidden; color: #fff; background: linear-gradient(90deg, rgba(3, 14, 28, .82), rgba(3, 14, 28, .35)), var(--trip-img) center / cover; min-height: 170px; display: flex; align-items: flex-end; }
+.trip-hero h1 { color: #fff; margin: 2px 0 6px; font-size: 32px; letter-spacing: -.025em; }
+.trip-hero p { margin: 0; color: #dbe9f5; }
+.trip-kicker { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #ffd166 !important; }
+.trip-actions { margin-top: 14px; }
+@media (max-width: 640px) { .trip-hero { padding: 24px 18px 18px; min-height: 140px; } .trip-hero h1 { font-size: 24px; } }
+
+.trip-hero { justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.trip-btns { margin-left: auto; }
+@media (max-width: 640px) { .trip-btns { margin-left: 0; width: 100%; } .trip-btns .btn { flex: 1 1 auto; } }
+.trip-hero { margin-bottom: 20px; }
+
+/* Support: who you're talking to */
+.team-head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+.team-head h3 { margin: 0 0 4px; font-size: 16px; }
+.team-av { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--brand); color: #fff; }
+.team-av .i { width: 20px; height: 20px; }
+.open-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.open-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.open-pill.on { color: var(--ok); }
+.open-pill.on i { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, .2); }
+.open-pill { white-space: nowrap; }
