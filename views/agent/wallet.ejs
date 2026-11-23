@@ -3,7 +3,7 @@
 <div class="grid grid-3" style="margin-bottom:20px">
   <div class="stat"><div class="label">Wallet balance</div><div class="value"><%= inr(agency.wallet_balance, { decimals: 2 }) %></div></div>
   <div class="stat"><div class="label">Credit used</div><div class="value"><%= inr(agency.credit_used, { decimals: 2 }) %></div><div class="sub">of <%= inr(agency.credit_limit) %> limit<% if (credit.dueOn) { %> · <span class="<%= credit.overdue ? 'bad' : credit.daysLeft <= 3 ? 'warn-text' : '' %>"><%= credit.overdue ? 'overdue since' : 'due' %> <%= fmtDate(credit.dueOn) %></span><% } %></div></div>
-  <div class="stat"><div class="label">Available to book</div><div class="value"><%= inr(agency.wallet_balance + agency.credit_limit - agency.credit_used) %></div></div>
+  <div class="stat"><div class="label">Available to book</div><div class="value"><%= inr(agency.wallet_balance + agency.credit_limit - agency.credit_used) %></div><div class="sub">wallet + unused credit</div></div>
 </div>
 <% if (credit.dueOn) { %>
   <form class="card credit-due <%= credit.overdue ? 'overdue' : '' %>" method="post" action="/agent/wallet/repay" data-confirm="Repay credit from your wallet?">

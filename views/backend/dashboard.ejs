@@ -1,5 +1,6 @@
 <div class="page-head">
-  <div><h1>Inventory</h1><p>Everything agents build their packages from: activities, hotels, airfares, transfers, visas and travel insurance in Dubai, Bali, Vietnam, Cambodia, the UK and Europe.</p></div>
+<% const hr = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' })); %>
+  <div><p class="hello-date"><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %> · Inventory</p><h1><%= hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening' %>, <%= user.name.split(' ')[0] %></h1><p>Everything agents build their packages from: activities, hotels, airfares, transfers, visas and insurance across six destinations.</p></div>
   <div class="actions"><a class="btn" href="/backend/import"><%- icon('upload') %>Bulk import</a><a class="btn btn-primary" href="/backend/products/new"><%- icon('plus') %>Add inventory</a></div>
 </div>
 

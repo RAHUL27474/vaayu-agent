@@ -1,6 +1,9 @@
 <%# Your own login: details and password. Same page for agents, admins and the backend team. %>
 <div class="page-head">
-  <div><h1>My account</h1><p>Your login for the <%= user.role === 'agent' ? 'agent portal' : 'VaayuTrip team portal' %>.</p></div>
+  <div class="me-head">
+    <span class="me-av"><%= user.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase() %></span>
+    <div><h1><%= user.name %></h1><p><%= user.role === 'agent' ? `${user.agency_role ? user.agency_role[0].toUpperCase() + user.agency_role.slice(1) : 'Agent'} at ${agency ? agency.name : 'your agency'}` : user.role === 'admin' ? 'Administrator · VaayuTrip' : 'Backend team · VaayuTrip' %> · your login and security</p></div>
+  </div>
 </div>
 <div class="split">
   <form class="card" method="post" action="/account/password">

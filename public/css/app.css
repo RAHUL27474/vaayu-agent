@@ -1644,3 +1644,10 @@ a.hl-card:hover { text-decoration: none; border-color: var(--brand-100); box-sha
 .hl-card small { display: block; font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
 .hl-card b { display: block; font-size: 17px; }
 .hl-card span:not(.hl-ico) { font-size: 13px; color: var(--ink-3); }
+
+.me-head { display: flex; align-items: center; gap: 16px; }
+.me-av { flex: none; display: grid; place-items: center; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #0094e3, #004e7c); color: #fff; font-weight: 800; font-size: 21px; box-shadow: 0 8px 20px rgba(0, 119, 192, .3); }
+.me-head h1 { margin: 0; }
+.feat-ico { flex: none; display: grid; place-items: center; width: 72px; height: 52px; border-radius: 8px; background: var(--brand-50); color: var(--brand); }
+.feat-ico .i { width: 22px; height: 22px; }
+@media (max-width: 640px) { .trip-body small { white-space: normal; } .trip img { width: 54px; height: 44px; } .trip-count { min-width: 60px; } }

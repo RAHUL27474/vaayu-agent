@@ -1,6 +1,6 @@
 <div class="page-head"><div><h1>Notifications</h1></div></div>
 <div class="card notice-list">
-  <% if (!items.length) { %><div class="empty"><span class="big"><%- icon('bell') %></span>You're all caught up.</div><% } %>
+  <% if (!items.length) { %><div class="empty"><span class="big"><%- icon('bell') %></span><b>You're all caught up, <%= user.name.split(' ')[0] %></b><p>Booking updates, wallet credits and replies from VaayuTrip show up here.</p></div><% } %>
   <% items.forEach(n => { %>
     <div class="n <%= n.is_read ? '' : 'unread' %>">
       <div style="flex:1">
