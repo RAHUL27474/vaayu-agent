@@ -67,7 +67,7 @@
   <div class="card flush">
     <div class="card-head"><h3>Most booked inventory</h3><a href="/backend/products">All</a></div>
     <table class="table" style="margin-top:10px">
-      <% topProducts.forEach(p => { %><tr class="click" data-href="/backend/products/<%= p.id %>"><td><%= p.title %><br><small><%= kinds[p.kind].label %> · <%= p.city %></small></td><td class="num"><%= p.bookings %> booked</td></tr><% }) %>
+      <% topProducts.forEach(p => { %><tr class="click" data-href="/backend/products/<%= p.id %>"><td><%= p.title %><br><small><%= kinds[p.kind].label %> · <%= p.city %></small></td><td class="num nowrap"><%= p.bookings %> booked</td></tr><% }) %>
     </table>
   </div>
   <div class="card flush">

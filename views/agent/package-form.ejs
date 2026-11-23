@@ -81,7 +81,7 @@
       <h2>1. Basics</h2>
       <div class="field"><label for="title">Package name</label><input id="title" name="title" value="<%= pkg.title || '' %>" required placeholder="e.g. Bali Honeymoon Escape"></div>
       <div class="row">
-        <div class="field"><label for="destination">Main destination</label><input id="destination" name="destination" value="<%= pkg.destination || '' %>" required></div>
+        <div class="field"><label for="destination">Main destination</label><input id="destination" name="destination" value="<%= pkg.destination || '' %>" required placeholder="e.g. Bali" list="dest-list"><datalist id="dest-list"><option>Dubai</option><option>Bali</option><option>Vietnam</option><option>Cambodia</option><option>United Kingdom</option><option>Europe</option></datalist></div>
         <div class="field"><label for="theme">Theme</label><input id="theme" name="theme" value="<%= pkg.theme || '' %>" list="themes" placeholder="Honeymoon, Family…"></div>
         <div class="field"><label for="departure_city">Starts / ends in</label><input id="departure_city" name="departure_city" value="<%= pkg.departure_city || '' %>" placeholder="e.g. Bali airport"></div>
       </div>

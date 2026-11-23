@@ -46,7 +46,7 @@
       <div class="card-head"><h3>Recent logins</h3></div>
       <table class="table" style="margin-top:6px">
         <% logins.forEach((l, i) => { const where = (l.summary || '').split(' · ').slice(1).join(' · '); %>
-          <tr><td style="white-space:nowrap"><%= fmtDate(l.created_at) %> <small class="muted"><%= l.created_at.slice(11, 16) %> UTC</small></td><td><small><%= where || 'details not recorded' %></small><%- i === 0 ? ' <span class="badge approved">this one</span>' : '' %></td></tr>
+          <tr><td style="white-space:nowrap"><%= fmtDate(l.created_at) %> <small class="muted"><%= l.created_at.slice(11, 16) %> UTC</small></td><td><small><%= where || 'details not recorded' %></small><%- i === 0 ? ' <span class="badge approved">current</span>' : '' %></td></tr>
         <% }) %>
       </table>
       <p class="muted" style="font-size:12.5px;padding:10px 16px;margin:0">Don't recognise one? Change your password now; that logs out every other device.</p>
