@@ -18,6 +18,7 @@
   </div>
   <div class="form">
     <div>
+      <% flash.forEach(f => { %><div class="alert <%= f.type %>" role="<%= f.type === 'error' ? 'alert' : 'status' %>" style="margin-bottom:18px"><%= f.message %></div><% }) %>
       <h1><%= T[1] %></h1>
       <p class="muted">Code sent to <b><%= email %></b></p>
       <form method="post" action="<%= action %>">

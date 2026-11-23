@@ -12,6 +12,7 @@
   </div>
   <div class="form">
     <div>
+      <% flash.forEach(f => { %><div class="alert <%= f.type %>" role="<%= f.type === 'error' ? 'alert' : 'status' %>" style="margin-bottom:18px"><%= f.message %></div><% }) %>
       <h1>Log in</h1>
       <p class="muted">Agents and VaayuTrip team members.</p>
       <% if (otpOn) { %>

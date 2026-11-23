@@ -668,7 +668,7 @@ router.get('/bookings/:id/voucher', h(async (req, res, next) => {
   const booking = await one('SELECT * FROM bookings WHERE id = ? AND agency_id = ?', num(req.params.id), req.agency.id);
   const v = await svc.voucherFor(booking);
   if (!v) return next();
-  res.page('voucher', { title: `Voucher ${booking.code}`, ...v, back: `/agent/bookings/${booking.id}`, noindex: true }, 'doc');
+  res.page('voucher', { title: `Voucher ${booking.code}`, ...v, back: `/agent/bookings/${booking.id}`, noindex: true, site: req.agency }, 'doc');
 }));
 
 router.post('/bookings/:id/cancel', h(async (req, res, next) => {
@@ -935,7 +935,7 @@ router.get('/invoices/:id', h(async (req, res, next) => {
   const inv = await one('SELECT * FROM invoices WHERE id = ? AND agency_id = ?', num(req.params.id), req.agency.id);
   if (!inv) return next();
   const quote = inv.quote_id ? await one('SELECT code FROM quotes WHERE id = ?', inv.quote_id) : null;
-  res.page('invoice', { title: `Invoice ${inv.number}`, inv, ...await invoiceView(inv), back: '/agent/invoices', noindex: true }, 'doc');
+  res.page('invoice', { title: `Invoice ${inv.number}`, inv, ...await invoiceView(inv), back: '/agent/invoices', noindex: true, site: inv.kind === 'customer_agent' ? req.agency : null }, 'doc');
 }));
 
 // ---------- website, API, notifications, settings ----------

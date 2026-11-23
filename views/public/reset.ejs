@@ -11,6 +11,7 @@
   </div>
   <div class="form">
     <div>
+      <% flash.forEach(f => { %><div class="alert <%= f.type %>" role="<%= f.type === 'error' ? 'alert' : 'status' %>" style="margin-bottom:18px"><%= f.message %></div><% }) %>
       <h1>Reset password</h1>
       <% if (!valid) { %>
         <div class="alert error">This reset link has expired or was already used. Links work once, for 1 hour.</div>

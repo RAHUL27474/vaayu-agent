@@ -78,9 +78,8 @@
         <%= [agency.phone, agency.email].filter(Boolean).join(' · ') %>
       </div>
       <div>
-        <h4>24×7 ground support</h4>
-        <b><%= settings.company_name || 'VaayuTrip' %></b><br>
-        <%= [settings.phone, settings.email].filter(Boolean).join(' · ') %>
+        <h4>Help during your trip</h4>
+        Call or WhatsApp <b><%= agency.name %></b><%= agency.phone ? ' on ' + agency.phone : '' %>. Keep this voucher and your booking reference handy.
       </div>
     </section>
 

@@ -145,6 +145,8 @@ const png = [PNG, 'image/png', 'me.png'];
   const bk = await one("SELECT b.*, q.code AS qcode FROM bookings b JOIN quotes q ON q.id = b.quote_id WHERE b.agency_id = (SELECT agency_id FROM users WHERE email = ?) AND b.status = 'confirmed' ORDER BY b.id LIMIT 1", ROLES.agent[0]);
   const voucher = await (await c.get(`/agent/bookings/${bk.id}/voucher`, agent)).text();
   check('agent opens a travel voucher with no prices', voucher.includes('TRAVEL VOUCHER') && voucher.includes(bk.code) && !voucher.includes('₹'));
+  const voucherText = voucher.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<(link|meta)[^>]*>/g, '').replace(/(href|src)="[^"]*"/g, '');
+  check('the customer voucher never names VaayuTrip (not even in the title)', !/vaayu/i.test(voucherText));
   check('vouchers are not shared by link (agents send the PDF)', (await c.get(`/q/${bk.qcode}/voucher`)).status === 404);
   const other = await one('SELECT id FROM bookings WHERE agency_id != (SELECT agency_id FROM users WHERE email = ?) LIMIT 1', ROLES.agent[0]);
   check("another agency's voucher is not found", !other || (await c.get(`/agent/bookings/${other.id}/voucher`, agent)).status === 404);
