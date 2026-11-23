@@ -1706,3 +1706,23 @@ form[action$="/status"] select[name=status] { min-width: 120px; }
 .hello-story { font-size: 14.5px; max-width: 620px; }
 .hello-facts > div { box-shadow: none; }
 .ws-mark.ws-brand { background: color-mix(in srgb, var(--ws) 12%, #fff); color: var(--ws); border: 1px solid color-mix(in srgb, var(--ws) 25%, #fff); }
+
+/* ================= Portal look matched to the VaayuTrip CRM (fonts, colours, rounded corners) ================= */
+@font-face { font-family: 'DM Sans'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('/fonts/dmsans-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Varela Round'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/varelaround-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+body.app {
+  --font: 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-head: 'Varela Round', 'DM Sans', system-ui, sans-serif;
+  --brand: #0088cc;
+  --ring: rgba(0, 136, 204, .28);
+  --bg: #f0f5f9;
+  --ink: #182125;
+  font-family: var(--font);
+  background: var(--bg);
+}
+body.app h1, body.app h2, body.app h3, body.app .hello h1, body.app .book-head h2, body.app .trip-hero h1, body.app .client-id h1 { font-family: var(--font-head); font-weight: 400; letter-spacing: 0; }
+body.app h1 { font-size: 26px; }
+body.app .hello h1 { font-size: 28px; }
+body.app .btn { border-radius: 12px; }
+body.app .btn-sm { border-radius: 10px; }
+body.app input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), body.app select, body.app textarea { border-radius: 12px; }
