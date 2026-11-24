@@ -42,20 +42,23 @@
   </div>
   <form class="card" method="post" action="/agent/leads">
     <h3>Add lead</h3>
-    <div class="field"><label for="l-name">Name</label><input id="l-name" name="name" required></div>
+    <p class="muted" style="font-size:13px;margin:-4px 0 14px">A call, a WhatsApp or a walk-in: note it here so the follow-up isn't missed.</p>
     <div class="row">
-      <div class="field"><label for="l-phone">Phone</label><input id="l-phone" name="phone"></div>
+      <div class="field"><label for="l-name">Name</label><input id="l-name" name="name" required placeholder="Customer or family name"></div>
+      <div class="field"><label for="l-phone">Phone</label><input id="l-phone" name="phone" inputmode="tel" placeholder="+91"></div>
       <div class="field"><label for="l-email">Email</label><input id="l-email" type="email" name="email"></div>
     </div>
-    <div class="field"><label for="l-pkg">Package</label><select id="l-pkg" name="package_id"><option value="">—</option><% packages.forEach(p => { %><option value="<%= p.id %>"><%= p.title %></option><% }) %></select></div>
-    <div class="field"><label for="l-dest">Destination</label><input id="l-dest" name="destination"></div>
+    <div class="row">
+      <div class="field"><label for="l-dest">Destination</label><input id="l-dest" name="destination" placeholder="e.g. Bali"></div>
+      <div class="field"><label for="l-pkg">Package <span class="muted">(optional)</span></label><select id="l-pkg" name="package_id"><option value="">—</option><% packages.forEach(p => { %><option value="<%= p.id %>"><%= p.title %></option><% }) %></select></div>
+    </div>
     <div class="row">
       <div class="field"><label for="l-date">Travel date</label><input id="l-date" type="date" min="<%= today %>" name="travel_date"></div>
       <div class="field"><label for="l-pax">Pax</label><input id="l-pax" type="number" min="1" name="pax"></div>
+      <div class="field"><label for="l-budget">Budget (₹)</label><input id="l-budget" type="number" min="0" name="budget"></div>
+      <div class="field"><label for="l-fu">Follow up on <span class="muted">(optional)</span></label><input id="l-fu" type="date" min="<%= today %>" name="follow_up_on"></div>
     </div>
-    <div class="field"><label for="l-budget">Budget (₹)</label><input id="l-budget" type="number" min="0" name="budget"></div>
-    <div class="field"><label for="l-notes">Notes</label><textarea id="l-notes" name="notes"></textarea></div>
-    <div class="field"><label for="l-fu">Follow up on <span class="muted">(optional)</span></label><input id="l-fu" type="date" min="<%= today %>" name="follow_up_on"></div>
+    <div class="field"><label for="l-notes">Notes</label><textarea id="l-notes" name="notes" rows="3" placeholder="What they asked for, hotel category, special requests…"></textarea></div>
     <button class="btn btn-primary">Add lead</button>
   </form>
 </div>

@@ -1837,6 +1837,12 @@ body.app .app-hero:not(.warn) { background: var(--brand); }
 .grid-3:has(> .card > .chart) { align-items: start; }
 .donut-total { font-size: 13px; }
 
+.table .day-row td { padding: 14px 16px 6px; background: transparent; border-bottom: 0; }
+.table .day-row span { display: inline-block; padding: 3px 10px; border-radius: 99px; background: var(--brand-50); color: var(--brand-700); font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+.table .day-row + tr td { border-top: 0; }
+.table .total-row td { font-weight: 600; color: var(--ink); background: var(--line-2); border-top: 1px solid var(--line); }
+@media (max-width: 1024px) { .split > .side-sticky { order: -1; } }
+@media (min-width: 1025px) { .side-sticky { position: sticky; top: calc(var(--topbar-h) + 16px); align-self: start; } }
 /* ---------- Dark theme (portal only; chosen in the account menu) ---------- */
 .menu-theme { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; margin: 4px 0; border-top: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2); }
 .menu-theme > span { font-size: 12.5px; color: var(--muted); }
