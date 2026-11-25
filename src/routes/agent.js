@@ -170,7 +170,7 @@ router.get('/', h(async (req, res) => {
     { done: hasQuote, label: 'Send your first quote', href: '/agent/packages' },
     { done: hasBooking, label: 'Make your first booking', href: '/agent/quotes' },
   ];
-  const services = Object.entries(KIND_BY_PATH).map(([path, kind]) => ({ path, kind, label: KINDS[kind].plural, icon: KINDS[kind].icon }));
+  const services = Object.entries(KIND_BY_PATH).map(([path, kind]) => ({ path, kind, label: KINDS[kind].plural, icon: KINDS[kind].icon, categories: KINDS[kind].categories }));
   const credit = svc.creditStatus(req.agency);
   const lowWallet = req.agency.low_balance_alert > 0 && req.agency.wallet_balance < req.agency.low_balance_alert;
   res.page('agent/dashboard', { title: 'Dashboard', personal, followUps, credit, lowWallet, today: indiaToday(), stats, openLeads, quotes, bookings, leads, upcoming, featured, branded, chart, checklist, offers, services, destinations: Object.keys(DESTINATIONS) });
@@ -193,12 +193,15 @@ function partyOf(src) {
 const ownPackages = async (agencyId) => await all('SELECT id, title, nights, destination FROM packages WHERE agency_id = ? ORDER BY updated_at DESC', agencyId);
 
 // Dashboard booking panel: send the agent to the chosen service's catalogue with the destination and search applied.
+// The dashboard search: each service tab has its own fields, named <service>_dest / _q / _cat (plain dest / q also work).
 router.get('/find', (req, res) => {
   const path = KIND_BY_PATH[req.query.svc] ? req.query.svc : 'hotels';
+  const field = (k) => req.query[`${path}_${k}`] ?? req.query[k];
   const qs = new URLSearchParams();
-  if (DESTINATIONS[req.query.dest]) qs.set('dest', req.query.dest);
-  const q = str(req.query.q).slice(0, 80);
+  if (DESTINATIONS[field('dest')]) qs.set('dest', field('dest'));
+  const q = str(field('q')).slice(0, 80);
   if (q) qs.set('q', q);
+  if (KINDS[KIND_BY_PATH[path]].categories.includes(field('cat'))) qs.set('category', field('cat'));
   res.redirect(`/agent/${path}${qs.toString() ? `?${qs}` : ''}`);
 });
 

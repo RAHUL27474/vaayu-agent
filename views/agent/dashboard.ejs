@@ -32,13 +32,29 @@
       <label class="svc-tab"><input type="radio" name="svc" value="<%= s.path %>" <%= s.path === 'hotels' ? 'checked' : '' %>><%- icon(s.icon) %><span><%= s.label %></span></label>
     <% }) %>
   </div>
-  <div class="book-fields">
-    <div class="field"><label for="bk-dest">Destination</label>
-      <select id="bk-dest" name="dest"><option value="">All destinations</option><% destinations.forEach(d => { %><option><%= d %></option><% }) %></select>
+  <%
+    // What each tab asks: [field, label, kind of input, placeholder / first option]
+    const SEARCH = {
+      activities: { go: 'Search activities', f: [['dest', 'Destination', 'dest', 'All destinations'], ['cat', 'Type of activity', 'cat', 'Any type'], ['q', 'Activity or place', 'text', 'e.g. Burj Khalifa, desert safari, Ha Long Bay']] },
+      hotels: { go: 'Search hotels', f: [['dest', 'Destination', 'dest', 'All destinations'], ['q', 'City, area or hotel name', 'text', 'e.g. Ubud, Seminyak, Deira, Paris'], ['cat', 'Property type', 'cat', 'Any type']] },
+      flights: { go: 'Search airfares', f: [['q', 'From', 'text', 'e.g. Delhi, Mumbai'], ['dest', 'To', 'dest', 'Any destination'], ['cat', 'Cabin', 'cat', 'Any cabin']] },
+      transfers: { go: 'Search transfers', f: [['dest', 'Destination', 'dest', 'All destinations'], ['cat', 'Type of transfer', 'cat', 'Any type'], ['q', 'Route or place', 'text', 'e.g. airport to hotel, Ubud']] },
+      visas: { go: 'Search visas', f: [['dest', 'Visa for', 'dest', 'All countries'], ['cat', 'Visa type', 'cat', 'Any type']] },
+      insurance: { go: 'Search plans', f: [['dest', 'Trip to', 'dest', 'Any destination'], ['cat', 'Plan', 'cat', 'Any plan']] },
+    };
+  %>
+  <% services.forEach((s) => { const cfg = SEARCH[s.path]; if (!cfg) return; %>
+    <div class="book-fields bf bf-<%= s.path %> n<%= cfg.f.length %>">
+      <% cfg.f.forEach(([k, label, type, ph]) => { const id = `bk-${s.path}-${k}`; %>
+        <div class="field<%= type === 'text' ? ' grow' : '' %>"><label for="<%= id %>"><%= label %></label>
+          <% if (type === 'dest') { %><select id="<%= id %>" name="<%= s.path %>_dest"><option value=""><%= ph %></option><% destinations.forEach(d => { %><option><%= d %></option><% }) %></select>
+          <% } else if (type === 'cat') { %><select id="<%= id %>" name="<%= s.path %>_cat"><option value=""><%= ph %></option><% s.categories.forEach(c => { %><option><%= c %></option><% }) %></select>
+          <% } else { %><input id="<%= id %>" type="search" name="<%= s.path %>_q" placeholder="<%= ph %>"><% } %>
+        </div>
+      <% }) %>
+      <button class="btn btn-accent btn-lg"><%- icon('search') %><%= cfg.go %></button>
     </div>
-    <div class="field grow"><label for="bk-q">City, hotel or experience</label><input id="bk-q" type="search" name="q" placeholder="e.g. Ubud, Burj Khalifa, Emirates"></div>
-    <button class="btn btn-accent btn-lg"><%- icon('search') %>Search</button>
-  </div>
+  <% }) %>
 </form>
   <span class="dash-hero-cap"><%= heroDest %></span>
 </section>

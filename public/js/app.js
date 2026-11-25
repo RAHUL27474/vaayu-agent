@@ -403,7 +403,7 @@ if (overlayHeader) {
 
 // Charts: switch between views (columns / line / bars / donut / table); each chart remembers the viewer's choice.
 document.querySelectorAll('[data-chart]').forEach((chart) => {
-  const key = `vt-chart:${location.pathname}:${chart.dataset.chart}`;
+  const key = `vt-chart2:${location.pathname}:${chart.dataset.chart}`;
   const show = (view) => {
     if (!chart.querySelector(`[data-view-of="${view}"]`)) return;
     chart.querySelectorAll('[data-view-of]').forEach((v) => { v.hidden = v.dataset.viewOf !== view; });

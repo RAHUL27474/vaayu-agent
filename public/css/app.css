@@ -2169,3 +2169,23 @@ html body.app .dash-hero .svc-tab:has(input:checked) .i { color: var(--brand); }
 .dest-tile > span { padding-top: 40px; background: linear-gradient(180deg, transparent, rgba(0, 20, 38, .6) 40%, rgba(0, 20, 38, .9)); }
 .dest-tile small { opacity: 1; color: #d9ecf7; }
 @media (min-width: 1101px) { .deals .offer.deal { grid-template-columns: minmax(0, 1fr) auto; } }
+
+/* Dashboard search: each service tab shows its own fields (no JavaScript needed) */
+.book-panel .bf { display: none; }
+.book-panel:has(input[name=svc][value=activities]:checked) .bf-activities,
+.book-panel:has(input[name=svc][value=hotels]:checked) .bf-hotels,
+.book-panel:has(input[name=svc][value=flights]:checked) .bf-flights,
+.book-panel:has(input[name=svc][value=transfers]:checked) .bf-transfers,
+.book-panel:has(input[name=svc][value=visas]:checked) .bf-visas,
+.book-panel:has(input[name=svc][value=insurance]:checked) .bf-insurance { display: grid; }
+.book-panel .bf.n3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr) auto; }
+.book-panel .bf-flights.n3 { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
+.book-panel .bf.n2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+@media (max-width: 1100px) { .book-panel .bf.n3, .book-panel .bf-flights.n3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .book-panel .bf.n3 .grow { grid-column: 1 / -1; } .book-panel .bf .btn { grid-column: 1 / -1; } .book-panel .bf.n2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+@media (max-width: 640px) { .book-panel .bf.n3, .book-panel .bf-flights.n3, .book-panel .bf.n2 { grid-template-columns: minmax(0, 1fr); } }
+
+/* Charts keep one height whatever the view, so a card never shows a short chart floating over empty space */
+.chart .line-chart { height: 250px; width: 100%; }
+.chart .bars { height: 210px; }
+.grid:has(> .card > .chart) { align-items: start; }
+.tm-tile a, a.tm-tile, .tm-tile a:hover { text-decoration: none; }

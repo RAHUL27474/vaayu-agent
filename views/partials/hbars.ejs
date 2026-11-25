@@ -3,7 +3,8 @@
 <% if (!rows.length) { %><div class="empty">No bookings in this period yet.</div><% } else {
   const total = rows.reduce((s, r) => s + (r.value || 0), 0);
   const pct = (v) => total ? Math.round(v / total * 100) : 0;
-  const COLORS = ['#0088cc', '#3c8f0b', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#64748b', '#ef4444'];
+  // Shades of the logo's blue and green, then neutrals.
+  const COLORS = ['#0077b6', '#3c9c00', '#00527f', '#5fb3e6', '#7cc242', '#2a6f97', '#a7c957', '#64748b'];
   const cid = typeof id !== 'undefined' && id ? id : 'r-' + rows.map(r => r.label).join('').length + '-' + rows.length;
   const R = 54, C = 2 * Math.PI * R;
   let acc = 0;
@@ -14,7 +15,7 @@
     <div class="chart-tools" role="group" aria-label="Chart type">
       <button type="button" data-view-btn="bars" aria-pressed="true" title="Bars"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 8h8M2 13h5"/></svg></button>
       <button type="button" data-view-btn="donut" aria-pressed="false" title="Donut"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5V8l4 3.5"/></svg></button>
-      <button type="button" data-view-btn="tiles" aria-pressed="false" title="Treemap"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M9 2v12M9 8h5M2 10h7"/></svg></button>
+      <button type="button" data-view-btn="tiles" aria-pressed="false" title="Share boxes"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M9 2v12M9 8h5M2 10h7"/></svg></button>
     </div>
   </div>
   <div class="chart-view" data-view-of="bars">

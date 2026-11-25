@@ -3,7 +3,8 @@
   const max = Math.max(1, ...bars.map(b => b.value));
   const total = bars.reduce((s, b) => s + (b.value || 0), 0);
   const last = bars[bars.length - 1] || { value: 0 }, prev = bars[bars.length - 2] || { value: 0 };
-  const change = prev.value > 0 ? Math.round((last.value - prev.value) / prev.value * 100) : null;
+  // No sale yet this month: comparing with last month would only say -100%.
+  const change = prev.value > 0 && last.value > 0 ? Math.round((last.value - prev.value) / prev.value * 100) : null;
   const cid = typeof id !== 'undefined' && id ? id : 'm-' + bars.map(b => b.label).join('').length + '-' + Math.round(total % 997);
   // Line view, drawn on the server so it works without JavaScript too.
   const W = 560, H = 200, pad = 18, n = bars.length;
