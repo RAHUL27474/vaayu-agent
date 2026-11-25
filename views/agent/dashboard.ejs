@@ -20,7 +20,12 @@
   </div>
 </section>
 
-<% if (agentCan('/agent/find')) { %>
+<% if (agentCan('/agent/find')) { const heroDest = destinations[new Date().getDate() % destinations.length]; %>
+<section class="dash-hero" style="--hero:url('<%= cover({ destination: heroDest }) %>')">
+  <div class="dash-hero-copy">
+    <h2>Book at agent net rates</h2>
+    <p>Hotels, airfares, activities, transfers, visas and insurance in <%= destinations.join(', ').replace(/, ([^,]*)$/, ' and $1') %>.</p>
+  </div>
 <form class="book-panel" method="get" action="/agent/find">
   <div class="svc-tabs" role="radiogroup" aria-label="Service">
     <% services.forEach((s, i) => { %>
@@ -32,9 +37,29 @@
       <select id="bk-dest" name="dest"><option value="">All destinations</option><% destinations.forEach(d => { %><option><%= d %></option><% }) %></select>
     </div>
     <div class="field grow"><label for="bk-q">City, hotel or experience</label><input id="bk-q" type="search" name="q" placeholder="e.g. Ubud, Burj Khalifa, Emirates"></div>
-    <button class="btn btn-primary btn-lg"><%- icon('search') %>Search</button>
+    <button class="btn btn-accent btn-lg"><%- icon('search') %>Search</button>
   </div>
 </form>
+  <span class="dash-hero-cap"><%= heroDest %></span>
+</section>
+
+<section class="dest-row" aria-label="Destinations">
+  <div class="sec-head"><h3>Destinations</h3><a href="/agent/vaayutrip-packages">Ready packages</a></div>
+  <div class="dest-tiles">
+    <% destinations.forEach((d) => { %>
+      <a class="dest-tile" href="/agent/find?svc=hotels&amp;dest=<%= encodeURIComponent(d) %>"><img src="<%= cover({ destination: d }) %>" alt="" loading="lazy"><span><b><%= d %></b><small>Hotels, tours &amp; visas</small></span></a>
+    <% }) %>
+  </div>
+</section>
+<% } %>
+
+<% if (offers.length) { %>
+<section class="deals" aria-label="Deals for you">
+  <div class="sec-head"><h3>Deals for you</h3><a href="/agent/offers">All offers</a></div>
+  <div class="offer-strip">
+    <% offers.forEach(o => { %><%- include('../partials/offer-card', { o }) %><% }) %>
+  </div>
+</section>
 <% } %>
 
 <% if (tierNow.tier !== 'standard') { %>
@@ -111,7 +136,7 @@
           <tr class="click" data-href="/agent/bookings/<%= t.id %>">
             <td class="nowrap"><%= fmtDate(t.travel_date) %></td>
             <td><b><%= t.who || '—' %></b></td>
-            <td><%= t.trip %><br><small class="muted"><%= t.code %></small></td>
+            <td><span class="trip-cell"><img src="<%= cover({ destination: t.destination, city: t.destination, title: t.trip }) %>" alt="" loading="lazy"><span><%= t.trip %><br><small class="muted"><%= t.code %></small></span></span></td>
             <td class="num nowrap"><span class="<%= t.days <= 3 ? 'due-soon' : '' %>"><%= t.days === 0 ? 'Today' : t.days === 1 ? 'Tomorrow' : `in ${t.days} days` %></span></td>
           </tr>
         <% }) %>
@@ -150,20 +175,6 @@
       <% } %>
     </div>
 
-    <% if (offers.length) { %>
-    <div class="card flush">
-      <div class="card-head"><h3>Offers</h3><a href="/agent/offers">All offers</a></div>
-      <div class="offer-list">
-        <% offers.forEach(o => { %>
-          <div class="offer-row">
-            <b><%= o.title %></b>
-            <% if (o.body) { %><p><%= o.body %></p><% } %>
-            <small class="muted"><%= o.valid_until ? `Valid till ${fmtDate(o.valid_until)}` : 'Ongoing' %><% if (o.code) { %> · Code <code><%= o.code %></code><% } %><% if (o.link) { %> · <a href="<%= o.link %>">Details</a><% } %></small>
-          </div>
-        <% }) %>
-      </div>
-    </div>
-    <% } %>
 
     <div class="card flush">
       <div class="card-head"><h3>New inventory</h3><a href="/agent/activities">Browse</a></div>

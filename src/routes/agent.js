@@ -135,7 +135,7 @@ router.get('/', h(async (req, res) => {
       `SELECT substr(created_at, 1, 7) AS month, SUM(total_sell - total_net - total_cost) AS earnings, COUNT(*) AS n FROM bookings
        WHERE agency_id = ? AND status != 'cancelled' AND created_at >= sqldate('now', 'start of month', '-5 months') GROUP BY month`, a,
     ),
-    liveOffers(2),
+    liveOffers(3),
   ]);
   const prevMonth = (() => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); })();
   const [prev, life, customersCount, awaiting] = await Promise.all([

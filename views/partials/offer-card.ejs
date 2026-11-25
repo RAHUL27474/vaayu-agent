@@ -1,5 +1,16 @@
-<%# One offer as a coupon-style card. Locals: o (offers row) %>
-<div class="offer">
+<%# One offer as a deal card: a destination photo (when the offer names one), the discount, details and the code. Locals: o (offers row) %>
+<%
+  const txt = `${o.title} ${o.body || ''}`;
+  const place = ['Dubai', 'Bali', 'Vietnam', 'Cambodia', 'United Kingdom', 'Europe'].find((d) => txt.toLowerCase().includes(d.toLowerCase()))
+    || (/\b(UK|London|Edinburgh)\b/.test(txt) ? 'United Kingdom' : /(Paris|Swiss|Schengen|Rome|Italy|Spain|France)/i.test(txt) ? 'Europe' : null);
+  const badge = o.discount_type && o.code ? (o.discount_type === 'percent' ? `${o.discount_value}% off` : `${inr(o.discount_value)} off`) : null;
+%>
+<div class="offer deal">
+  <% const photo = place ? cover({ destination: place }) : cover({ city: ['Hoi An', 'Lucerne', 'Venice', 'Ha Long', 'Paris'][(o.id || 0) % 5] }); %>
+  <div class="deal-img" style="background-image:url('<%= photo %>')">
+    <% if (badge) { %><span class="deal-badge"><%= badge %></span><% } %>
+    <% if (place) { %><span class="deal-place"><%= place %></span><% } %>
+  </div>
   <div class="offer-main">
     <b class="offer-title"><%= o.title %></b>
     <% if (o.body) { %><p><%= o.body %></p><% } %>
@@ -7,11 +18,11 @@
       <% if (o.valid_until) { %><span>Valid till <%= fmtDate(o.valid_until) %></span><% } else { %><span>Ongoing</span><% } %>
       <% if (o.link) { %><a href="<%= o.link %>">View details</a><% } %>
     </div>
-    <% if (o.discount_type && o.code) { %>
-    <div class="offer-use"><b><%= o.discount_type === 'percent' ? o.discount_value + '%' : inr(o.discount_value) %> off</b><%= o.max_discount ? ` up to ${inr(o.max_discount)}` : '' %> what you pay VaayuTrip<%= o.min_amount ? ` on ${inr(o.min_amount)}+` : '' %>. Enter the code on a quote, under Summary, before you book.</div>
+    <% if (badge) { %>
+    <div class="offer-use"><b><%= badge %></b><%= o.max_discount ? ` up to ${inr(o.max_discount)}` : '' %> what you pay VaayuTrip<%= o.min_amount ? ` on ${inr(o.min_amount)}+` : '' %>. Enter the code on a quote, under Summary, before you book.</div>
     <% } %>
   </div>
   <% if (o.code) { %>
-    <button type="button" class="offer-code" data-copy="<%= o.code %>" title="Copy code"><small>Code</small><%= o.code %></button>
+    <button type="button" class="offer-code" data-copy="<%= o.code %>" title="Copy code"><small>Code · tap to copy</small><%= o.code %></button>
   <% } %>
 </div>
