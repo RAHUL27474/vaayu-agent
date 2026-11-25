@@ -5,7 +5,7 @@
     <% if (o.body) { %><p><%= o.body %></p><% } %>
     <div class="offer-meta">
       <% if (o.valid_until) { %><span>Valid till <%= fmtDate(o.valid_until) %></span><% } else { %><span>Ongoing</span><% } %>
-      <% if (o.link) { %><a href="<%= o.link %>">View details →</a><% } %>
+      <% if (o.link) { %><a href="<%= o.link %>">View details</a><% } %>
     </div>
   </div>
   <% if (o.code) { %>
