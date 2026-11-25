@@ -128,9 +128,14 @@ document.addEventListener('submit', async (e) => {
   if (form.requestSubmit) form.requestSubmit(button || undefined); else form.submit();
 });
 
-// Keep the current page's sidebar link visible when the menu is taller than the screen.
-const activeNav = document.querySelector('.sidebar .nav a.active');
-if (activeNav) activeNav.scrollIntoView({ block: 'nearest' });
+// Menu bar dropdowns (Book, Accounts, More): open on click or keyboard, one at a time; outside click / Escape closes.
+const tpGroups = [...document.querySelectorAll('[data-tp-group]')];
+const setGroup = (g, open) => { g.classList.toggle('open', open); const b = g.querySelector('.tp-gbtn'); if (b) b.setAttribute('aria-expanded', String(open)); };
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.tp-gbtn');
+  tpGroups.forEach((g) => { if (btn && g.contains(btn)) setGroup(g, !g.classList.contains('open')); else if (!g.contains(e.target)) setGroup(g, false); });
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') tpGroups.forEach((g) => setGroup(g, false)); });
 
 // Sidebar drawer on small screens: toggle, backdrop / close button / Escape / link click close it.
 const navToggle = document.querySelector('[data-nav-toggle]');
@@ -140,7 +145,7 @@ const setNav = (open) => {
 };
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-nav-toggle]')) setNav(!document.body.classList.contains('nav-open'));
-  else if (e.target.closest('[data-nav-close], .sidebar .nav a')) setNav(false);
+  else if (e.target.closest('[data-nav-close], .tp-nav a')) setNav(false);
 });
 
 // Public site menu on phones.

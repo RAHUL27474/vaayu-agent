@@ -14,141 +14,79 @@
   <link rel="preload" href="/fonts/varelaround-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="<%= asset('/css/app.css') %>">
 </head>
-<body class="app">
+<body class="app tp">
 <%
   const isAdmin = user && user.role === 'admin';
   const isBackend = user && user.role === 'backend';
   const home = isAdmin ? '/admin' : isBackend ? '/backend' : '/agent';
   const isActive = (href) => href === home ? (path === home || path === home + '/') : (path === href || path.startsWith(href + '/'));
-  // The first active menu item becomes the breadcrumb in the top bar.
-  let curSection = '';
-  let crumb = null;
-  const section = (name) => { curSection = name; return `<div class="nav-section">${name}</div>`; };
-  const link = (href, ico, label, active, extra) => {
-    if (active && !crumb) crumb = { section: curSection, label };
-    return `<a href="${href}" class="${active ? 'active' : ''}" title="${label}"${active ? ' aria-current="page"' : ''}>${icon(ico)}<span class="lbl">${label}</span>${extra ? `<span class="count">${extra}</span>` : ''}</a>`;
-  };
   const canOpen = (href) => typeof agentCan !== 'function' || !href.startsWith('/agent') || agentCan(href);
-  const navItem = (href, ico, label, extra) => (canOpen(href) ? link(href, ico, label, isActive(href), extra) : '');
   const initialsOf = (name) => name.replace(/\(.*\)/, '').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
   const initials = initialsOf(user.name);
   const roleLabel = isAdmin ? 'Administrator' : isBackend ? 'Backend team' : ({ owner: 'Agent · Owner', sales: 'Agent · Sales', accounts: 'Agent · Accounts' }[user.agency_role] || 'Agent');
+  // Menu: [href, icon, label, count?, active?] for a link; { group, items } for a dropdown.
+  const L = (href, ico, label, count, active) => ({ href, ico, label, count, active: active === undefined ? isActive(href) : active });
+  const G = (group, ico, items) => ({ group, ico, items });
+  let menu;
+  if (isAdmin) {
+    menu = [
+      L('/admin', 'dashboard', 'Dashboard'),
+      L('/admin/agents', 'building', 'Agents'),
+      L('/admin/topups', 'topup', 'Top-ups', typeof pendingTopups !== 'undefined' && pendingTopups ? pendingTopups : ''),
+      L('/admin/bookings', 'clipboard', 'Bookings'),
+      L('/admin/invoices', 'receipt', 'Invoices'),
+      L('/admin/tickets', 'message', 'Support', typeof openTickets !== 'undefined' && openTickets ? openTickets : ''),
+      G('Monitor', 'activity', [L('/admin/log', 'activity', 'Activity log'), L('/backend', 'layers', 'Inventory'), L('/admin/team', 'users', 'Team')]),
+      G('More', 'settings', [L('/admin/tiers', 'tag', 'Silver / Gold'), L('/admin/ledger', 'wallet', 'Wallet ledger'), L('/admin/offers', 'tag', 'Offers &amp; deals'), L('/admin/notifications', 'bell', 'Notifications', unread || ''), L('/admin/settings', 'settings', 'Settings')]),
+    ];
+  } else if (isBackend) {
+    const navKind = typeof locals.navKind !== 'undefined' ? locals.navKind : '';
+    menu = [
+      L('/backend', 'dashboard', 'Dashboard'),
+      G('Inventory', 'layers', [L('/backend/products', 'layers', 'All inventory', '', path === '/backend/products' && !navKind), ...Object.entries(locals.kindsNav || {}).map(([k, c]) => L(`/backend/products?kind=${k}`, c.icon, c.plural, '', navKind === k))]),
+      L('/backend/packages', 'briefcase', 'VaayuTrip packages'),
+      L('/backend/import', 'upload', 'Bulk import'),
+    ];
+  } else if (agency && agency.status !== 'active') {
+    menu = [
+      L('/agent', 'clipboard', 'Application status'),
+      L('/agent/settings', 'settings', 'Company &amp; documents'),
+      L('/agent/notifications', 'bell', 'Notifications', unread || ''),
+      L('/agent/support', 'help', 'Help &amp; support'),
+    ];
+  } else {
+    menu = [
+      L('/agent', 'dashboard', 'Dashboard'),
+      G('Book', 'search', [L('/agent/vaayutrip-packages', 'briefcase', 'Ready packages'), L('/agent/hotels', 'bed', 'Hotels'), L('/agent/flights', 'plane', 'Airfares'), L('/agent/activities', 'ticket', 'Activities'), L('/agent/transfers', 'car', 'Transfers'), L('/agent/visas', 'passport', 'Visas'), L('/agent/insurance', 'shield', 'Travel insurance')]),
+      L('/agent/quotes', 'file', 'Quotes'),
+      L('/agent/bookings', 'clipboard', 'Bookings'),
+      L('/agent/leads', 'target', 'Leads'),
+      L('/agent/customers', 'users', 'Customers'),
+      L('/agent/packages', 'briefcase', 'My packages'),
+      G('Accounts', 'wallet', [L('/agent/wallet', 'wallet', 'Wallet &amp; credit'), L('/agent/invoices', 'receipt', 'Invoices'), L('/agent/reports', 'chart', 'Reports')]),
+      G('More', 'settings', [L('/agent/offers', 'tag', 'Offers &amp; deals'), L('/agent/website', 'globe', 'My website'), L('/agent/api', 'code', 'API access'), L('/agent/notifications', 'bell', 'Notifications', unread || ''), L('/agent/support', 'help', 'Help &amp; support'), L('/agent/team', 'users', 'Team'), L('/agent/settings', 'settings', 'Company &amp; branding')]),
+    ];
+  }
+  // Hide what this agent user's role can't open; drop empty groups.
+  menu = menu.map((m) => (m.group ? { ...m, items: m.items.filter((i) => canOpen(i.href)) } : m)).filter((m) => (m.group ? m.items.length : canOpen(m.href)));
+  const item = (i, cls) => `<a href="${i.href}" class="${cls}${i.active ? ' on' : ''}"${i.active ? ' aria-current="page"' : ''}>${icon(i.ico)}<span>${i.label}</span>${i.count ? `<b class="count">${i.count}</b>` : ''}</a>`;
 %>
 <a class="skip-link" href="#main">Skip to content</a>
-<div class="shell">
-  <aside class="sidebar" id="sidebar" aria-label="Main menu">
-    <div class="sidebar-head">
-      <a class="logo" href="<%= home %>">
-        <img src="/img/vaayutrip-mark-sm.png" alt="" width="34" height="34">
-        <span class="lbl"><span class="wordmark">Vaay<i>u</i><b>Trip</b></span><small><%= isAdmin ? 'Admin console' : isBackend ? 'Backend portal' : 'Agent portal' %></small></span>
-      </a>
-      <button class="icon-btn sidebar-close" type="button" data-nav-close aria-label="Close menu"><%- icon('x') %></button>
-    </div>
-
-    <% if (agency) { %>
-      <a class="workspace" href="/agent/settings" title="<%= agency.name %>">
-        <span class="ws-mark ws-brand" style="--ws:#0088cc"><%= initialsOf(agency.name) %></span>
-        <span class="lbl ws-text"><b><%= agency.name %></b><small><span class="ws-dot <%= agency.status %>"></span><%= agency.status === 'active' ? ((typeof tierNow !== 'undefined' && tierNow.source === 'own' && { gold: 'Gold partner', silver: 'Silver partner' }[tierNow.tier]) || 'Verified partner') : agency.status.charAt(0).toUpperCase() + agency.status.slice(1) %></small></span>
-      </a>
-    <% } else { %>
-      <div class="workspace">
-        <span class="ws-mark hq"><%- icon(isBackend ? 'layers' : 'building') %></span>
-        <span class="lbl ws-text"><b>VaayuTrip HQ</b><small><span class="ws-dot active"></span><%= isBackend ? 'Inventory team' : 'Administration' %></small></span>
-      </div>
-    <% } %>
-
-    <nav class="nav">
-    <% if (isAdmin) { %>
-      <%- navItem('/admin', 'dashboard', 'Dashboard') %>
-      <%- section('Monitor') %>
-      <%- navItem('/admin/log', 'activity', 'Activity log') %>
-      <%- navItem('/backend', 'layers', 'Inventory') %>
-      <%- navItem('/admin/team', 'users', 'Team') %>
-      <%- section('Partners') %>
-      <%- navItem('/admin/agents', 'building', 'Agents') %>
-      <%- navItem('/admin/tiers', 'tag', 'Silver / Gold') %>
-      <%- navItem('/admin/topups', 'topup', 'Top-up requests', typeof pendingTopups !== 'undefined' && pendingTopups ? pendingTopups : '') %>
-      <%- navItem('/admin/ledger', 'wallet', 'Wallet ledger') %>
-      <%- section('Operations') %>
-      <%- navItem('/admin/bookings', 'clipboard', 'Bookings') %>
-      <%- navItem('/admin/invoices', 'receipt', 'Invoices') %>
-      <%- navItem('/admin/tickets', 'message', 'Support tickets', typeof openTickets !== 'undefined' && openTickets ? openTickets : '') %>
-      <%- navItem('/admin/offers', 'tag', 'Offers &amp; deals') %>
-      <%- navItem('/admin/notifications', 'bell', 'Notifications', unread || '') %>
-      <%- navItem('/admin/settings', 'settings', 'Settings') %>
-    <% } else if (isBackend) { %>
-      <%- navItem('/backend', 'dashboard', 'Dashboard') %>
-      <%- section('Inventory') %>
-      <% const navKind = typeof locals.navKind !== 'undefined' ? locals.navKind : ''; %>
-      <%- link('/backend/products', 'layers', 'All inventory', path === '/backend/products' && !navKind) %>
-      <% Object.entries(locals.kindsNav || {}).forEach(([k, c]) => { %>
-        <%- link(`/backend/products?kind=${k}`, c.icon, c.plural, navKind === k) %>
-      <% }) %>
-      <%- section('Packages') %>
-      <%- navItem('/backend/packages', 'briefcase', 'VaayuTrip packages') %>
-      <%- section('Tools') %>
-      <%- navItem('/backend/import', 'upload', 'Bulk import') %>
-    <% } else if (agency && agency.status !== 'active') { %>
-      <%- navItem('/agent', 'clipboard', 'Application status') %>
-      <%- section('Account') %>
-      <%- navItem('/agent/settings', 'settings', 'Company &amp; documents') %>
-      <%- navItem('/agent/notifications', 'bell', 'Notifications', unread || '') %>
-      <%- navItem('/agent/support', 'help', 'Help &amp; support') %>
-    <% } else { %>
-      <%- navItem('/agent', 'dashboard', 'Dashboard') %>
-      <%- section('Book from VaayuTrip') %>
-      <%- navItem('/agent/vaayutrip-packages', 'briefcase', 'Ready packages') %>
-      <%- navItem('/agent/activities', 'ticket', 'Activities') %>
-      <%- navItem('/agent/hotels', 'bed', 'Hotels') %>
-      <%- navItem('/agent/flights', 'plane', 'Airfares') %>
-      <%- navItem('/agent/transfers', 'car', 'Transfers') %>
-      <%- navItem('/agent/visas', 'passport', 'Visas') %>
-      <%- navItem('/agent/insurance', 'shield', 'Travel insurance') %>
-      <%- section('Sell') %>
-      <%- navItem('/agent/packages', 'briefcase', 'My packages') %>
-      <%- navItem('/agent/leads', 'target', 'Leads') %>
-      <%- navItem('/agent/customers', 'users', 'Customers') %>
-      <%- navItem('/agent/quotes', 'file', 'Quotes') %>
-      <%- navItem('/agent/bookings', 'clipboard', 'Bookings') %>
-      <%- section('Money') %>
-      <%- navItem('/agent/wallet', 'wallet', 'Wallet &amp; credit') %>
-      <%- navItem('/agent/invoices', 'receipt', 'Invoices') %>
-      <%- navItem('/agent/reports', 'chart', 'Reports') %>
-      <%- section('Grow') %>
-      <%- navItem('/agent/website', 'globe', 'My website') %>
-      <%- navItem('/agent/api', 'code', 'API access') %>
-      <%- navItem('/agent/offers', 'tag', 'Offers &amp; deals') %>
-      <%- section('Account') %>
-      <%- navItem('/agent/notifications', 'bell', 'Notifications', unread || '') %>
-      <%- navItem('/agent/support', 'help', 'Help &amp; support') %>
-      <%- navItem('/agent/team', 'users', 'Team') %>
-      <%- navItem('/agent/settings', 'settings', 'Company &amp; branding') %>
-    <% } %>
-    </nav>
-
-    <% if (agency && settings.phone) { %>
-      <div class="help-card lbl">
-        <b>Need a hand?</b>
-        <span>Partner desk: Mon–Sat, 9:30 am – 7:30 pm IST.</span>
-        <a href="tel:<%= settings.phone.replace(/\s/g, '') %>"><%- icon('phone') %><%= settings.phone %></a>
-      </div>
-    <% } %>
-  </aside>
-  <div class="backdrop" data-nav-close></div>
-
-  <div class="main">
-    <header class="topbar">
-      <button class="icon-btn menu-toggle" type="button" data-nav-toggle aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><%- icon('menu') %></button>
-      <nav class="crumbs" aria-label="Breadcrumb">
-        <% if (crumb && crumb.section) { %><span class="crumb-section"><%- crumb.section %></span><span class="crumb-sep" aria-hidden="true">/</span><% } %>
-        <span class="crumb-current"><%- crumb ? crumb.label : (typeof title !== 'undefined' ? title : 'Dashboard') %></span>
-      </nav>
+<header class="tp-head">
+  <div class="tp-top">
+    <div class="tp-in">
+      <button class="icon-btn menu-toggle" type="button" data-nav-toggle aria-label="Open menu" aria-controls="tp-nav" aria-expanded="false"><%- icon('menu') %></button>
+      <a class="tp-logo" href="<%= home %>"><img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip" height="38"></a>
+      <% if (agency) { %>
+        <a class="tp-agency" href="/agent/settings" title="Company &amp; branding"><b><%= agency.name %></b><small><%= agency.status === 'active' ? ((typeof tierNow !== 'undefined' && tierNow.source === 'own' && { gold: 'Gold partner', silver: 'Silver partner' }[tierNow.tier]) || 'Verified partner') : agency.status.charAt(0).toUpperCase() + agency.status.slice(1) %> · <%= roleLabel.replace('Agent · ', '') %></small></a>
+      <% } else { %>
+        <span class="tp-agency"><b><%= isBackend ? 'Backend portal' : 'Admin console' %></b><small>VaayuTrip HQ</small></span>
+      <% } %>
       <div class="spacer"></div>
       <% if (isAdmin || (agency && agency.status === 'active')) { %>
         <form class="top-search" action="<%= home %>/search" method="get" role="search">
           <%- icon('search') %>
-          <input type="search" name="q" placeholder="<%= isAdmin ? 'Search agencies, bookings, invoices…' : 'Search quotes, bookings, customers…' %>" aria-label="Search" value="<%= path === home + '/search' && query.q ? query.q : '' %>" minlength="2" data-search-key>
-          <kbd>/</kbd>
+          <input type="search" name="q" placeholder="<%= isAdmin ? 'Search agencies, bookings, invoices' : 'Search quotes, bookings, customers' %>" aria-label="Search" value="<%= path === home + '/search' && query.q ? query.q : '' %>" minlength="2" data-search-key>
         </form>
         <a class="icon-btn search-btn" href="<%= home %>/search" aria-label="Search"><%- icon('search') %></a>
       <% } %>
@@ -192,31 +130,46 @@
           <form method="post" action="/logout"><button type="submit"><%- icon('logout') %>Log out</button></form>
         </div>
       </details>
-    </header>
-    <main class="content" id="main">
-      <% flash.forEach(f => { %><div class="alert <%= f.type %>" role="<%= f.type === 'error' ? 'alert' : 'status' %>" data-flash><%- icon(f.type === 'error' ? 'xCircle' : 'checkCircle') %><span><%= f.message %></span></div><% }) %>
-      <%- body %>
-    </main>
-    <% if (agency) { const bookPaths = ['/agent/activities', '/agent/hotels', '/agent/flights', '/agent/transfers', '/agent/visas', '/agent/insurance']; %>
-      <% if (agency.status !== 'active') { %>
-      <nav class="bottom-nav" aria-label="Quick menu">
-        <a href="/agent" class="<%= isActive('/agent') ? 'on' : '' %>"><%- icon('clipboard') %><span>Status</span></a>
-        <a href="/agent/settings" class="<%= isActive('/agent/settings') ? 'on' : '' %>"><%- icon('upload') %><span>Documents</span></a>
-        <a href="/agent/notifications" class="<%= isActive('/agent/notifications') ? 'on' : '' %>"><%- icon('bell') %><span>Alerts</span></a>
-        <a href="/agent/support" class="<%= isActive('/agent/support') ? 'on' : '' %>"><%- icon('help') %><span>Support</span></a>
-      </nav>
-      <% } else { %>
-      <nav class="bottom-nav" aria-label="Quick menu">
-        <a href="/agent" class="<%= isActive('/agent') ? 'on' : '' %>"><%- icon('dashboard') %><span>Home</span></a>
-        <a href="/agent/hotels" class="<%= bookPaths.some(isActive) ? 'on' : '' %>"><%- icon('search') %><span>Book</span></a>
-        <a href="/agent/quotes" class="<%= isActive('/agent/quotes') ? 'on' : '' %>"><%- icon('file') %><span>Quotes</span></a>
-        <a href="/agent/bookings" class="<%= isActive('/agent/bookings') ? 'on' : '' %>"><%- icon('clipboard') %><span>Bookings</span></a>
-        <button type="button" data-nav-toggle aria-label="More"><%- icon('menu') %><span>More</span></button>
-      </nav>
-      <% } %>
-    <% } %>
+    </div>
   </div>
-</div>
+  <nav class="tp-nav" id="tp-nav" aria-label="Main menu">
+    <div class="tp-in">
+      <div class="tp-drawer-head"><img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip" height="32"><button class="icon-btn" type="button" data-nav-close aria-label="Close menu"><%- icon('x') %></button></div>
+      <% menu.forEach((m) => { if (!m.group) { %><%- item(m, 'tp-link') %><% } else { const on = m.items.some((i) => i.active); %>
+        <div class="tp-group<%= on ? ' on' : '' %>" data-tp-group>
+          <button type="button" class="tp-link tp-gbtn<%= on ? ' on' : '' %>" aria-expanded="false"><%- icon(m.ico) %><span><%= m.group %></span><%- icon('chevron', 'caret') %></button>
+          <div class="tp-drop"><% m.items.forEach((i) => { %><%- item(i, 'tp-item') %><% }) %></div>
+        </div>
+      <% } }) %>
+      <% if (agency && settings.phone) { %>
+        <a class="tp-help" href="tel:<%= settings.phone.replace(/\s/g, '') %>"><%- icon('phone') %><span>Partner desk <b><%= settings.phone %></b></span></a>
+      <% } %>
+    </div>
+  </nav>
+</header>
+<div class="backdrop" data-nav-close></div>
+<main class="content" id="main">
+  <% flash.forEach(f => { %><div class="alert <%= f.type %>" role="<%= f.type === 'error' ? 'alert' : 'status' %>" data-flash><%- icon(f.type === 'error' ? 'xCircle' : 'checkCircle') %><span><%= f.message %></span></div><% }) %>
+  <%- body %>
+</main>
+<% if (agency) { const bookPaths = ['/agent/activities', '/agent/hotels', '/agent/flights', '/agent/transfers', '/agent/visas', '/agent/insurance', '/agent/vaayutrip-packages']; %>
+  <% if (agency.status !== 'active') { %>
+  <nav class="bottom-nav" aria-label="Quick menu">
+    <a href="/agent" class="<%= isActive('/agent') ? 'on' : '' %>"><%- icon('clipboard') %><span>Status</span></a>
+    <a href="/agent/settings" class="<%= isActive('/agent/settings') ? 'on' : '' %>"><%- icon('upload') %><span>Documents</span></a>
+    <a href="/agent/notifications" class="<%= isActive('/agent/notifications') ? 'on' : '' %>"><%- icon('bell') %><span>Alerts</span></a>
+    <a href="/agent/support" class="<%= isActive('/agent/support') ? 'on' : '' %>"><%- icon('help') %><span>Support</span></a>
+  </nav>
+  <% } else { %>
+  <nav class="bottom-nav" aria-label="Quick menu">
+    <a href="/agent" class="<%= isActive('/agent') ? 'on' : '' %>"><%- icon('dashboard') %><span>Home</span></a>
+    <a href="/agent/hotels" class="<%= bookPaths.some(isActive) ? 'on' : '' %>"><%- icon('search') %><span>Book</span></a>
+    <a href="/agent/quotes" class="<%= isActive('/agent/quotes') ? 'on' : '' %>"><%- icon('file') %><span>Quotes</span></a>
+    <a href="/agent/bookings" class="<%= isActive('/agent/bookings') ? 'on' : '' %>"><%- icon('clipboard') %><span>Bookings</span></a>
+    <button type="button" data-nav-toggle aria-label="More"><%- icon('menu') %><span>More</span></button>
+  </nav>
+  <% } %>
+<% } %>
 <script src="<%= asset('/js/app.js') %>"></script>
 </body>
 </html>
