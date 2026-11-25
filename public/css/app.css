@@ -2084,3 +2084,11 @@ body.app .card.flush, body.app .card.kpis { padding: 0; }
 .site-footer a:hover { color: #fff; }
 .site-footer h4, .site-footer h5, .site-footer h6, .site-footer .foot-h { color: #fff; }
 @media (max-width: 1024px) { .tp-group + .tp-link { margin-top: 8px; position: relative; } .tp-group + .tp-link::before { content: ""; position: absolute; left: 10px; right: 10px; top: -5px; border-top: 1px solid var(--line); } }
+/* Use wide screens: content grows with the window up to 1680px; side column grows a little too */
+.tp-in, body.app .content { max-width: 1680px; }
+@media (min-width: 1500px) { .tp-in { padding: 0 32px; } body.app .content { padding-left: 32px; padding-right: 32px; } }
+.dash-split { grid-template-columns: minmax(0, 1fr) clamp(320px, 24vw, 400px); }
+@media (max-width: 1100px) { .dash-split { grid-template-columns: minmax(0, 1fr); } .dash-split > aside { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; align-items: start; } }
+@media (max-width: 700px) { .dash-split > aside { grid-template-columns: minmax(0, 1fr); } }
+/* Full width: portal fills the whole window on any screen size */
+.tp-in, body.app .content { max-width: none; }
