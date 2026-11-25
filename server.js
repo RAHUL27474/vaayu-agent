@@ -50,7 +50,7 @@ app.use((req, res, next) => {
 // Stylesheet and script URLs carry a fingerprint of their contents (?v=…), so browsers can cache them for a
 // year and still pick up a new deploy at once.
 const fingerprint = (rel) => require('crypto').createHash('sha1').update(require('fs').readFileSync(path.join(__dirname, 'public', rel))).digest('hex').slice(0, 10);
-const ASSET_VERSIONS = { '/css/app.css': fingerprint('css/app.css'), '/js/app.js': fingerprint('js/app.js') };
+const ASSET_VERSIONS = { '/css/app.css': fingerprint('css/app.css'), '/css/site.css': fingerprint('css/site.css'), '/js/app.js': fingerprint('js/app.js') };
 // "1 booking", "3 bookings": <%= plural(n, 'booking') %>
 app.locals.plural = (n, one, many = `${one}s`) => `${Number(n).toLocaleString('en-IN')} ${Number(n) === 1 ? one : many}`;
 app.locals.asset = (p) => (ASSET_VERSIONS[p] ? `${p}?v=${ASSET_VERSIONS[p]}` : p);

@@ -386,9 +386,13 @@ if (calc) {
     calc.querySelector('[data-calc-lines]').innerHTML = lines.map((l) => `<tr><td>${l[0]}</td><td class="num">${inr(l[1])} <small class="muted">net</small></td></tr>`).join('');
     calc.querySelector('[data-calc-pct]').textContent = `${m}%`;
     calc.querySelector('[data-calc-total]').textContent = inr(net * (1 + m / 100));
+    const netOut = calc.querySelector('[data-calc-net]');
+    if (netOut) netOut.textContent = inr(net);
+    slider.style.setProperty('--fill', `${(m / Number(slider.max || 30)) * 100}%`);
     calc.querySelector('[data-calc-profit]').textContent = inr(net * m / 100);
     profitBox.classList.remove('bump'); void profitBox.offsetWidth; profitBox.classList.add('bump');
   };
+  slider.style.setProperty('--fill', `${(Number(slider.value) / Number(slider.max || 30)) * 100}%`);
   slider.addEventListener('input', render);
   calc.querySelectorAll('input[name="calc-trip"]').forEach((r) => r.addEventListener('change', render));
 }
@@ -468,3 +472,11 @@ document.querySelectorAll('[data-city-country]').forEach((input) => {
     if (hit && [...select.options].some((o) => o.value === hit.dataset.country)) select.value = hit.dataset.country;
   });
 });
+
+// Public header: a hairline appears once the page scrolls.
+const siteHeader = document.querySelector('body.public .site-header');
+if (siteHeader) {
+  const syncLine = () => siteHeader.classList.toggle('scrolled-solid', window.scrollY > 8);
+  window.addEventListener('scroll', syncLine, { passive: true });
+  syncLine();
+}

@@ -4,14 +4,16 @@
   <script>document.documentElement.classList.add('js')</script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#F8F7F3">
 <%- include('../partials/meta') %>
   <link rel="icon" href="/img/favicon.png">
 <% if (typeof site === 'undefined' || !site) { %>  <link rel="manifest" href="/manifest.webmanifest">
   <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 <% } %>
   <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="<%= asset('/css/app.css') %>">
+  <link rel="stylesheet" href="<%= asset('/css/site.css') %>">
 </head>
 <body class="public">
 <% if (typeof bare === 'undefined' || !bare) { %>

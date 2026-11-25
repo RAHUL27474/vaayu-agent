@@ -16,238 +16,278 @@
   ];
   const inr = (n) => '₹' + Math.round(n).toLocaleString('en-IN');
   const t0 = TRIPS[0], net0 = t0.lines.reduce((s, l) => s + l[1], 0), m0 = 12;
+  const home = user ? (user.role === 'admin' ? '/admin' : user.role === 'backend' ? '/backend' : '/agent') : null;
+  const destLink = (name) => (user && user.role === 'agent' ? `/agent/find?svc=hotels&dest=${encodeURIComponent(name)}` : '/signup');
+  const D = Object.fromEntries(destinations.map((d) => [d.name, d]));
+  const NOTE = {
+    Dubai: 'Desert safaris, Burj Khalifa, Abu Dhabi day trips and city hotels.',
+    Bali: 'Villas, Ubud and Nusa Penida tours, beach transfers.',
+    Vietnam: 'Hanoi, Ha Long Bay cruises, Da Nang and Hoi An.',
+    Cambodia: 'Angkor temples at Siem Reap and Phnom Penh.',
+    'United Kingdom': 'London and Edinburgh, UK visitor visas.',
+    Europe: 'Paris, the Swiss Alps, Italy, Amsterdam and Barcelona, Schengen visas.',
+  };
+  const order = ['Dubai', 'Bali', 'Vietnam', 'Europe', 'United Kingdom', 'Cambodia'].filter((n) => D[n]);
 %>
-<section class="hx" data-hero>
-  <div class="hx-slides" aria-hidden="true">
-    <% HERO.forEach((h, i) => { %><img class="hx-slide<%= i === 0 ? ' on' : '' %>" src="<%= cover({ destination: h.name }) %>" alt="" <%- i === 0 ? 'fetchpriority="high"' : 'loading="lazy"' %>><% }) %>
-  </div>
-  <div class="hx-shade"></div>
-  <div class="inner">
-    <div class="hx-copy">
+<section class="v-hero" data-hero>
+  <div class="v-wrap v-hero-grid">
+    <div class="v-hero-copy">
+      <p class="v-kicker">B2B travel platform for agencies</p>
       <h1>Book at net rates.<br>Sell under your own name.</h1>
-      <p class="lead">B2B rates on airfares, hotels, activities, transfers, visas and insurance for Dubai, Bali, Vietnam, Cambodia, the UK and Europe. Your quotes, invoices and vouchers carry your agency's name, not ours.</p>
-
-      <form class="hx-search" method="get" action="/agent/find" role="search" aria-label="Search net rates">
-        <label class="hs-field"><span><%- icon('globe') %>Where to?</span>
-          <select name="dest" data-hero-dest><% HERO.forEach(h => { %><option><%= h.name %></option><% }) %></select>
-        </label>
-        <label class="hs-field"><span><%- icon('search') %>What do you need?</span>
-          <select name="svc"><% SVCS.forEach(([v, l]) => { %><option value="<%= v %>"><%= l %></option><% }) %></select>
-        </label>
-        <button class="btn btn-accent btn-lg hs-go" type="submit">Search net rates</button>
-      </form>
-      <p class="hs-note"><% if (user) { %>Opens your portal with live rates.<% } else { %>Partners see live net rates after login. <a href="/signup">Not a partner yet? Join free</a><% } %></p>
-    </div>
-
-    <div class="hx-stage">
-      <div class="hero-login glass">
-        <% if (user) {
-          const home = user.role === 'admin' ? '/admin' : user.role === 'backend' ? '/backend' : '/agent';
-          const roleLabel = user.role === 'admin' ? 'Administrator' : user.role === 'backend' ? 'Backend team' : (agency ? agency.name : 'Partner');
-          const QUICK = {
-            admin: [['/admin/agents', 'building', 'Agents'], ['/admin/bookings', 'receipt', 'Bookings'], ['/admin/topups', 'wallet', 'Top-ups'], ['/admin/ledger', 'briefcase', 'Ledger']],
-            backend: [['/backend/products', 'briefcase', 'Inventory'], ['/backend/products?kind=hotel', 'bed', 'Hotels'], ['/backend/import', 'download', 'Import'], ['/backend/packages', 'globe', 'Packages']],
-            agent: [['/agent/hotels', 'bed', 'Hotels'], ['/agent/vaayutrip-packages', 'briefcase', 'Packages'], ['/agent/quotes', 'receipt', 'Quotes'], ['/agent/wallet', 'wallet', 'Wallet']],
-          }[user.role] || [];
-          const initials = user.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase(); %>
-          <div class="hu-head">
-            <span class="hu-av"><%= initials %></span>
-            <div><small>Welcome back</small><h3><%= user.name.replace(/^VaayuTrip /i, '').split(' ')[0] %></h3><span class="hu-role"><i class="live-dot"></i><%= roleLabel %></span></div>
-          </div>
-          <% if (user.role === 'agent' && agency) { %>
-            <div class="hu-money">
-              <div><small>Wallet</small><b><%= inr(agency.wallet_balance) %></b></div>
-              <div><small>Credit available</small><b><%= inr(Math.max(0, (agency.credit_limit || 0) - (agency.credit_used || 0))) %></b></div>
-            </div>
-          <% } %>
-          <div class="hu-grid">
-            <% QUICK.forEach(([href, ic, label]) => { %><a href="<%= href %>"><span><%- icon(ic) %></span><%= label %></a><% }) %>
-          </div>
-          <a class="btn btn-primary btn-lg hu-open" href="<%= home %>">Open your portal</a>
+      <p class="v-lead">Airfares, hotels, activities, transfers, visas and insurance for Dubai, Bali, Vietnam, Cambodia, the UK and Europe. You set the price; quotes, invoices and vouchers carry your agency's name.</p>
+      <div class="v-ctas">
+        <% if (user) { %>
+          <a class="v-btn v-btn-primary" href="<%= home %>">Open your portal<%- icon('arrowRight') %></a>
         <% } else { %>
-          <h3>Partner login</h3>
-          <p class="muted">Agents and VaayuTrip team members.</p>
-          <form method="post" action="/login">
-            <div class="field"><label for="h-email">Email</label><input id="h-email" type="email" name="email" autocomplete="username" required placeholder="you@agency.com"></div>
-            <div class="field"><label for="h-pass">Password</label><input id="h-pass" type="password" name="password" autocomplete="current-password" required placeholder="Your password"></div>
-            <button class="btn btn-primary btn-lg" type="submit" style="width:100%">Log in</button>
-          </form>
-          <div class="hero-login-foot">New to VaayuTrip? <a href="/signup">Create a free partner account</a></div>
+          <a class="v-btn v-btn-primary" href="/signup">Become a partner</a>
+          <a class="v-btn v-btn-ghost" href="#destinations">Explore destinations</a>
         <% } %>
       </div>
+
+      <form class="v-search" method="get" action="/agent/find" role="search" aria-label="Search net rates">
+        <label class="v-search-f"><span>Destination</span>
+          <select name="dest" data-hero-dest><% HERO.forEach(h => { %><option><%= h.name %></option><% }) %></select>
+        </label>
+        <label class="v-search-f"><span>Service</span>
+          <select name="svc"><% SVCS.forEach(([v, l]) => { %><option value="<%= v %>"><%= l %></option><% }) %></select>
+        </label>
+        <button class="v-btn v-btn-teal" type="submit"><%- icon('search') %>Search net rates</button>
+      </form>
+      <p class="v-search-note"><%- icon('lock') %><% if (user) { %>Opens your portal with live rates.<% } else { %>Live net rates are shown to verified partners after login.<% } %></p>
     </div>
-  </div>
-  <div class="hx-dots" role="tablist" aria-label="Destinations">
-    <% HERO.forEach((h, i) => { %>
-      <button type="button" class="<%= i === 0 ? 'on' : '' %>" data-slide="<%= i %>" data-line="<%= h.line %>" data-word="<%= h.name === 'United Kingdom' ? 'the UK' : h.name %>" data-dest="<%= h.name %>" aria-label="Show <%= h.name %>"><span><%= h.name %></span><i></i></button>
-    <% }) %>
-  </div>
-  <p class="hx-caption" data-hero-line><%= HERO[0].line %></p>
-</section>
 
-<section class="stats-strip" aria-label="VaayuTrip in numbers">
-  <div class="inner">
-    <div><b><%= stats.hotels %></b><span>hotels at net rates</span></div>
-    <div><b><%= stats.activities %></b><span>tours &amp; activities</span></div>
-    <div><b><%= stats.cities %></b><span>cities across 6 destinations</span></div>
-    <div><b><%= stats.agents %></b><span>partner agencies selling today</span></div>
-  </div>
-</section>
-
-<section class="section" id="destinations">
-  <h2 class="big">Destinations</h2>
-  <p class="center">Hotels, fares, sightseeing, transfers and visas in six destinations, contracted and kept up to date by the VaayuTrip team.</p>
-  <div class="bento">
-    <% destinations.forEach((d, i) => { %>
-      <a class="dest" href="<%= user && user.role === 'agent' ? '/agent/find?svc=hotels&dest=' + encodeURIComponent(d.name) : '/signup' %>" data-reveal>
-        <img src="<%= cover({ destination: d.name }) %>" alt="<%= d.name %>" loading="lazy">
-        <span class="dest-tag"><%= d.items %> services</span>
-        <div class="cap">
-          <div><b class="dest-name"><%= d.name %></b><small><%= d.cities.length %> <%= d.cities.length === 1 ? 'city' : 'cities' %></small></div>
-          
+    <figure class="v-hero-media">
+      <div class="v-hero-photo">
+        <div class="hx-slides" aria-hidden="true">
+          <% HERO.forEach((h, i) => { %><img class="hx-slide<%= i === 0 ? ' on' : '' %>" src="<%= cover({ destination: h.name }) %>" alt="" <%- i === 0 ? 'fetchpriority="high"' : 'loading="lazy"' %>><% }) %>
         </div>
-        <% if (d.cities.length && !(d.cities.length === 1 && d.cities[0] === d.name)) { %><div class="dest-cities"><%= d.cities.slice(0, 5).join(' · ') %><%= d.cities.length > 5 ? ' …' : '' %></div><% } %>
-      </a>
-    <% }) %>
-  </div>
-</section>
-
-<section class="section pv-wrap" id="portal">
-  <h2 class="big">The agent portal</h2>
-  <p class="center">Search rates, build packages, send quotes, book and get paid, without switching between ten tabs and five suppliers.</p>
-  <figure class="shot">
-    <img src="/img/portal-dashboard.png?v=5" alt="The VaayuTrip agent portal: dashboard with searches, quotes, upcoming trips and earnings" loading="lazy" width="1440" height="900">
-  </figure>
-</section>
-
-<section class="feat-dark" id="features">
-  <div class="section">
-    <h2 class="big">What's included</h2>
-    <p class="center">One login for inventory, sales, money and marketing, built for small and growing agencies.</p>
-    <div class="grid grid-3">
-      <div class="feature fx" data-reveal><div class="ico c1"><%- icon('plane') %></div><h3>Every building block at net</h3><p>Airfares, hotels, activities, transfers, visas and insurance for six destinations, contracted by the VaayuTrip team.</p></div>
-      <div class="feature fx" data-reveal><div class="ico c2"><%- icon('briefcase') %></div><h3>Ready or your own packages</h3><p>Quote our ready-made packages as they are, or lay out your own days with our services and yours. Your package, your price.</p></div>
-      <div class="feature fx" data-reveal><div class="ico c3"><%- icon('receipt') %></div><h3>Branded invoices</h3><p>Every quote, invoice and voucher goes out under your agency's name, logo and GSTIN. VaayuTrip stays invisible.</p></div>
-      <div class="feature fx" data-reveal><div class="ico c4"><%- icon('globe') %></div><h3>Your own website</h3><p>Want one? We build it on your domain and connect it to the portal, so your packages and prices stay in sync.</p></div>
-      <div class="feature fx" data-reveal><div class="ico c5"><%- icon('wallet') %></div><h3>Wallet &amp; credit</h3><p>Book from your wallet or credit line, top up by UPI or bank, and download a bank-style statement any time.</p></div>
-      <div class="feature fx" data-reveal><div class="ico c6"><%- icon('shield') %></div><h3>Secure by default</h3><p>2-step login, a record of every sign-in, and trip reminders before your customers fly.</p></div>
-    </div>
-  </div>
-</section>
-
-<section class="section calc-wrap" id="calc">
-  <div class="calc-grid">
-    <div data-reveal>
-      <h2 class="big" style="text-align:left">Your margin on a sample trip</h2>
-      <p class="muted" style="font-size:16px">Pick a trip and drag the slider. You set your own markup on every booking, and your customer sees only your price, on your invoice.</p>
-      <ol class="steps" style="margin-top:20px">
-        <li><b>Your invoice to your customer.</b> Your name, logo and GSTIN, with every item in your package, including your own hotels and services.</li>
-        <li><b>B2B invoice to you.</b> Every booking also gets a VaayuTrip invoice at net rates, for your accounts.</li>
-      </ol>
-    </div>
-    <div class="calc" data-calc data-reveal>
-      <div class="calc-trips" role="radiogroup" aria-label="Example trip">
-        <% TRIPS.forEach((t, i) => { %>
-          <label class="chip-radio"><input type="radio" name="calc-trip" value="<%= t.key %>" <%= i === 0 ? 'checked' : '' %> data-lines='<%= JSON.stringify(t.lines) %>'><span><%= t.name %></span></label>
+        <figcaption class="v-hero-cap"><%- icon('mapPin') %><span data-hero-line><%= HERO[0].line %></span></figcaption>
+      </div>
+      <div class="v-hero-shot" aria-hidden="true">
+        <img src="/img/portal-dashboard.png?v=5" alt="" width="1440" height="900" loading="lazy">
+      </div>
+      <div class="hx-dots v-hero-dots" role="tablist" aria-label="Destinations">
+        <% HERO.forEach((h, i) => { %>
+          <button type="button" class="<%= i === 0 ? 'on' : '' %>" data-slide="<%= i %>" data-line="<%= h.line %>" data-word="<%= h.name === 'United Kingdom' ? 'the UK' : h.name %>" data-dest="<%= h.name %>" aria-label="Show <%= h.name %>"><span><%= h.name === 'United Kingdom' ? 'UK' : h.name %></span><i></i></button>
         <% }) %>
       </div>
-      <table class="table calc-lines no-stack" data-calc-lines>
-        <% t0.lines.forEach(l => { %><tr><td><%= l[0] %></td><td class="num"><%= inr(l[1]) %> <small class="muted">net</small></td></tr><% }) %>
-      </table>
-      <div class="calc-slider">
-        <label for="calc-m">Your markup <b data-calc-pct><%= m0 %>%</b></label>
-        <input id="calc-m" type="range" min="0" max="30" step="1" value="<%= m0 %>" data-calc-m>
-      </div>
-      <div class="calc-out">
-        <div><small>Customer pays</small><b data-calc-total><%= inr(net0 * (1 + m0 / 100)) %></b><small class="muted"><%= gstOn ? '+ GST ' : '' %>+ TCS</small></div>
-        <div class="calc-profit"><small>You earn</small><b data-calc-profit><%= inr(net0 * m0 / 100) %></b><small>on this one trip</small></div>
-      </div>
-      <p class="muted calc-note">Example net rates for 2 adults, for illustration. Live rates are in the portal.</p>
+    </figure>
+  </div>
+</section>
+
+<section class="v-facts" aria-label="VaayuTrip at a glance">
+  <div class="v-wrap v-facts-grid">
+    <div><b><%= stats.hotels %></b><span>hotels at net rates</span></div>
+    <div><b><%= stats.activities %></b><span>tours &amp; activities</span></div>
+    <div><b><%= stats.cities %></b><span>cities in 6 destinations</span></div>
+    <div class="v-facts-terms"><span><%- icon('check') %>Free to join</span><span><%- icon('check') %>No monthly targets</span><span><%- icon('check') %>Your brand on every document</span></div>
+  </div>
+</section>
+
+<section class="v-sec" id="destinations">
+  <div class="v-wrap">
+    <div class="v-head v-head-split">
+      <h2>Six destinations, contracted and kept current by our team</h2>
+      <p>Hotels, fares, sightseeing, transfers and visas, bought by VaayuTrip and sold to you at net. Pick a destination to see what's available.</p>
+    </div>
+    <div class="v-dests">
+      <% order.forEach((name, i) => { const d = D[name]; %>
+        <a class="v-dest v-dest-<%= i + 1 %>" href="<%= destLink(name) %>">
+          <img src="<%= cover({ destination: name }) %>" alt="" loading="lazy">
+          <span class="v-dest-body">
+            <span class="v-dest-top"><b><%= name %></b><small><%= d.items %> services</small></span>
+            <span class="v-dest-note"><%= NOTE[name] %></span>
+            <% if (d.cities.length && !(d.cities.length === 1 && d.cities[0] === name)) { %><span class="v-dest-cities"><% d.cities.slice(0, 4).forEach(c => { %><i><%= c %></i><% }) %><% if (d.cities.length > 4) { %><i>+<%= d.cities.length - 4 %></i><% } %></span><% } %>
+          </span>
+        </a>
+      <% }) %>
     </div>
   </div>
 </section>
 
-<section class="section" id="how">
-  <h2 class="big">How to join</h2>
-  <div class="timeline">
-    <div class="tl-step" data-reveal><span class="tl-n">1</span><h3>Sign up</h3><p class="muted">Create your agency account in ten minutes.</p></div>
-    <div class="tl-step" data-reveal><span class="tl-n">2</span><h3>Get verified</h3><p class="muted">We check your GSTIN or tax ID, usually within a working day.</p></div>
-    <div class="tl-step" data-reveal><span class="tl-n">3</span><h3>Build packages</h3><p class="muted">Pick flights, hotels and activities for each day and set your price.</p></div>
-    <div class="tl-step" data-reveal><span class="tl-n">4</span><h3>Quote &amp; book</h3><p class="muted">Send branded quotes on WhatsApp and book from your wallet.</p></div>
-  </div>
-  <div style="text-align:center;margin-top:36px"><a class="btn btn-primary btn-lg" href="/signup">Create a partner account</a></div>
-</section>
-
-<section class="section apply" id="apply">
-  <div class="grid grid-2" style="align-items:start">
-    <div data-reveal>
-      <h2 class="big" style="text-align:left">What you need to apply</h2>
-      <p class="muted" style="font-size:16px">We verify every agency before it can book, to keep the network trusted and invoices compliant.</p>
+<section class="v-portal" id="portal">
+  <div class="v-wrap v-portal-grid">
+    <div class="v-portal-copy">
+      <h2>One portal for the whole agency</h2>
+      <p>Search net rates, build a day-by-day package, send the quote on WhatsApp, book, and download the invoice, without switching between suppliers.</p>
+      <ul class="v-ticks">
+        <li><b>Search &amp; book</b> hotels, airfares, activities, transfers, visas and insurance</li>
+        <li><b>Packages</b> ready-made by VaayuTrip, or your own day by day</li>
+        <li><b>Quotes</b> with your markup, shared as a PDF or link</li>
+        <li><b>Bookings &amp; trips</b> with vouchers and departure reminders</li>
+        <li><b>Wallet, credit &amp; earnings</b> with a bank-style statement</li>
+      </ul>
+      <% if (!user) { %><a class="v-btn v-btn-light" href="/signup">Get your agency account</a><% } %>
     </div>
-    <div class="grid grid-2">
-      <div class="feature fx" data-reveal>
-        <div class="ico c1"><%- icon('building') %></div>
-        <h3>Agencies in India</h3>
-        <ul class="ticks">
-          <li>GSTIN of the agency</li>
-          <li>GST registration certificate (PDF or photo)</li>
-          <li>Work email and mobile number</li>
-        </ul>
+    <figure class="v-browser">
+      <div class="v-browser-bar"><i></i><i></i><i></i><span>vaayu-agent.vercel.app/agent</span></div>
+      <img src="/img/portal-dashboard.png?v=5" alt="The VaayuTrip agent portal: search, recent quotes, upcoming departures, account and earnings" loading="lazy" width="1440" height="900">
+    </figure>
+  </div>
+</section>
+
+<section class="v-sec" id="features">
+  <div class="v-wrap">
+    <div class="v-feature-lead">
+      <div>
+        <h2>Every building block of a trip, at net</h2>
+        <p>Contracted by the VaayuTrip team for six destinations. Add your markup per service, or price each line yourself.</p>
       </div>
-      <div class="feature fx" data-reveal>
-        <div class="ico c4"><%- icon('globe') %></div>
-        <h3>Agencies outside India</h3>
-        <ul class="ticks">
-          <li>Company tax ID (VAT, TRN, EIN, ABN…)</li>
-          <li>Tax or company registration certificate</li>
-          <li>Work email and mobile number</li>
-        </ul>
+      <ul class="v-svc-list">
+        <li><%- icon('plane') %><b>Airfares</b><span>Return and one-way fares from Indian cities</span></li>
+        <li><%- icon('bed') %><b>Hotels</b><span>Hotels, resorts and villas with meal plans</span></li>
+        <li><%- icon('ticket') %><b>Activities</b><span>Tours, attraction tickets and day trips</span></li>
+        <li><%- icon('car') %><b>Transfers</b><span>Airport, intercity, rail and ferry</span></li>
+        <li><%- icon('passport') %><b>Visas</b><span>e-Visas, sticker visas and assistance</span></li>
+        <li><%- icon('shield') %><b>Travel insurance</b><span>Basic, Standard and Premium plans</span></li>
+      </ul>
+    </div>
+
+    <div class="v-feature-row">
+      <div class="v-feature-media">
+        <div class="v-doc" aria-hidden="true">
+          <div class="v-doc-head"><span class="v-doc-logo">Your logo</span><span><b>Tax invoice</b><small>Your agency name · your GSTIN</small></span></div>
+          <div class="v-doc-meta"><span>Billed to<b>Your customer</b></span><span>Trip<b>Dubai, 4 nights</b></span></div>
+          <div class="v-doc-line"><span>Return flights</span><i></i></div>
+          <div class="v-doc-line"><span>Hotel, 4 nights</span><i></i></div>
+          <div class="v-doc-line"><span>Desert safari + Burj Khalifa</span><i></i></div>
+          <div class="v-doc-total"><span>Total</span><span>Your price</span></div>
+        </div>
+      </div>
+      <div class="v-feature-copy">
+        <h3>Your brand on every document</h3>
+        <p>Quotes, invoices and vouchers go to your customer under your agency's name, logo and GSTIN. VaayuTrip sells only to agents and stays out of sight.</p>
+        <p class="v-small">Each booking also gets a B2B invoice from VaayuTrip at net rates, for your accounts.</p>
+      </div>
+    </div>
+
+    <div class="v-feature-grid">
+      <div><span class="v-ico"><%- icon('briefcase') %></span><h3>Ready-made or your own packages</h3><p>Quote VaayuTrip's packages as they are, or lay out your own days with our services and yours. Your package, your price.</p></div>
+      <div><span class="v-ico"><%- icon('globe') %></span><h3>Your own website</h3><p>We can build a site on your domain, connected to the portal, so your published packages and prices stay in sync.</p></div>
+      <div><span class="v-ico"><%- icon('wallet') %></span><h3>Wallet &amp; credit</h3><p>Book from your wallet or a credit line, top up by UPI or bank transfer, and download a statement any time.</p></div>
+      <div><span class="v-ico"><%- icon('lock') %></span><h3>Secure by default</h3><p>Two-step login, a record of every sign-in, team roles for sales and accounts, and trip reminders before customers fly.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="v-sec v-calc-sec" id="calc">
+  <div class="v-wrap v-calc-grid">
+    <div class="v-calc-intro">
+      <h2>See what one trip earns you</h2>
+      <p>Pick a sample trip and move the markup. You set your own markup on every booking; your customer sees only your price, on your invoice.</p>
+      <p class="v-small">Example net rates for 2 adults, for illustration. Live rates are in the portal.</p>
+    </div>
+    <div class="v-calc" data-calc>
+      <div class="v-calc-in">
+        <div class="v-seg" role="radiogroup" aria-label="Sample trip">
+          <% TRIPS.forEach((t, i) => { %>
+            <label><input type="radio" name="calc-trip" value="<%= t.key %>" <%= i === 0 ? 'checked' : '' %> data-lines='<%= JSON.stringify(t.lines) %>'><span><%= t.name %></span></label>
+          <% }) %>
+        </div>
+        <table class="v-calc-lines" data-calc-lines>
+          <% t0.lines.forEach(l => { %><tr><td><%= l[0] %></td><td class="num"><%= inr(l[1]) %> <small class="muted">net</small></td></tr><% }) %>
+        </table>
+        <div class="v-slider">
+          <label for="calc-m">Your markup <b data-calc-pct><%= m0 %>%</b></label>
+          <input id="calc-m" type="range" min="0" max="30" step="1" value="<%= m0 %>" data-calc-m>
+          <div class="v-slider-scale" aria-hidden="true"><span>0%</span><span>15%</span><span>30%</span></div>
+        </div>
+      </div>
+      <div class="v-calc-out">
+        <div><small>Net cost to you</small><b data-calc-net><%= inr(net0) %></b></div>
+        <div><small>Customer pays</small><b data-calc-total><%= inr(net0 * (1 + m0 / 100)) %></b><small class="v-faint"><%= gstOn ? '+ GST ' : '' %>+ TCS</small></div>
+        <div class="calc-profit v-profit"><small>You earn on this trip</small><b data-calc-profit><%= inr(net0 * m0 / 100) %></b></div>
       </div>
     </div>
   </div>
 </section>
 
-<section class="section faq" id="faq">
-  <h2 class="big">Common questions</h2>
-  <div class="faq-list">
-    <details>
-      <summary>Is there a joining fee or a minimum business commitment?</summary>
-      <p>No. Joining is free and there are no monthly targets. You pay only for what you book, at net rates.</p>
-    </details>
-    <details>
-      <summary>Does VaayuTrip give us ready-made packages?</summary>
-      <p>Yes. Ready-made VaayuTrip packages for each destination, day by day, that you can quote as they are or copy and change. Or build your own from the building blocks we sell separately at net rates: airfares, hotels, activities, transfers, visas and travel insurance.</p>
-    </details>
-    <details>
-      <summary>Which destinations do you cover?</summary>
-      <p>Dubai, Bali, Vietnam, Cambodia, the United Kingdom and Europe (including France, Switzerland, Italy, the Netherlands and Spain). Our team keeps adding hotels, fares and activities in each.</p>
-    </details>
-    <details>
-      <summary>How do I earn on each booking?</summary>
-      <p>You add your markup to everything you book from us, as a percentage or a flat amount per booking, or price each line yourself, and charge your own price for anything you arrange yourself. Your Reports page tracks earnings month by month.</p>
-    </details>
-    <details>
-      <summary>Can my customer see VaayuTrip on the invoice?</summary>
-      <p>No. VaayuTrip sells only to agents. Quotes, invoices and vouchers go to your customers under your agency's name and logo, so add your logo and company details before your first booking.</p>
-    </details>
-    <details>
-      <summary>How do I pay for bookings?</summary>
-      <p>Top up your wallet by bank transfer or UPI and book instantly. Verified agencies can also get a credit line. Cancellation refunds go back to your wallet or credit.</p>
-    </details>
-    <details>
-      <summary>We're a travel agency outside India. Can we join?</summary>
-      <p>Yes. Sign up with your company's tax ID and registration certificate instead of a GSTIN. Your tax ID appears on the invoices we issue to you.</p>
-    </details>
-    <details>
-      <summary>What if something goes wrong on a trip?</summary>
-      <p>Raise a ticket from Help &amp; support in your portal for a written record, or call or WhatsApp our team for anything urgent.</p>
-    </details>
+<section class="v-sec v-sand" id="how">
+  <div class="v-wrap">
+    <div class="v-head"><h2>From sign-up to first booking</h2><p>Most agencies are verified within one working day.</p></div>
+    <ol class="v-steps">
+      <li><span>01</span><h3>Sign up</h3><p>Create your agency account in about ten minutes.</p></li>
+      <li><span>02</span><h3>Get verified</h3><p>We check your GSTIN or company tax ID, usually within a working day.</p></li>
+      <li><span>03</span><h3>Build packages</h3><p>Pick flights, hotels and activities for each day and set your price.</p></li>
+      <li><span>04</span><h3>Quote &amp; book</h3><p>Send branded quotes on WhatsApp and book from your wallet, credit or online.</p></li>
+    </ol>
+    <div class="v-apply" id="apply">
+      <div>
+        <h3>What you need to apply</h3>
+        <p>We verify every agency before it can book, to keep the network trusted and invoices compliant.</p>
+      </div>
+      <div class="v-apply-cols">
+        <div><h4><%- icon('building') %>Agencies in India</h4><ul><li>GSTIN of the agency</li><li>GST registration certificate (PDF or photo)</li><li>Work email and mobile number</li></ul></div>
+        <div><h4><%- icon('globe') %>Agencies outside India</h4><ul><li>Company tax ID (VAT, TRN, EIN, ABN…)</li><li>Tax or company registration certificate</li><li>Work email and mobile number</li></ul></div>
+      </div>
+    </div>
   </div>
 </section>
 
-<section class="cta-band cta-photo" style="--cta-img:url('<%= cover({ destination: 'Bali' }) %>')">
-  <div class="inner">
-    <div><h2>Free to join, no monthly targets</h2><p>Sign up in ten minutes. We verify your agency within one working day.</p></div>
-    <a class="btn btn-lg" href="/signup">Become a partner</a>
+<section class="v-sec" id="trust">
+  <div class="v-wrap v-trust">
+    <h2>What you can count on</h2>
+    <dl class="v-trust-list">
+      <div><dt><%- icon('percent') %>Free to join</dt><dd>No joining fee and no monthly targets. You pay only for what you book, at net.</dd></div>
+      <div><dt><%- icon('badgeCheck') %>Verified agencies only</dt><dd>Every partner is checked before booking opens, which keeps the network and its invoices clean.</dd></div>
+      <div><dt><%- icon('file') %>White-label by design</dt><dd>Your customer never sees VaayuTrip on a quote, invoice or voucher.</dd></div>
+      <div><dt><%- icon('lock') %>Secure login</dt><dd>Two-step verification and a sign-in record for every user on your team.</dd></div>
+      <div><dt><%- icon('headset') %>A partner desk</dt><dd>Raise a ticket from the portal for a written record, or call<%= settings.phone ? ` ${settings.phone}` : '' %>. Monday to Saturday, 9:30 am to 7:30 pm IST.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="v-sec v-faq-sec" id="faq">
+  <div class="v-wrap v-faq-grid">
+    <div class="v-faq-intro">
+      <h2>Common questions</h2>
+      <p>Anything else? Write to <a href="mailto:<%= settings.email %>"><%= settings.email %></a><% if (waNumber) { %> or <a href="https://wa.me/<%= waNumber %>" target="_blank" rel="noopener">message us on WhatsApp</a><% } %>.</p>
+    </div>
+    <div class="v-faq">
+      <details>
+        <summary>Is there a joining fee or a minimum business commitment?</summary>
+        <p>No. Joining is free and there are no monthly targets. You pay only for what you book, at net rates.</p>
+      </details>
+      <details>
+        <summary>Does VaayuTrip give us ready-made packages?</summary>
+        <p>Yes. Ready-made VaayuTrip packages for each destination, day by day, that you can quote as they are or copy and change. Or build your own from the building blocks we sell separately at net rates: airfares, hotels, activities, transfers, visas and travel insurance.</p>
+      </details>
+      <details>
+        <summary>Which destinations do you cover?</summary>
+        <p>Dubai, Bali, Vietnam, Cambodia, the United Kingdom and Europe (including France, Switzerland, Italy, the Netherlands and Spain). Our team keeps adding hotels, fares and activities in each.</p>
+      </details>
+      <details>
+        <summary>How do I earn on each booking?</summary>
+        <p>You add your markup to everything you book from us, as a percentage or a flat amount per booking, or price each line yourself, and charge your own price for anything you arrange yourself. Your Reports page tracks earnings month by month.</p>
+      </details>
+      <details>
+        <summary>Can my customer see VaayuTrip on the invoice?</summary>
+        <p>No. VaayuTrip sells only to agents. Quotes, invoices and vouchers go to your customers under your agency's name and logo, so add your logo and company details before your first booking.</p>
+      </details>
+      <details>
+        <summary>How do I pay for bookings?</summary>
+        <p>Top up your wallet by bank transfer or UPI and book instantly. Verified agencies can also get a credit line. Cancellation refunds go back to your wallet or credit.</p>
+      </details>
+      <details>
+        <summary>We're a travel agency outside India. Can we join?</summary>
+        <p>Yes. Sign up with your company's tax ID and registration certificate instead of a GSTIN. Your tax ID appears on the invoices we issue to you.</p>
+      </details>
+      <details>
+        <summary>What if something goes wrong on a trip?</summary>
+        <p>Raise a ticket from Help &amp; support in your portal for a written record, or call or WhatsApp our team for anything urgent.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="v-final" style="--final-img:url('<%= cover({ destination: 'Europe' }) %>')">
+  <div class="v-wrap v-final-in">
+    <h2>Your travel business.<br>Your brand. Your growth.</h2>
+    <p>Free to join, no monthly targets. Sign up in about ten minutes; we verify your agency within one working day.</p>
+    <div class="v-ctas">
+      <% if (user) { %><a class="v-btn v-btn-light" href="<%= home %>">Open your portal</a><% } else { %>
+      <a class="v-btn v-btn-light" href="/signup">Become a VaayuTrip partner</a>
+      <a class="v-btn v-btn-outline-light" href="/login">Partner log in</a><% } %>
+    </div>
   </div>
 </section>
