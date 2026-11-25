@@ -425,3 +425,4 @@ body.public .btn-primary:hover { background: var(--navy-3); border-color: var(--
 body.public input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), body.public select, body.public textarea { border-radius: 4px; }
 body.public input:focus, body.public select:focus, body.public textarea:focus { border-color: var(--teal); outline: 3px solid var(--ring); outline-offset: 0; }
 body.public .card { border-radius: 6px; box-shadow: none; }
+@media (max-width: 1000px) and (min-width: 601px) { .v-dest-1 { grid-row: span 2; } .v-hero-photo { aspect-ratio: 16 / 9; } }

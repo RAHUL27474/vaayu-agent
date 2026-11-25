@@ -2227,3 +2227,64 @@ body.app .card.pf-more { padding: 0; }
 .pf:has(#price_basis option[value=per_group]:checked) .pf-pp-label, .pf:has(#price_basis option[value=per_group]:checked) .pf-pp { display: none; }
 @media (max-width: 860px) { .pf-bar { margin: 8px -14px 0; padding: 10px 14px; } .pf-bar-note { display: none; } .pf-bar .btn { flex: 1; } }
 .pf input::placeholder { text-transform: none; }
+
+/* =====================================================================
+   Portal on the VaayuTrip design system (same as the public site):
+   deep navy #14283B, warm off-white #F8F7F3, sand #E9E2D5, muted teal #3E827D, charcoal #242B33.
+   Headings in Manrope, text in DM Sans. Text-on-colour shades meet WCAG AA.
+   ===================================================================== */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('/fonts/manrope-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+body.app {
+  --navy: #14283B; --navy-3: #2B4A66; --teal: #3E827D; --teal-ink: #2F6B66; --sand: #E9E2D5; --sand-2: #F1ECE3;
+  --brand: #2F6B66; --brand-600: #285C58; --brand-700: #1F4F4B; --brand-50: #E8F1EF; --brand-100: #D3E5E2; --brand-200: #A9CBC6;
+  --accent: #3E827D; --accent-600: #2F6B66; --accent-50: #E8F1EF; --accent-100: #D3E5E2;
+  --navbar: #14283B; --leaf: #8FC9C3; --sky: #3E827D;
+  --ink: #242B33; --ink-2: #333B45; --ink-3: #4A535E; --muted: #6B7480; --faint: #9AA1A9;
+  --bg: #F8F7F3; --line: #E4DFD5; --line-strong: #D3CCBF; --line-2: #F1EDE5;
+  --ring: rgba(62, 130, 125, .32);
+  --font-head: 'Manrope', 'DM Sans', system-ui, sans-serif;
+}
+body.app h1, body.app h2, body.app h3, body.app .hello h1, body.app .book-head h2, body.app .trip-hero h1, body.app .client-id h1, body.app .dash-hero-copy h2, body.app .sec-head h3 { font-family: var(--font-head); font-weight: 700; letter-spacing: -.02em; color: var(--navy); }
+body.app .card-head h2, body.app .card-head h3 { font-family: var(--font-head); color: var(--navy); }
+body.app .dash-hero-copy h2, body.app .trip-hero h1 { color: #fff; }
+body.app .btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+body.app .btn-primary:hover { background: var(--navy-3); border-color: var(--navy-3); }
+body.app .btn-accent { background: var(--teal); border-color: var(--teal); color: #fff; }
+body.app .btn-accent:hover { background: var(--teal-ink); border-color: var(--teal-ink); }
+body.app .tp-top { background: #fff; }
+.tp-nav .count { background: var(--leaf); color: var(--navy); }
+.tp-drop { border-top-color: var(--teal); }
+body.app .card.flush .card-head, body.app .table th { background: var(--sand-2); }
+body.app .kpi > b, body.app .acct-list dd, body.app .stat .value { font-family: var(--font-head); }
+.dash-hero { background: linear-gradient(180deg, rgba(20, 40, 59, .6), rgba(20, 40, 59, .35) 45%, rgba(20, 40, 59, .75)), var(--hero) center / cover no-repeat, var(--navy); }
+.deal-badge { background: var(--leaf); color: var(--navy); }
+.dest-tile > span { background: linear-gradient(180deg, transparent, rgba(20, 40, 59, .6) 40%, rgba(20, 40, 59, .92)); }
+.dest-tile, .deal-img { background-color: var(--navy); }
+.tp-agency b { font-family: var(--font-head); color: var(--navy); }
+.avatar, body.app .avatar { background: var(--navy); }
+.help-card, .tp-help { background: var(--sand-2); }
+.pf-n { background: var(--navy); }
+.kind-tabs a.on, body.app .svc-tab:has(input:checked), html body.app .svc-tab:has(input:checked) { color: var(--navy); border-bottom-color: var(--teal); }
+html body.app .dash-hero .svc-tab:has(input:checked) .i { color: var(--teal); }
+.offer-use { background: var(--brand-50); }
+.offer-use b { color: var(--teal-ink); }
+
+html[data-theme="dark"] body.app {
+  --navy: #0E1B28; --navy-3: #1F3A52; --navbar: #0E1B28;
+  --brand: #7DBDB6; --brand-600: #93CAC4; --brand-700: #B3DBD6; --brand-50: #12262A; --brand-100: #183438; --brand-200: #24494C;
+  --accent: #4E9A94; --accent-600: #5FAAA3; --accent-50: #12262A; --accent-100: #183438;
+  --leaf: #7DBDB6; --sand-2: #17222D; --bg: #0B141C; --card: #111C26; --line: #22313D; --line-strong: #2F4150; --line-2: #17222D;
+  --ring: rgba(125, 189, 182, .35);
+}
+html[data-theme="dark"] body.app h1, html[data-theme="dark"] body.app h2, html[data-theme="dark"] body.app h3, html[data-theme="dark"] body.app .card-head h3, html[data-theme="dark"] body.app .sec-head h3, html[data-theme="dark"] body.app .tp-agency b { color: var(--ink); }
+html[data-theme="dark"] body.app .tp-top { background: var(--card); }
+html[data-theme="dark"] body.app .btn-primary { background: #2B4A66; border-color: #2B4A66; }
+html[data-theme="dark"] body.app .kind-tabs a.on, html[data-theme="dark"] body.app .svc-tab:has(input:checked) { color: var(--ink); }
+html[data-theme="dark"] body.app .avatar { background: #2F6B66; }

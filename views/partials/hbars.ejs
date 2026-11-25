@@ -3,8 +3,8 @@
 <% if (!rows.length) { %><div class="empty">No bookings in this period yet.</div><% } else {
   const total = rows.reduce((s, r) => s + (r.value || 0), 0);
   const pct = (v) => total ? Math.round(v / total * 100) : 0;
-  // Shades of the logo's blue and green, then neutrals.
-  const COLORS = ['#0077b6', '#3c9c00', '#00527f', '#5fb3e6', '#7cc242', '#2a6f97', '#a7c957', '#64748b'];
+  // The design system: navy, teal, sand, then quieter tones.
+  const COLORS = ['#14283B', '#3E827D', '#B8A98C', '#5B7189', '#8FC1BB', '#3D5A78', '#8A9A5B', '#9AA3AD'];
   const cid = typeof id !== 'undefined' && id ? id : 'r-' + rows.map(r => r.label).join('').length + '-' + rows.length;
   const R = 54, C = 2 * Math.PI * R;
   let acc = 0;
