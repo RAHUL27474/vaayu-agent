@@ -11,9 +11,8 @@
 %>
 <section class="hello" style="--brand-agency:<%= brand %>">
   <div class="hello-id">
-    <h1><%= personal.greeting %>, <%= first %></h1>
-    <p class="hello-story"><%- story %></p>
-    <p class="hello-line"><%= personal.life.n %> <%= personal.life.n === 1 ? 'trip' : 'trips' %> booked<%= since ? ` since ${since}` : '' %> · <%= personal.customersCount %> <%= personal.customersCount === 1 ? 'customer' : 'customers' %> · <%= personal.weekTrips %> travelling this week</p>
+    <h1><%= agency.name %></h1>
+    <p class="hello-line"><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %> · <%= personal.life.n %> <%= personal.life.n === 1 ? 'trip' : 'trips' %> booked<%= since ? ` since ${since}` : '' %> · <%= personal.customersCount %> <%= personal.customersCount === 1 ? 'customer' : 'customers' %></p>
   </div>
   <div class="hello-actions">
     <% if (agentCan('/agent/wallet')) { %><a class="btn" href="/agent/wallet">Top up wallet</a><% } %>
@@ -21,21 +20,8 @@
   </div>
 </section>
 
-<% if (personal.lastQuote) { const q = personal.lastQuote; %>
-  <a class="resume" href="/agent/quotes/<%= q.id %>">
-    <span class="resume-ico"><%- icon('file') %></span>
-    <span><small>Pick up where you left off</small><b><%= q.title %></b></span>
-    <span class="badge <%= q.status %>"><%= q.status %></span>
-    <span class="resume-go">Continue<%- icon('arrowRight') %></span>
-  </a>
-<% } %>
-
 <% if (agentCan('/agent/find')) { %>
 <form class="book-panel" method="get" action="/agent/find">
-  <div class="book-head">
-    <h2>Where are your customers going next, <%= first %>?</h2>
-    <span>Net rates from VaayuTrip · your markup added automatically</span>
-  </div>
   <div class="svc-tabs" role="radiogroup" aria-label="Service">
     <% services.forEach((s, i) => { %>
       <label class="svc-tab"><input type="radio" name="svc" value="<%= s.path %>" <%= s.path === 'hotels' ? 'checked' : '' %>><%- icon(s.icon) %><span><%= s.label %></span></label>
@@ -46,7 +32,7 @@
       <select id="bk-dest" name="dest"><option value="">All destinations</option><% destinations.forEach(d => { %><option><%= d %></option><% }) %></select>
     </div>
     <div class="field grow"><label for="bk-q">City, hotel or experience</label><input id="bk-q" type="search" name="q" placeholder="e.g. Ubud, Burj Khalifa, Emirates"></div>
-    <button class="btn btn-accent btn-lg"><%- icon('search') %>Search net rates</button>
+    <button class="btn btn-primary btn-lg"><%- icon('search') %>Search</button>
   </div>
 </form>
 <% } %>
@@ -113,11 +99,11 @@
   <div class="kpi"><span>Credit available</span><b><%= inr(agency.credit_limit - agency.credit_used) %></b>
     <% if (agency.credit_limit > 0) { %><% if (used) { %><div class="meter" title="<%= used %>% of your credit line used"><i style="width:<%= used %>%"></i></div><% } %><small><%= used ? used + '% used of ' : 'of ' %><%= inr(agency.credit_limit) %></small><% } else { %><small>No credit line yet</small><% } %></div>
   <div class="kpi"><span>Sales this month</span><b><%= inr(stats.sales) %></b><small><%= stats.bookings %> booking<%= stats.bookings === 1 ? '' : 's' %></small></div>
-  <div class="kpi"><span>Earnings this month</span><b class="profit"><%= inr(stats.earnings) %></b><small><%= stats.sales > 0 ? `${(stats.earnings / stats.sales * 100).toFixed(1)}% margin` : 'No sales yet' %></small></div>
+  <div class="kpi"><span>Earnings this month</span><b class="profit"><%= inr(stats.earnings) %></b><small><% if (personal.prevEarnings > 0) { %><span class="<%= diff >= 0 ? 'up' : 'down' %>"><%= diff >= 0 ? '+' : '−' %><%= inr(Math.abs(diff)) %></span> vs last month<% } else { %><%= stats.sales > 0 ? `${(stats.earnings / stats.sales * 100).toFixed(1)}% margin` : 'No sales yet' %><% } %></small></div>
 </div>
 
 <div class="card">
-  <div class="card-head"><h3>Your earnings, last 6 months</h3><a href="/agent/reports">Full reports</a></div>
+  <div class="card-head"><h3>Earnings by month</h3><a href="/agent/reports">Full reports</a></div>
   <% if (!chart.some(c => c.value)) { %><div class="empty">Your commission from bookings will show here.</div><% } else { %>
     <%- include('../partials/bar-chart', { bars: chart, format: (n) => n >= 1e5 ? `₹${(n / 1e5).toFixed(1)}L` : n >= 1e3 ? `₹${Math.round(n / 1e3)}k` : inr(n) }) %>
   <% } %>
@@ -148,7 +134,7 @@
 
 <div class="grid grid-2">
   <div class="card flush">
-    <div class="card-head"><h3>Your customers travelling soon</h3><a href="/agent/bookings">All bookings</a></div>
+    <div class="card-head"><h3>Upcoming departures</h3><a href="/agent/bookings">All bookings</a></div>
     <% if (!personal.trips.length) { %><div class="empty">No trips coming up. Confirmed bookings show here with a countdown.</div><% } else { %>
     <div class="trips">
       <% personal.trips.forEach(t => { %>
@@ -162,7 +148,7 @@
     <% } %>
   </div>
   <div class="card">
-    <div class="card-head"><h3>New from VaayuTrip</h3><a href="/agent/activities">Browse</a></div>
+    <div class="card-head"><h3>New inventory</h3><a href="/agent/activities">Browse</a></div>
     <% featured.forEach(x => { %>
       <a href="/agent/<%= x.path %>/<%= x.id %>" style="display:flex;gap:12px;align-items:center;padding:8px 0;color:inherit">
         <% if (x.image_url || ['hotel', 'activity', 'visa'].includes(x.kind)) { %><img src="<%= cover({ image_url: x.image_url, city: x.city }) %>" alt="" style="width:72px;height:52px;object-fit:cover;border-radius:8px;flex:none"><% } else { %><span class="feat-ico"><%- icon(x.kind === 'insurance' ? 'shield' : x.kind === 'flight' ? 'plane' : 'car') %></span><% } %>

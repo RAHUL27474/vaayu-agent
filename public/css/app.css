@@ -1915,3 +1915,35 @@ html[data-theme="dark"] body.app .btn-primary:hover { background: #0a8fd6; borde
 .trip-count { background: transparent; border: 0; }
 .feat-ico { background: var(--line-2); color: var(--ink-3); }
 .help-card { background: var(--line-2); border-color: var(--line); }
+
+/* ---------- Plain layer: no template flourishes (kickers, reveals, glows, lifts, rainbow icons) ---------- */
+:root { --shadow-xs: none; --shadow: none; }
+.eyebrow { display: none; }
+.section h2.big { text-align: left; font-size: 30px; letter-spacing: -.02em; margin-bottom: 8px; }
+.section p.center { text-align: left; margin: 0 0 28px; max-width: 680px; font-size: 15.5px; }
+.js [data-reveal], .js .browser[data-reveal], .js [data-reveal].in { opacity: 1; transform: none; transition: none; }
+.pkg:hover, .quick:hover, .btn-glow:hover, .hx-quick a:hover, .dest:hover, .js .dest[data-reveal].in:hover, .feature.fx:hover, .hu-grid a:hover, .svc-strip .inner > div:hover .s-ico, .tl-step:hover .tl-n { transform: none; }
+.dest:hover, .feature.fx:hover, .btn-glow, .btn-glow:hover { box-shadow: none; }
+.ticker-track, .hx-hello { animation: none; }
+.feature .ico.c1, .feature .ico.c2, .feature .ico.c3, .feature .ico.c4, .feature .ico.c5, .feature .ico.c6 { width: auto; height: auto; place-items: start; background: none; border: 0; box-shadow: none; color: var(--brand); margin-bottom: 10px; }
+.feat-dark .feature .ico.c1, .feat-dark .feature .ico.c2, .feat-dark .feature .ico.c3, .feat-dark .feature .ico.c4, .feat-dark .feature .ico.c5, .feat-dark .feature .ico.c6 { background: none; border: 0; box-shadow: none; color: #7fc8ef; }
+.feature .ico .i { width: 22px; height: 22px; }
+.badge { border-radius: 4px; }
+.badge::before { display: none; }
+.hx h1 { letter-spacing: -.03em; }
+
+/* Dashboard search: a plain white form with underline tabs */
+html body.app .book-panel { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none; padding: 0 20px 20px; overflow: visible; }
+html body.app .book-panel::after { display: none; }
+html body.app .svc-tabs { flex-wrap: nowrap; gap: 0; margin: 0 -20px 18px; padding: 0 8px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+html body.app .svc-tabs::-webkit-scrollbar { display: none; }
+html body.app .svc-tab { flex: 0 0 auto; padding: 14px 12px 12px; margin: 0 0 -1px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); box-shadow: none; }
+html body.app .svc-tab:hover { background: none; color: var(--ink); }
+html body.app .svc-tab:has(input:checked), html[data-theme="dark"] body.app .svc-tab:has(input:checked) { background: none; color: var(--brand); border-bottom-color: var(--brand); box-shadow: none; }
+html body.app .svc-tab:has(input:focus-visible) { outline: 2px solid var(--ring); outline-offset: -2px; }
+html body.app .book-fields label { color: var(--ink-3); }
+html body.app .book-fields input, html body.app .book-fields select { border-color: var(--line-strong); }
+html[data-theme="dark"] body.app .book-panel { background: var(--card); }
+@media (max-width: 640px) { html body.app .book-panel { padding: 0 14px 14px; } html body.app .svc-tabs { margin: 0 -14px 14px; } }
+.kpi .up { color: var(--ok); font-weight: 600; } .kpi .down { color: var(--bad); font-weight: 600; }
+@media (min-width: 1101px) { .hx h1 { font-size: 54px; letter-spacing: -.025em; } }

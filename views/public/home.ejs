@@ -24,9 +24,8 @@
   <div class="hx-shade"></div>
   <div class="inner">
     <div class="hx-copy">
-      <p class="hx-kicker">For travel agents · Dubai, Bali, Vietnam, Cambodia, UK and Europe</p>
-      <h1>Sell holidays to<br><span class="hx-rot" data-hero-word><%= HERO[0].name %></span><br>under <em>your own brand</em>.</h1>
-      <p class="lead">Airfares, hotels, activities, transfers, visas and insurance at agent net rates. Build your packages, set your price, send quotes with your logo.</p>
+      <h1>Book at net rates.<br>Sell under your own name.</h1>
+      <p class="lead">B2B rates on airfares, hotels, activities, transfers, visas and insurance for Dubai, Bali, Vietnam, Cambodia, the UK and Europe. Your quotes, invoices and vouchers carry your agency's name, not ours.</p>
 
       <form class="hx-search" method="get" action="/agent/find" role="search" aria-label="Search net rates">
         <label class="hs-field"><span><%- icon('globe') %>Where to?</span>
@@ -35,9 +34,9 @@
         <label class="hs-field"><span><%- icon('search') %>What do you need?</span>
           <select name="svc"><% SVCS.forEach(([v, l]) => { %><option value="<%= v %>"><%= l %></option><% }) %></select>
         </label>
-        <button class="btn btn-accent btn-lg hs-go" type="submit">Search net rates<%- icon('arrowRight') %></button>
+        <button class="btn btn-accent btn-lg hs-go" type="submit">Search net rates</button>
       </form>
-      <p class="hs-note"><% if (user) { %>Opens your portal with live rates.<% } else { %>Partners see live net rates after login. <a href="/signup">Not a partner yet? Join free →</a><% } %></p>
+      <p class="hs-note"><% if (user) { %>Opens your portal with live rates.<% } else { %>Partners see live net rates after login. <a href="/signup">Not a partner yet? Join free</a><% } %></p>
     </div>
 
     <div class="hx-stage">
@@ -64,7 +63,7 @@
           <div class="hu-grid">
             <% QUICK.forEach(([href, ic, label]) => { %><a href="<%= href %>"><span><%- icon(ic) %></span><%= label %></a><% }) %>
           </div>
-          <a class="btn btn-primary btn-lg hu-open" href="<%= home %>">Open your portal<%- icon('arrowRight') %></a>
+          <a class="btn btn-primary btn-lg hu-open" href="<%= home %>">Open your portal</a>
         <% } else { %>
           <h3>Partner login</h3>
           <p class="muted">Agents and VaayuTrip team members.</p>
@@ -88,16 +87,15 @@
 
 <section class="stats-strip" aria-label="VaayuTrip in numbers">
   <div class="inner">
-    <div><b data-count="<%= stats.hotels %>"><%= stats.hotels %></b><span>hotels at net rates</span></div>
-    <div><b data-count="<%= stats.activities %>"><%= stats.activities %></b><span>tours &amp; activities</span></div>
-    <div><b data-count="<%= stats.cities %>"><%= stats.cities %></b><span>cities across 6 destinations</span></div>
-    <div><b data-count="<%= stats.agents %>"><%= stats.agents %></b><span>partner agencies selling today</span></div>
+    <div><b><%= stats.hotels %></b><span>hotels at net rates</span></div>
+    <div><b><%= stats.activities %></b><span>tours &amp; activities</span></div>
+    <div><b><%= stats.cities %></b><span>cities across 6 destinations</span></div>
+    <div><b><%= stats.agents %></b><span>partner agencies selling today</span></div>
   </div>
 </section>
 
 <section class="section" id="destinations">
-  <span class="eyebrow">Destinations</span>
-  <h2 class="big">Where will your customers go next?</h2>
+  <h2 class="big">Destinations</h2>
   <p class="center">Hotels, fares, sightseeing, transfers and visas in six destinations, contracted and kept up to date by the VaayuTrip team.</p>
   <div class="bento">
     <% destinations.forEach((d, i) => { %>
@@ -106,7 +104,7 @@
         <span class="dest-tag"><%= d.items %> services</span>
         <div class="cap">
           <div><b class="dest-name"><%= d.name %></b><small><%= d.cities.length %> <%= d.cities.length === 1 ? 'city' : 'cities' %></small></div>
-          <span class="dest-go"><%- icon('arrowRight') %></span>
+          
         </div>
         <% if (d.cities.length && !(d.cities.length === 1 && d.cities[0] === d.name)) { %><div class="dest-cities"><%= d.cities.slice(0, 5).join(' · ') %><%= d.cities.length > 5 ? ' …' : '' %></div><% } %>
       </a>
@@ -115,18 +113,16 @@
 </section>
 
 <section class="section pv-wrap" id="portal">
-  <span class="eyebrow">The portal</span>
-  <h2 class="big">Your whole agency on one screen</h2>
+  <h2 class="big">The agent portal</h2>
   <p class="center">Search rates, build packages, send quotes, book and get paid, without switching between ten tabs and five suppliers.</p>
   <figure class="shot">
-    <img src="/img/portal-dashboard.png?v=2" alt="The VaayuTrip agent portal: dashboard with searches, quotes, upcoming trips and earnings" loading="lazy" width="1440" height="900">
+    <img src="/img/portal-dashboard.png?v=3" alt="The VaayuTrip agent portal: dashboard with searches, quotes, upcoming trips and earnings" loading="lazy" width="1440" height="900">
   </figure>
 </section>
 
 <section class="feat-dark" id="features">
   <div class="section">
-    <span class="eyebrow">Platform</span>
-    <h2 class="big">Everything you need to sell travel</h2>
+    <h2 class="big">What's included</h2>
     <p class="center">One login for inventory, sales, money and marketing, built for small and growing agencies.</p>
     <div class="grid grid-3">
       <div class="feature fx" data-reveal><div class="ico c1"><%- icon('plane') %></div><h3>Every building block at net</h3><p>Airfares, hotels, activities, transfers, visas and insurance for six destinations, contracted by the VaayuTrip team.</p></div>
@@ -142,8 +138,7 @@
 <section class="section calc-wrap" id="calc">
   <div class="calc-grid">
     <div data-reveal>
-      <span class="eyebrow" style="text-align:left">Your margin</span>
-      <h2 class="big" style="text-align:left">See what you'd earn on one trip</h2>
+      <h2 class="big" style="text-align:left">Your margin on a sample trip</h2>
       <p class="muted" style="font-size:16px">Pick a trip and drag the slider. You set your own markup on every booking, and your customer sees only your price, on your invoice.</p>
       <ol class="steps" style="margin-top:20px">
         <li><b>Your invoice to your customer.</b> Your name, logo and GSTIN, with every item in your package, including your own hotels and services.</li>
@@ -173,21 +168,19 @@
 </section>
 
 <section class="section" id="how">
-  <span class="eyebrow">How it works</span>
-  <h2 class="big">Start selling in a day</h2>
+  <h2 class="big">How to join</h2>
   <div class="timeline">
     <div class="tl-step" data-reveal><span class="tl-n">1</span><h3>Sign up</h3><p class="muted">Create your agency account in ten minutes.</p></div>
     <div class="tl-step" data-reveal><span class="tl-n">2</span><h3>Get verified</h3><p class="muted">We check your GSTIN or tax ID, usually within a working day.</p></div>
     <div class="tl-step" data-reveal><span class="tl-n">3</span><h3>Build packages</h3><p class="muted">Pick flights, hotels and activities for each day and set your price.</p></div>
     <div class="tl-step" data-reveal><span class="tl-n">4</span><h3>Quote &amp; book</h3><p class="muted">Send branded quotes on WhatsApp and book from your wallet.</p></div>
   </div>
-  <div style="text-align:center;margin-top:36px"><a class="btn btn-primary btn-lg btn-glow" href="/signup">Create your free account<%- icon('arrowRight') %></a></div>
+  <div style="text-align:center;margin-top:36px"><a class="btn btn-primary btn-lg" href="/signup">Create a partner account</a></div>
 </section>
 
 <section class="section apply" id="apply">
   <div class="grid grid-2" style="align-items:start">
     <div data-reveal>
-      <span class="eyebrow" style="text-align:left">Verification</span>
       <h2 class="big" style="text-align:left">What you need to apply</h2>
       <p class="muted" style="font-size:16px">We verify every agency before it can book, to keep the network trusted and invoices compliant.</p>
     </div>
@@ -215,8 +208,7 @@
 </section>
 
 <section class="section faq" id="faq">
-  <span class="eyebrow">FAQ</span>
-  <h2 class="big">Questions agents ask</h2>
+  <h2 class="big">Common questions</h2>
   <div class="faq-list">
     <details>
       <summary>Is there a joining fee or a minimum business commitment?</summary>
@@ -255,7 +247,7 @@
 
 <section class="cta-band cta-photo" style="--cta-img:url('<%= cover({ destination: 'Bali' }) %>')">
   <div class="inner">
-    <div><h2>Ready to sell more trips under your own brand?</h2><p>Set-up takes ten minutes. We'll verify you within a working day.</p></div>
-    <a class="btn btn-lg" href="/signup">Become a partner, free<%- icon('arrowRight') %></a>
+    <div><h2>Free to join, no monthly targets</h2><p>Sign up in ten minutes. We verify your agency within one working day.</p></div>
+    <a class="btn btn-lg" href="/signup">Become a partner</a>
   </div>
 </section>
