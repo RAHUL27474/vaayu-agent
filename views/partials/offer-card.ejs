@@ -7,6 +7,9 @@
       <% if (o.valid_until) { %><span>Valid till <%= fmtDate(o.valid_until) %></span><% } else { %><span>Ongoing</span><% } %>
       <% if (o.link) { %><a href="<%= o.link %>">View details</a><% } %>
     </div>
+    <% if (o.discount_type && o.code) { %>
+    <div class="offer-use"><b><%= o.discount_type === 'percent' ? o.discount_value + '%' : inr(o.discount_value) %> off</b><%= o.max_discount ? ` up to ${inr(o.max_discount)}` : '' %> what you pay VaayuTrip<%= o.min_amount ? ` on ${inr(o.min_amount)}+` : '' %>. Enter the code on a quote, under Summary, before you book.</div>
+    <% } %>
   </div>
   <% if (o.code) { %>
     <button type="button" class="offer-code" data-copy="<%= o.code %>" title="Copy code"><small>Code</small><%= o.code %></button>

@@ -205,7 +205,10 @@ async function issueInvoice(agency, quoteId, kind, bookingId = null) {
     if (kind === 'customer_agent' && !agencyHasBranding(agency)) {
       throw new AppError('Upload your company logo in Company & branding first: invoices to your customers carry your name and logo.');
     }
-    const data = buildInvoice(kind, { ...full, agency, settings: await getSettings() });
+    // The B2B invoice of a booking shows any offer discount the agent used.
+    const b = kind === 'b2b' && bookingId ? await one('SELECT coupon_code, discount FROM bookings WHERE id = ?', bookingId) : null;
+    const discount = b && b.discount > 0 ? { code: b.coupon_code, amount: b.discount, title: (await one('SELECT title FROM offers WHERE UPPER(code) = ? ORDER BY id DESC LIMIT 1', b.coupon_code))?.title } : null;
+    const data = buildInvoice(kind, { ...full, agency, settings: await getSettings(), discount });
     if (!data.lines.length) throw new AppError('No items on this quote can be billed on this invoice type');
     const number = await invoiceNumber(agency, kind);
     return (await run(
@@ -213,6 +216,38 @@ async function issueInvoice(agency, quoteId, kind, bookingId = null) {
       agency.id, quoteId, bookingId, number, kind, JSON.stringify(data), data.totals.total,
     )).lastInsertRowid;
   });
+}
+
+/**
+ * What an offer code takes off this quote: { offer, code, discount, base } (rupees, before tax), or an AppError saying
+ * why it can't be used. The discount applies to the net of VaayuTrip services (of the offer's kinds, if it names any).
+ */
+async function couponFor(agencyId, full, raw) {
+  const c = String(raw || '').trim().toUpperCase();
+  if (!c) throw new AppError('Enter an offer code.');
+  const offer = await one('SELECT * FROM offers WHERE UPPER(code) = ? ORDER BY is_active DESC, id DESC LIMIT 1', c);
+  if (!offer || !offer.is_active) throw new AppError(`${c} is not a valid offer code.`);
+  if (offer.valid_until && offer.valid_until < indiaToday()) throw new AppError(`Offer ${c} ended on ${offer.valid_until}.`);
+  if (!['percent', 'flat'].includes(offer.discount_type) || !(offer.discount_value > 0)) {
+    throw new AppError(`${c} is not a booking discount code (${offer.title}). See Offers & deals for how it works.`);
+  }
+  const kinds = offer.kinds ? offer.kinds.split(',').map((k) => k.trim()).filter(Boolean) : null;
+  const ids = full.priced.lines.filter((l) => l.supplier === 'vaayu' && l.product_id).map((l) => l.product_id);
+  const kindOf = new Map(ids.length ? (await all(`SELECT id, kind FROM products WHERE id IN (${ids.map(() => '?').join(', ')})`, ...ids)).map((p) => [p.id, p.kind]) : []);
+  const eligible = full.priced.lines.filter((l) => l.supplier === 'vaayu' && (!kinds || kinds.includes(kindOf.get(l.product_id) || l.type)));
+  const base = round2(eligible.reduce((s, l) => s + l.lineNet, 0));
+  const kindNames = kinds ? kinds.map((k) => (KINDS[k] ? KINDS[k].plural.toLowerCase() : k)).join(', ') : '';
+  if (!base) throw new AppError(`${c} applies only to ${kindNames || 'services from VaayuTrip'}, and this quote has none.`);
+  if (offer.min_amount > 0 && base < offer.min_amount) {
+    throw new AppError(`${c} needs at least ₹${offer.min_amount.toLocaleString('en-IN')} of ${kindNames || 'VaayuTrip services'} (net) on the quote; this one has ₹${base.toLocaleString('en-IN')}.`);
+  }
+  if (offer.uses_per_agency > 0) {
+    const used = (await one("SELECT COUNT(*)::int AS n FROM bookings WHERE agency_id = ? AND UPPER(coupon_code) = ? AND status <> 'cancelled' AND (quote_id IS NULL OR quote_id <> ?)", agencyId, c, full.quote.id)).n;
+    if (used >= offer.uses_per_agency) throw new AppError(`You have already used ${c}${offer.uses_per_agency > 1 ? ` ${offer.uses_per_agency} times` : ''}.`);
+  }
+  let discount = offer.discount_type === 'percent' ? (base * offer.discount_value) / 100 : offer.discount_value;
+  if (offer.discount_type === 'percent' && offer.max_discount > 0) discount = Math.min(discount, offer.max_discount);
+  return { offer, code: c, discount: round2(Math.min(discount, base)), base };
 }
 
 /** Can this quote be booked right now (funds aside)? Returns { agency, full, payable }; throws an AppError if not. */
@@ -226,8 +261,9 @@ async function bookable(agencyId, quoteId) {
   if (['booked', 'cancelled'].includes(full.quote.status)) throw new AppError('This quote is already booked');
   if (!full.items.some((i) => i.supplier === 'vaayu')) throw new AppError('Nothing on this quote is supplied by VaayuTrip');
   if (full.quote.package_id) await assertSeats(full.quote.package_id, full.quote.travel_date, full.quote.adults + full.quote.children);
-  const payable = round2(full.priced.net * (1 + taxRate(await getSettings()) / 100));
-  return { agency, full, payable };
+  const discount = full.quote.coupon_code ? (await couponFor(agencyId, full, full.quote.coupon_code)).discount : 0;
+  const payable = round2((full.priced.net - discount) * (1 + taxRate(await getSettings()) / 100));
+  return { agency, full, payable, discount };
 }
 
 /**
@@ -248,7 +284,10 @@ async function bookQuote(agencyId, quoteId, { online = 0 } = {}) {
     if (!full.items.some((i) => i.supplier === 'vaayu')) throw new AppError('Nothing on this quote is supplied by VaayuTrip');
 
     const settings = await getSettings();
-    const payable = round2(full.priced.net * (1 + taxRate(settings) / 100));
+    // An offer code on the quote is checked again here: it may have expired or been used up since it was applied.
+    const coupon = full.quote.coupon_code ? await couponFor(agencyId, full, full.quote.coupon_code) : null;
+    const discount = coupon ? coupon.discount : 0;
+    const payable = round2((full.priced.net - discount) * (1 + taxRate(settings) / 100));
     // Fixed-departure seats: checked again here, with the departure row locked so two bookings can't take the last seats.
     if (full.quote.package_id) {
       await run('SELECT id FROM package_departures WHERE package_id = ? AND depart_on = ? FOR UPDATE', full.quote.package_id, full.quote.travel_date || '');
@@ -266,9 +305,10 @@ async function bookQuote(agencyId, quoteId, { online = 0 } = {}) {
 
     const bookingCode = code('VT');
     const bookingId = (await run(
-      `INSERT INTO bookings (agency_id, quote_id, customer_id, code, title, travel_date, total_net, total_sell, total_cost, paid_wallet, paid_credit, paid_online)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      agencyId, quoteId, full.quote.customer_id, bookingCode, full.quote.title, full.quote.travel_date, full.priced.net, full.priced.sell, full.priced.agentCost, fromWallet, fromCredit, round2(Math.min(online, fromWallet)),
+      `INSERT INTO bookings (agency_id, quote_id, customer_id, code, title, travel_date, total_net, total_sell, total_cost, paid_wallet, paid_credit, paid_online, coupon_code, discount)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      agencyId, quoteId, full.quote.customer_id, bookingCode, full.quote.title, full.quote.travel_date, round2(full.priced.net - discount), full.priced.sell, full.priced.agentCost, fromWallet, fromCredit, round2(Math.min(online, fromWallet)),
+      coupon ? coupon.code : null, discount,
     )).lastInsertRowid;
     if (fromWallet) await moveWallet(agencyId, 'booking', -fromWallet, bookingCode, full.quote.title);
     if (fromCredit) await run("UPDATE agencies SET credit_used = credit_used + ?, credit_since = COALESCE(credit_since, to_char(CURRENT_DATE, 'YYYY-MM-DD')) WHERE id = ?", fromCredit, agencyId);
@@ -337,7 +377,7 @@ async function voucherFor(booking) {
 
 module.exports = {
   departuresOf, assertSeats,
-  bookable,
+  bookable, couponFor,
   creditStatus, repayCredit, creditReminders, tripReminders,
   voucherFor,
   AppError, getQuote, createQuote, createQuoteFromPackage, addProductToQuote, addQuoteItem, moveWallet, issueInvoice,

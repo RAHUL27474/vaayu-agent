@@ -3,14 +3,44 @@
   <div class="card flush">
     <% if (!offers.length) { %><div class="empty"><span class="big"><%- icon('tag') %></span>No offers yet. Create one on the right.</div><% } else { %>
     <div class="table-wrap"><table class="table">
-      <thead><tr><th>Offer</th><th>Code</th><th>Valid till</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Offer</th><th>Code</th><th>Discount</th><th>Valid till</th><th>Status</th><th></th></tr></thead>
       <% offers.forEach(o => { %>
         <tr>
           <td><b><%= o.title %></b><% if (o.body) { %><br><small><%= o.body %></small><% } %></td>
           <td><% if (o.code) { %><code><%= o.code %></code><% } else { %>—<% } %></td>
+          <td class="nowrap"><% if (o.discount_type) { %><b><%= o.discount_type === 'percent' ? o.discount_value + '%' : inr(o.discount_value) %> off</b><%= o.max_discount ? ` (max ${inr(o.max_discount)})` : '' %>
+            <br><small class="muted"><%= o.kinds ? o.kinds.split(',').map((k) => kinds[k] ? kinds[k].plural : k).join(', ') : 'All services' %><%= o.min_amount ? ` · min ${inr(o.min_amount)}` : '' %> · <%= o.uses_per_agency ? `${o.uses_per_agency}× per agency` : 'unlimited' %></small>
+            <br><small class="muted">Used <%= o.used %>× · <%= inr(o.given) %> given</small><% } else { %><span class="muted">Shown only</span><% } %></td>
           <td class="nowrap"><%= o.valid_until ? fmtDate(o.valid_until) : 'No end date' %></td>
           <td><span class="badge <%= o.live ? 'active' : o.is_active ? 'expired' : '' %>"><%= o.live ? 'live' : o.is_active ? 'expired' : 'paused' %></span></td>
           <td class="num" style="white-space:nowrap">
+            <details class="more offer-edit"><summary class="btn btn-sm">Edit</summary>
+              <form class="card" method="post" action="/admin/offers/<%= o.id %>/discount">
+                <h3>Code &amp; discount</h3>
+                <div class="row">
+                  <div class="field"><label for="e<%= o.id %>-code">Promo code</label><input id="e<%= o.id %>-code" name="code" maxlength="30" value="<%= o.code || '' %>" style="text-transform:uppercase"></div>
+                  <div class="field"><label for="e<%= o.id %>-until">Valid till</label><input id="e<%= o.id %>-until" type="date" name="valid_until" value="<%= o.valid_until || '' %>"></div>
+                </div>
+    <div class="row">
+      <div class="field"><label for="e<%= o.id %>-dt">Booking discount</label>
+        <select id="e<%= o.id %>-dt" name="discount_type">
+          <option value="" <%= !o.discount_type ? 'selected' : '' %>>None (shown only)</option>
+          <option value="percent" <%= o.discount_type === 'percent' ? 'selected' : '' %>>% off net</option>
+          <option value="flat" <%= o.discount_type === 'flat' ? 'selected' : '' %>>₹ off</option>
+        </select></div>
+      <div class="field"><label for="e<%= o.id %>-dv">Discount</label><input id="e<%= o.id %>-dv" type="number" min="0" step="0.01" name="discount_value" value="<%= o.discount_value || '' %>" placeholder="e.g. 5 or 1000"></div>
+      <div class="field"><label for="e<%= o.id %>-mx">Max ₹ off <span class="muted">(for %)</span></label><input id="e<%= o.id %>-mx" type="number" min="0" step="1" name="max_discount" value="<%= o.max_discount || '' %>" placeholder="No cap"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="e<%= o.id %>-mn">Min. net on quote ₹</label><input id="e<%= o.id %>-mn" type="number" min="0" step="1" name="min_amount" value="<%= o.min_amount || '' %>" placeholder="0"></div>
+      <div class="field"><label for="e<%= o.id %>-us">Uses per agency</label><input id="e<%= o.id %>-us" type="number" min="0" step="1" name="uses_per_agency" value="<%= o.uses_per_agency ?? 1 %>"><div class="hint">0 = unlimited</div></div>
+    </div>
+    <fieldset class="field kind-checks"><legend>Applies to <span class="muted">(none ticked = all VaayuTrip services)</span></legend>
+      <% Object.entries(kinds).forEach(([k, c]) => { %><label><input type="checkbox" name="kinds" value="<%= k %>" <%= (o.kinds || '').split(',').includes(k) ? 'checked' : '' %>> <%= c.plural %></label><% }) %>
+    </fieldset>
+                <button class="btn btn-primary">Save</button>
+              </form>
+            </details>
             <form method="post" action="/admin/offers/<%= o.id %>/toggle" class="inline"><button class="btn btn-sm"><%= o.is_active ? 'Pause' : 'Resume' %></button></form>
             <form method="post" action="/admin/offers/<%= o.id %>/delete" class="inline" data-confirm="Delete this offer?"><button class="btn btn-sm btn-danger">Delete</button></form>
           </td>
@@ -27,6 +57,24 @@
       <div class="field"><label for="o-code">Promo code <span class="muted">(optional)</span></label><input id="o-code" name="code" maxlength="30" style="text-transform:uppercase"></div>
       <div class="field"><label for="o-until">Valid till <span class="muted">(optional)</span></label><input id="o-until" type="date" min="<%= today %>" name="valid_until"></div>
     </div>
+
+    <div class="row">
+      <div class="field"><label for="o-dt">Booking discount</label>
+        <select id="o-dt" name="discount_type">
+          <option value="" <%= true ? 'selected' : '' %>>None (shown only)</option>
+          <option value="percent" >% off net</option>
+          <option value="flat" >₹ off</option>
+        </select></div>
+      <div class="field"><label for="o-dv">Discount</label><input id="o-dv" type="number" min="0" step="0.01" name="discount_value"  placeholder="e.g. 5 or 1000"></div>
+      <div class="field"><label for="o-mx">Max ₹ off <span class="muted">(for %)</span></label><input id="o-mx" type="number" min="0" step="1" name="max_discount"  placeholder="No cap"></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="o-mn">Min. net on quote ₹</label><input id="o-mn" type="number" min="0" step="1" name="min_amount"  placeholder="0"></div>
+      <div class="field"><label for="o-us">Uses per agency</label><input id="o-us" type="number" min="0" step="1" name="uses_per_agency" value="1"><div class="hint">0 = unlimited</div></div>
+    </div>
+    <fieldset class="field kind-checks"><legend>Applies to <span class="muted">(none ticked = all VaayuTrip services)</span></legend>
+      <% Object.entries(kinds).forEach(([k, c]) => { %><label><input type="checkbox" name="kinds" value="<%= k %>" > <%= c.plural %></label><% }) %>
+    </fieldset>
     <div class="field"><label for="o-link">Link <span class="muted">(optional)</span></label><input id="o-link" name="link" placeholder="/agent/activities" pattern="/agent(/.*)?"><div class="hint">A page in the agent portal, e.g. an activity.</div></div>
     <button class="btn btn-primary">Publish offer</button>
   </form>

@@ -149,12 +149,36 @@
         <tr class="grand"><td>Customer pays</td><td class="num"><%= inr(customerTotal.total) %></td></tr>
       </table>
       <hr>
-      <table class="totals">
+      <table class="totals" id="pay">
+        <% if (coupon && coupon.discount > 0) { %>
+          <tr><td class="muted">VaayuTrip net</td><td class="num"><%= inr(priced.net) %></td></tr>
+          <tr><td class="profit">Offer <b><%= coupon.code %></b></td><td class="num profit">− <%= inr(coupon.discount) %></td></tr>
+        <% } %>
         <tr><td>You pay VaayuTrip</td><td class="num"><b><%= inr(netPayable.total) %></b></td></tr>
         <% if (netPayable.tax) { %><tr><td class="muted" colspan="2" style="font-size:12px">Net <%= inr(netPayable.subtotal) %> + GST <%= inr(netPayable.tax) %></td></tr><% } %>
         <% if (priced.agentCost) { %><tr><td>You pay your suppliers</td><td class="num"><%= inr(priced.agentCost) %></td></tr><% } %>
-        <tr><td><b>Your earning</b></td><td class="num profit" style="font-size:18px"><%= inr(priced.commission) %></td></tr>
+        <tr><td><b>Your earning</b></td><td class="num profit" style="font-size:18px"><%= inr(priced.commission + (coupon ? coupon.discount : 0)) %></td></tr>
       </table>
+      <% if (!locked) { %>
+        <div class="coupon-box">
+          <% if (coupon) { %>
+            <div class="coupon-on <%= coupon.error ? 'bad' : '' %>">
+              <span><%- icon(coupon.error ? 'xCircle' : 'checkCircle') %><b><%= coupon.code %></b> <%= coupon.error ? 'can’t be used' : `applied: ${inr(coupon.discount)} off` %></span>
+              <form method="post" action="/agent/quotes/<%= quote.id %>/coupon/remove"><button class="link-btn">Remove</button></form>
+            </div>
+            <% if (coupon.error) { %><p class="coupon-err"><%= coupon.error %></p><% } %>
+          <% } else { %>
+            <form method="post" action="/agent/quotes/<%= quote.id %>/coupon" class="coupon-form">
+              <label for="coupon-code">Offer code</label>
+              <div><input id="coupon-code" name="code" maxlength="30" placeholder="Enter code" autocomplete="off" value="<%= couponTry ? couponTry.code : '' %>" required <%- couponTry ? 'aria-invalid="true" aria-describedby="coupon-why"' : '' %>><button class="btn">Apply</button></div>
+              <% if (couponTry) { %><p class="coupon-err" id="coupon-why" role="alert"><%= couponTry.error %></p><% } %>
+              <small class="muted">Applied before you pay: by wallet, credit or online. <a href="/agent/offers">See offers</a></small>
+            </form>
+          <% } %>
+        </div>
+      <% } else if (booking && booking.discount > 0) { %>
+        <p class="coupon-used"><%- icon('checkCircle') %>Offer <b><%= booking.coupon_code %></b> saved you <%= inr(booking.discount) %> on this booking.</p>
+      <% } %>
     </div>
 
     <form class="card" method="post" action="/agent/quotes/<%= quote.id %>">

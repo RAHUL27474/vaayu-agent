@@ -501,6 +501,16 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX IF NOT EXISTS payments_agency_status ON payments (agency_id, status);
 ALTER TABLE topup_requests ADD COLUMN IF NOT EXISTS method TEXT NOT NULL DEFAULT 'bank';   -- bank | phonepe
 ALTER TABLE quotes ADD COLUMN IF NOT EXISTS pay_online INTEGER NOT NULL DEFAULT 0;         -- customer may pay the quote online
+-- Offer codes that take money off a booking (applied by the agent on a quote before paying).
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS discount_type TEXT;                 -- NULL (display only) | percent | flat
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS discount_value DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS max_discount DOUBLE PRECISION;      -- cap for percent discounts, rupees
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS min_amount DOUBLE PRECISION NOT NULL DEFAULT 0; -- minimum net of eligible services
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS kinds TEXT;                         -- comma list of service kinds; NULL = everything from VaayuTrip
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS uses_per_agency INTEGER NOT NULL DEFAULT 1; -- 0 = unlimited
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS coupon_code TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS coupon_code TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount DOUBLE PRECISION NOT NULL DEFAULT 0; -- taken off total_net (already net of it)
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS paid_online DOUBLE PRECISION NOT NULL DEFAULT 0; -- part of paid_wallet the agent paid online (card / UPI / net banking) at booking
 
 -- Postgres doesn't index foreign keys by itself; these cover the per-agency and per-parent lookups.

@@ -230,6 +230,8 @@ async function seedOffersAndSupport(agency) {
     ['Vietnam e-visa at ₹1,800', 'Special net rate on the 30-day Vietnam e-visa for bookings this month.', 'VNVISA', '/agent/visas?dest=Vietnam', "sqldate('now', '+30 days')"],
   ];
   for (const [title, body, promo, link, until] of offers) await run(`INSERT INTO offers (title, body, code, link, valid_until) VALUES (?, ?, ?, ?, ${until})`, title, body, promo, link);
+  // A code agents enter on a quote before paying: 5% off what they pay VaayuTrip, up to ₹5,000, once per agency.
+  await run("INSERT INTO offers (title, body, code, valid_until, discount_type, discount_value, max_discount, min_amount, uses_per_agency) VALUES ('5% off your next booking', 'Up to ₹5,000 off the net amount of any booking of ₹3,000 or more. Enter the code on the quote before you pay.', 'SAVE5', sqldate('now', '+45 days'), 'percent', 5, 5000, 3000, 1)");
 
   const user = await one('SELECT id FROM users WHERE agency_id = ?', agency.id);
   const booking = await one('SELECT id, code FROM bookings WHERE agency_id = ? ORDER BY id LIMIT 1', agency.id);

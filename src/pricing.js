@@ -184,7 +184,7 @@ function customerParty(customer, quote) {
 }
 
 /** Builds the JSON snapshot stored on an invoice. kind: customer_agent | customer_vaayu | b2b */
-function buildInvoice(kind, { quote, items, agency, customer, settings }) {
+function buildInvoice(kind, { quote, items, agency, customer, settings, discount = null }) {
   const priced = priceQuote(quote, items);
   const meta = {
     quoteCode: quote.code,
@@ -221,6 +221,7 @@ function buildInvoice(kind, { quote, items, agency, customer, settings }) {
     lines = priced.lines
       .filter((l) => l.supplier === 'vaayu')
       .map((l) => ({ title: l.title, description: l.description, qty: l.qty, unit: l.unitNet, amount: l.lineNet }));
+    if (discount && discount.amount > 0) lines.push({ title: `Offer ${discount.code}`, description: discount.title || 'Offer discount', qty: 1, unit: -discount.amount, amount: -discount.amount });
     notes.push('B2B invoice at agent net rates. Not for customer use.');
   }
 

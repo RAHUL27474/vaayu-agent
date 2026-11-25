@@ -524,13 +524,47 @@ router.get('/quotes/:id', h(async (req, res) => {
   const invoices = await all('SELECT * FROM invoices WHERE quote_id = ? ORDER BY id DESC', full.quote.id);
   const booking = await one('SELECT * FROM bookings WHERE quote_id = ? ORDER BY id DESC', full.quote.id);
   const customerTotal = withTax(full.priced.sell, settings, { international: Boolean(full.quote.is_international) });
-  const netPayable = withTax(full.priced.net, settings);
+  // An offer code applied on this quote: its discount now, or why it no longer works.
+  let coupon = null;
+  if (full.quote.coupon_code && !['booked', 'cancelled'].includes(full.quote.status)) {
+    try { coupon = await svc.couponFor(req.agency.id, full, full.quote.coupon_code); } catch (e) {
+      if (!(e instanceof svc.AppError)) throw e;
+      coupon = { code: full.quote.coupon_code, discount: 0, error: e.message };
+    }
+  }
+  const netPayable = withTax(full.priced.net - (coupon ? coupon.discount : 0), settings);
+  const couponTry = req.session.couponTry && req.session.couponTry.quote === full.quote.id ? req.session.couponTry : null;
+  if (req.session.couponTry) req.session.couponTry = null;
   res.page('agent/quote', {
+    coupon, couponTry,
     kinds: KINDS, kindMarkups, agencyRates: kindMarkups(req.agency),
     title: full.quote.title, ...full, invoices, booking, customerTotal, netPayable, phonepeOn: phonepe.enabled(),
     customers: await customersOf(req.agency.id), branded: agencyHasBranding(req.agency),
     pkgView: full.quote.package_snapshot ? JSON.parse(full.quote.package_snapshot) : null,
   });
+}));
+
+// Offer codes: applied on the quote before paying; the discount comes off what the agent pays VaayuTrip.
+router.post('/quotes/:id/coupon', h(async (req, res) => {
+  const full = await ownQuote(req);
+  if (['booked', 'cancelled'].includes(full.quote.status)) throw new svc.AppError('This quote is already booked.');
+  try {
+    const c = await svc.couponFor(req.agency.id, full, req.body.code);
+    await run("UPDATE quotes SET coupon_code = ?, updated_at = datetime('now') WHERE id = ?", c.code, full.quote.id);
+    req.flash('success', `${c.code} applied: ₹${c.discount.toLocaleString('en-IN')} off what you pay VaayuTrip.`);
+  } catch (e) {
+    if (!(e instanceof svc.AppError)) throw e;
+    // Shown inside the offer-code box (the page opens there), with the code kept in the field.
+    req.session.couponTry = { quote: full.quote.id, code: String(req.body.code || '').trim().toUpperCase().slice(0, 30), error: e.message };
+  }
+  res.redirect(`/agent/quotes/${full.quote.id}#pay`);
+}));
+
+router.post('/quotes/:id/coupon/remove', h(async (req, res) => {
+  const { quote } = await ownQuote(req);
+  if (!['booked', 'cancelled'].includes(quote.status)) await run('UPDATE quotes SET coupon_code = NULL WHERE id = ?', quote.id);
+  req.flash('success', 'Offer code removed.');
+  res.redirect(`/agent/quotes/${quote.id}#pay`);
 }));
 
 router.post('/quotes/:id', h(async (req, res) => {

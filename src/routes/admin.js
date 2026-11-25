@@ -563,9 +563,36 @@ router.get('/notifications', h(async (req, res) => {
 // ---------- offers ----------
 
 router.get('/offers', h(async (req, res) => {
-  const offers = await all("SELECT *, (is_active = 1 AND (valid_until IS NULL OR valid_until >= sqldate('now'))) AS live FROM offers ORDER BY id DESC");
-  res.page('admin/offers', { title: 'Offers & deals', offers });
+  const offers = await all(`SELECT o.*, (o.is_active = 1 AND (o.valid_until IS NULL OR o.valid_until >= sqldate('now'))) AS live,
+      (SELECT COUNT(*)::int FROM bookings b WHERE o.code IS NOT NULL AND UPPER(b.coupon_code) = UPPER(o.code) AND b.status <> 'cancelled') AS used,
+      (SELECT COALESCE(SUM(b.discount), 0) FROM bookings b WHERE o.code IS NOT NULL AND UPPER(b.coupon_code) = UPPER(o.code) AND b.status <> 'cancelled') AS given
+    FROM offers o ORDER BY o.id DESC`);
+  res.page('admin/offers', { title: 'Offers & deals', offers, kinds: KINDS });
 }));
+
+// The booking discount an offer code gives, from the offer form: { type, value, max, min, kinds, uses }.
+function discountRule(b, code) {
+  const type = ['percent', 'flat'].includes(b.discount_type) ? b.discount_type : null;
+  if (!type) return { type: null, value: 0, max: null, min: 0, kinds: null, uses: 1 };
+  const value = round2(Math.max(0, Number(b.discount_value) || 0));
+  if (!value) throw new svc.AppError('Enter the discount: a percentage or an amount in rupees.');
+  if (type === 'percent' && value > 100) throw new svc.AppError('A percentage discount can be at most 100%.');
+  if (!code) throw new svc.AppError('A booking discount needs a promo code for agents to enter.');
+  const kinds = [].concat(b.kinds || []).filter((k) => KINDS[k]).join(',') || null;
+  return {
+    type, value,
+    max: type === 'percent' && Number(b.max_discount) > 0 ? round2(Number(b.max_discount)) : null,
+    min: round2(Math.max(0, Number(b.min_amount) || 0)),
+    kinds,
+    uses: Math.max(0, Math.floor(Number(b.uses_per_agency ?? 1) || 0)),
+  };
+}
+
+async function assertCodeFree(code, exceptId = 0) {
+  if (!code) return;
+  const other = await one('SELECT id, title FROM offers WHERE UPPER(code) = ? AND is_active = 1 AND id <> ?', code, exceptId);
+  if (other) throw new svc.AppError(`Code ${code} is already used by the live offer "${other.title}". Pause that one or pick another code.`);
+}
 
 router.post('/offers', h(async (req, res) => {
   const b = req.body;
@@ -574,11 +601,32 @@ router.post('/offers', h(async (req, res) => {
   // Links stay inside the agent portal so an offer can't send agents to another site.
   const link = str(b.link);
   if (link && !/^\/agent(\/[\w\-/?=&.%]*)?$/.test(link)) throw new svc.AppError('Link must be a page in the agent portal, starting with /agent');
-  await run('INSERT INTO offers (title, body, code, link, valid_until) VALUES (?, ?, ?, ?, ?)',
-    title, str(b.body).slice(0, 400) || null, str(b.code).toUpperCase().slice(0, 30) || null, link || null, /^\d{4}-\d{2}-\d{2}$/.test(b.valid_until) ? b.valid_until : null);
+  const offerCode = str(b.code).toUpperCase().replace(/\s+/g, '').slice(0, 30) || null;
+  const d = discountRule(b, offerCode);
+  await assertCodeFree(offerCode);
+  await run(`INSERT INTO offers (title, body, code, link, valid_until, discount_type, discount_value, max_discount, min_amount, kinds, uses_per_agency)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    title, str(b.body).slice(0, 400) || null, offerCode, link || null, /^\d{4}-\d{2}-\d{2}$/.test(b.valid_until) ? b.valid_until : null,
+    d.type, d.value, d.max, d.min, d.kinds, d.uses);
   for (const a of await all("SELECT id FROM agencies WHERE status = 'active'")) await notify(a.id, 'New offer', title, '/agent/offers');
   await audit(req.user, 'offer.published', { entity: 'offer', summary: title, link: '/admin/offers' });
   req.flash('success', 'Offer published to all active agents.');
+  res.redirect('/admin/offers');
+}));
+
+// Change an offer's code, end date and booking discount (title and text stay as published).
+router.post('/offers/:id/discount', h(async (req, res) => {
+  const id = num(req.params.id);
+  const o = await one('SELECT * FROM offers WHERE id = ?', id);
+  if (!o) throw new svc.AppError('Offer not found');
+  const b = req.body;
+  const offerCode = str(b.code).toUpperCase().replace(/\s+/g, '').slice(0, 30) || null;
+  const d = discountRule(b, offerCode);
+  if (o.is_active) await assertCodeFree(offerCode, id);
+  await run('UPDATE offers SET code = ?, valid_until = ?, discount_type = ?, discount_value = ?, max_discount = ?, min_amount = ?, kinds = ?, uses_per_agency = ? WHERE id = ?',
+    offerCode, /^\d{4}-\d{2}-\d{2}$/.test(b.valid_until) ? b.valid_until : null, d.type, d.value, d.max, d.min, d.kinds, d.uses, id);
+  await audit(req.user, 'offer.updated', { entity: 'offer', summary: `${o.title}: ${d.type ? (d.type === 'percent' ? d.value + '%' : '₹' + d.value) + ' off' : 'no booking discount'}`, link: '/admin/offers' });
+  req.flash('success', 'Offer updated.');
   res.redirect('/admin/offers');
 }));
 
