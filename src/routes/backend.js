@@ -94,11 +94,20 @@ const formData = (p) => ({
   p, d: parseProductDetails(p.details), cfg: KINDS[p.kind], kinds: KINDS, countries: PRODUCT_COUNTRIES, destinations: DESTINATIONS,
   basisLabels: BASIS_LABELS, mealPlans: MEAL_PLANS, problems: p.id ? publishProblems(p) : [], marginPct,
 });
+// Cities already in the inventory, so typing one fills in its country.
+const cityList = () => all('SELECT city, MIN(country) AS country FROM products GROUP BY city ORDER BY city');
 
-router.get('/products/new', (req, res) => {
+router.get('/products/new', h(async (req, res) => {
   const kind = KINDS[req.query.kind] ? req.query.kind : 'activity';
-  res.page('backend/product-form', { title: `New ${KINDS[kind].label.toLowerCase()}`, ...formData({ kind, status: 'draft', price_basis: KINDS[kind].basis[0], details: '{}' }), navKind: kind });
-});
+  // After "Save & add another" the city and country carry over to the next item.
+  const city = String(req.query.city || '').slice(0, 80);
+  const country = PRODUCT_COUNTRIES.includes(req.query.country) || req.query.country === ALL_DESTINATIONS ? req.query.country : '';
+  res.page('backend/product-form', {
+    title: `New ${KINDS[kind].label.toLowerCase()}`,
+    ...formData({ kind, status: 'draft', price_basis: KINDS[kind].basis[0], details: '{}', city, country }),
+    cityList: await cityList(), navKind: kind,
+  });
+}));
 
 router.post('/products', withCover(svc.AppError), h(async (req, res) => {
   const kind = KINDS[req.body.kind] ? req.body.kind : 'activity';
@@ -108,6 +117,10 @@ router.post('/products', withCover(svc.AppError), h(async (req, res) => {
   const sb = seasonsFromForm(req.body);
   await run('UPDATE products SET seasons = ?, blackouts = ? WHERE id = ?', sb.seasons, sb.blackouts, id);
   await audit(req.user, 'product.created', { entity: 'product', id, summary: `${KINDS[kind].label}: ${p.title} (${p.city})`, link: link(id) });
+  if (req.body.after === 'new') {
+    req.flash('success', `${p.title} saved as a draft. Add the next one.`);
+    return res.redirect(`/backend/products/new?${new URLSearchParams({ kind, city: p.city, country: p.country || '' })}`);
+  }
   req.flash('success', `${KINDS[kind].label} saved as a draft. Publish it to make it available to agents.`);
   res.redirect(link(id));
 }));
@@ -125,7 +138,7 @@ router.get('/products/:id', h(async (req, res, next) => {
   );
   if (!p) return next();
   const history = await all("SELECT l.*, u.name AS user_name FROM audit_log l LEFT JOIN users u ON u.id = l.user_id WHERE l.entity = 'product' AND l.entity_id = ? ORDER BY l.id DESC LIMIT 20", p.id);
-  res.page('backend/product-form', { title: p.title, ...formData(p), history, navKind: p.kind });
+  res.page('backend/product-form', { title: p.title, ...formData(p), cityList: await cityList(), history, navKind: p.kind });
 }));
 
 router.post('/products/:id', withCover(svc.AppError), h(async (req, res, next) => {

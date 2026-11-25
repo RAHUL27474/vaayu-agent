@@ -456,3 +456,15 @@ document.querySelectorAll('[data-chart]').forEach((chart) => {
     requestAnimationFrame(step);
   });
 })();
+
+// Inventory form: typing a city we already have picks its country.
+document.querySelectorAll('[data-city-country]').forEach((input) => {
+  const select = document.querySelector(input.dataset.cityCountry);
+  const list = input.list;
+  if (!select || !list) return;
+  input.addEventListener('input', () => {
+    const v = input.value.trim().toLowerCase();
+    const hit = [...list.options].find((o) => o.value.toLowerCase() === v);
+    if (hit && [...select.options].some((o) => o.value === hit.dataset.country)) select.value = hit.dataset.country;
+  });
+});

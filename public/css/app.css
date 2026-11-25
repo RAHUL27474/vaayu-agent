@@ -2189,3 +2189,41 @@ html body.app .dash-hero .svc-tab:has(input:checked) .i { color: var(--brand); }
 .chart .bars { height: 210px; }
 .grid:has(> .card > .chart) { align-items: start; }
 .tm-tile a, a.tm-tile, .tm-tile a:hover { text-decoration: none; }
+
+/* ---------- Inventory form: essentials first, the rest folded away, save bar always in reach ---------- */
+.kind-tabs { display: flex; gap: 0; margin: 0 0 16px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.kind-tabs a { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; margin-bottom: -1px; border-bottom: 3px solid transparent; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.kind-tabs a .i { width: 18px; height: 18px; }
+.kind-tabs a:hover { color: var(--ink); text-decoration: none; }
+.kind-tabs a.on { color: var(--brand-700); border-bottom-color: var(--brand); }
+.pf { max-width: 1100px; padding-bottom: 8px; }
+.pf-sec h2, .pf-more summary { display: flex; align-items: center; gap: 10px; font-size: 16px; margin: 0 0 14px; }
+.pf-n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 13px; font-weight: 700; }
+.req { color: var(--bad); font-weight: 700; }
+.pf-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0 14px; }
+.pf-row.two { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.pf .field { margin-bottom: 14px; }
+.pf textarea { min-height: 80px; }
+.pf-note { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+body.app .card.pf-more { padding: 0; }
+.pf-more > summary { list-style: none; cursor: pointer; margin: 0; padding: 15px 18px; color: var(--ink); font-weight: 700; }
+.pf-more > summary::-webkit-details-marker { display: none; }
+.pf-more > summary .i { width: 18px; height: 18px; color: var(--brand); transition: transform .15s; }
+.pf-more[open] > summary .i { transform: rotate(45deg); }
+.pf-more > summary span { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--muted); }
+.pf-more > summary:hover { background: var(--line-2); }
+.pf-more[open] > summary { border-bottom: 1px solid var(--line-2); margin-bottom: 14px; }
+.pf-more > :not(summary) { margin-left: 18px; margin-right: 18px; }
+.pf-more > :last-child { margin-bottom: 18px; }
+.pf-bar { position: sticky; bottom: 0; z-index: 20; display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin: 8px -24px 0; padding: 12px 24px; background: var(--card); border-top: 1px solid var(--line); box-shadow: 0 -6px 16px rgba(15, 23, 42, .06); }
+.pf-bar-note { margin-right: auto; font-size: 12.5px; color: var(--muted); }
+.pf-bar .pf-save { order: 2; }
+.pf-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 1100px; margin-top: 16px; font-size: 13px; }
+.pf-foot ul { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; }
+/* Price basis: group size only for per-group prices; child and infant only per person */
+.pf .pf-group, .pf .pf-grp-label { display: none; }
+.pf:has(#price_basis option[value=per_group]:checked) .pf-group { display: block; }
+.pf:has(#price_basis option[value=per_group]:checked) .pf-grp-label { display: inline; }
+.pf:has(#price_basis option[value=per_group]:checked) .pf-pp-label, .pf:has(#price_basis option[value=per_group]:checked) .pf-pp { display: none; }
+@media (max-width: 860px) { .pf-bar { margin: 8px -14px 0; padding: 10px 14px; } .pf-bar-note { display: none; } .pf-bar .btn { flex: 1; } }
+.pf input::placeholder { text-transform: none; }

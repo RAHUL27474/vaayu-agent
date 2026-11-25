@@ -2,16 +2,28 @@
   const isNew = !p.id;
   const linked = p.image_url && /^https:/i.test(p.image_url);
   const val = (v) => (v === null || v === undefined ? '' : v);
-  const netLabel = { per_person: 'VaayuTrip cost per adult (₹)', per_group: 'VaayuTrip cost per group / vehicle (₹)', per_room_night: 'VaayuTrip cost per room per night (₹)' };
+  const netLabel = { per_person: 'Cost per adult', per_group: 'Cost per group / vehicle', per_room_night: 'Cost per room per night' };
   // The form edits what VaayuTrip pays; agents see it plus the margin for this kind of service.
   const margin = marginPct(p.kind, settings);
   const cost = (k) => val(p[`cost_${k}`] ?? p[`net_${k}`]);
+  // The few service details asked up front; the rest wait under "More details".
+  const ESSENTIAL = { hotel: ['stars', 'room', 'mealPlan'], flight: ['airline', 'from', 'to', 'trip'], transfer: ['vehicle'], visa: ['processing', 'validity', 'entries'], insurance: ['cover', 'maxDays'] }[p.kind] || [];
+  const mainFields = cfg.fields.filter(([k]) => ESSENTIAL.includes(k));
+  const moreFields = cfg.fields.filter(([k]) => !ESSENTIAL.includes(k));
+  const seasonRows = listOf(p.seasons); const blackoutRows = listOf(p.blackouts);
+  const has = (...keys) => keys.some((k) => val(p[k]) !== '');
+  const fieldInput = ([key, label, type, options]) => {
+    const v = val(d[key]);
+    return { key, label, type, options, v };
+  };
+  const NAME_HINT = { activity: 'e.g. Desert safari with BBQ dinner', hotel: 'e.g. Al Barsha Grand Hotel', flight: 'e.g. Delhi–Dubai return, Emirates', transfer: 'e.g. Dubai airport to hotel, private sedan', visa: 'e.g. UAE 30-day tourist visa', insurance: 'e.g. Asia travel insurance, Standard' }[p.kind];
 %>
 <a href="/backend/products?kind=<%= p.kind %>"><%- icon('arrowLeft') %><%= cfg.plural %></a>
 <div class="page-head" style="margin-top:10px">
   <div>
-    <h1><%= isNew ? `New ${cfg.label.toLowerCase()}` : p.title %></h1>
-    <% if (!isNew) { %><p><span class="badge <%= p.status %>"><%= p.status %></span> · <%= cfg.label %> · <%= p.city %>, <%= p.country %> · in <%= p.packages %> agent package<%= p.packages === 1 ? '' : 's' %> · <%= p.bookings %> booking<%= p.bookings === 1 ? '' : 's' %></p><% } %>
+    <h1><%= isNew ? `Add ${cfg.label.toLowerCase()}` : p.title %></h1>
+    <% if (!isNew) { %><p><span class="badge <%= p.status %>"><%= p.status %></span> · <%= cfg.label %> · <%= p.city %>, <%= p.country %> · in <%= p.packages %> agent package<%= p.packages === 1 ? '' : 's' %> · <%= p.bookings %> booking<%= p.bookings === 1 ? '' : 's' %></p>
+    <% } else { %><p>Fill the fields marked <span class="req">*</span>. Everything else is optional and can be added later.</p><% } %>
   </div>
   <% if (!isNew) { %>
     <div class="actions">
@@ -25,149 +37,155 @@
   <% } %>
 </div>
 <% if (isNew) { %>
-  <div class="chips filter-chips" style="margin-bottom:14px">
-    <% Object.entries(kinds).forEach(([k, c]) => { %><a class="<%= k === p.kind ? 'on' : '' %>" href="/backend/products/new?kind=<%= k %>"><%- icon(c.icon) %><%= c.label %></a><% }) %>
-  </div>
+  <nav class="kind-tabs" aria-label="What are you adding?">
+    <% Object.entries(kinds).forEach(([k, c]) => { %><a class="<%= k === p.kind ? 'on' : '' %>" href="/backend/products/new?kind=<%= k %>"<%- k === p.kind ? ' aria-current="page"' : '' %>><%- icon(c.icon) %><%= c.label %></a><% }) %>
+  </nav>
+<% } %>
+<% if (problems.length && !isNew) { %>
+  <div class="alert warn"><b>Before publishing:</b> <%= problems.join(' · ') %></div>
 <% } %>
 
-<form method="post" action="<%= isNew ? '/backend/products' : `/backend/products/${p.id}` %>" enctype="multipart/form-data">
+<form class="pf" method="post" action="<%= isNew ? '/backend/products' : `/backend/products/${p.id}` %>" enctype="multipart/form-data">
 <input type="hidden" name="kind" value="<%= p.kind %>">
-<div class="split split-editor">
-  <div>
-    <div class="card">
-      <h2>Basics</h2>
-      <div class="field"><label for="title">Name</label><input id="title" name="title" value="<%= val(p.title) %>" required placeholder="<%= { activity: 'e.g. Desert safari with BBQ dinner', hotel: 'e.g. Al Barsha Grand Hotel', flight: 'e.g. Delhi–Dubai return, Emirates', transfer: 'e.g. Dubai airport to hotel, private sedan', visa: 'e.g. UAE 30-day tourist visa', insurance: 'e.g. Asia travel insurance, Standard' }[p.kind] %>"></div>
-      <div class="row">
-        <div class="field"><label for="city"><%= p.kind === 'flight' ? 'Destination city (where agents use it)' : p.kind === 'insurance' ? 'Region covered' : 'City' %></label><input id="city" name="city" value="<%= val(p.city) %>" required></div>
-        <div class="field"><label for="country">Country</label>
-          <select id="country" name="country" required>
-            <option value="">Choose…</option>
-            <% if (p.kind === 'insurance') { %><option <%= p.country === 'All destinations' ? 'selected' : '' %>>All destinations</option><% } %>
-            <% Object.entries(destinations).forEach(([dest, list]) => { %><optgroup label="<%= dest %>"><% list.forEach(c => { %><option <%= c === p.country ? 'selected' : '' %>><%= c %></option><% }) %></optgroup><% }) %>
-          </select>
-        </div>
-      </div>
-      <div class="row">
-        <div class="field"><label for="category"><%= { hotel: 'Property type', flight: 'Cabin', visa: 'Visa type', insurance: 'Plan', transfer: 'Transfer type' }[p.kind] || 'Category' %></label><select id="category" name="category"><% cfg.categories.forEach(c => { %><option <%= c === p.category ? 'selected' : '' %>><%= c %></option><% }) %></select></div>
-        <% if (['activity', 'transfer'].includes(p.kind)) { %>
-          <div class="field"><label for="duration"><%= p.kind === 'transfer' ? 'Journey time' : 'Duration' %></label><input id="duration" name="duration" value="<%= val(p.duration) %>" placeholder="e.g. 6 hours, Full day"></div>
-        <% } %>
-      </div>
-      <div class="field"><label for="summary">One-line summary</label><input id="summary" name="summary" value="<%= val(p.summary) %>" maxlength="200" placeholder="Shown on agents' catalogue cards and in itineraries"></div>
-      <div class="field"><label for="description">Description</label><textarea id="description" name="description"><%= val(p.description) %></textarea></div>
-    </div>
 
-    <% if (cfg.fields.length) { %>
-      <div class="card">
-        <h2><%= { hotel: 'Room', flight: 'Schedule', transfer: 'Vehicle', visa: 'Visa details', insurance: 'Cover' }[p.kind] %></h2>
-        <div class="grid grid-3" style="gap:0 14px">
-          <% cfg.fields.forEach(([key, label, type, options]) => { const v = val(d[key]); %>
-            <div class="field" style="<%= type === 'textarea' ? 'grid-column:1/-1' : '' %>">
-              <label for="d_<%= key %>"><%= label %></label>
-              <% if (type === 'select') { %>
-                <select id="d_<%= key %>" name="d_<%= key %>"><option value="">—</option><% options.forEach(o => { %><option value="<%= o %>" <%= String(o) === String(v) ? 'selected' : '' %>><%= key === 'mealPlan' ? `${o} · ${mealPlans[o]}` : key === 'trip' ? (o === 'return' ? 'Return fare' : 'One way') : o %></option><% }) %></select>
-              <% } else if (type === 'textarea') { %>
-                <textarea id="d_<%= key %>" name="d_<%= key %>" style="min-height:70px"><%= v %></textarea>
-              <% } else { %>
-                <input id="d_<%= key %>" name="d_<%= key %>" type="<%= type %>" value="<%= v %>" <%= key === 'from' || key === 'to' ? 'maxlength="3" style="text-transform:uppercase"' : '' %>>
-              <% } %>
-            </div>
-          <% }) %>
-        </div>
-      </div>
+<section class="card pf-sec">
+  <h2><span class="pf-n">1</span>What and where</h2>
+  <div class="field"><label for="title">Name <span class="req">*</span></label><input id="title" name="title" value="<%= val(p.title) %>" required placeholder="<%= NAME_HINT %>" autofocus></div>
+  <div class="pf-row">
+    <div class="field"><label for="city"><%= p.kind === 'flight' ? 'Destination city' : p.kind === 'insurance' ? 'Region covered' : 'City' %> <span class="req">*</span></label>
+      <input id="city" name="city" value="<%= val(p.city) %>" required list="pf-cities" autocomplete="off" data-city-country="#country" placeholder="Start typing…">
+      <datalist id="pf-cities"><% cityList.forEach(c => { %><option value="<%= c.city %>" data-country="<%= c.country %>"><%= c.country %></option><% }) %></datalist>
+    </div>
+    <div class="field"><label for="country">Country <span class="req">*</span></label>
+      <select id="country" name="country" required>
+        <option value="">Choose…</option>
+        <% if (p.kind === 'insurance') { %><option <%= p.country === 'All destinations' ? 'selected' : '' %>>All destinations</option><% } %>
+        <% Object.entries(destinations).forEach(([dest, list]) => { %><optgroup label="<%= dest %>"><% list.forEach(c => { %><option <%= c === p.country ? 'selected' : '' %>><%= c %></option><% }) %></optgroup><% }) %>
+      </select>
+      <div class="hint">Filled in for cities we already have.</div>
+    </div>
+    <div class="field"><label for="category"><%= { hotel: 'Property type', flight: 'Cabin', visa: 'Visa type', insurance: 'Plan', transfer: 'Transfer type' }[p.kind] || 'Type' %></label><select id="category" name="category"><% cfg.categories.forEach(c => { %><option <%= c === p.category ? 'selected' : '' %>><%= c %></option><% }) %></select></div>
+    <% if (['activity', 'transfer'].includes(p.kind)) { %>
+      <div class="field"><label for="duration"><%= p.kind === 'transfer' ? 'Journey time' : 'Duration' %></label><input id="duration" name="duration" value="<%= val(p.duration) %>" placeholder="e.g. 6 hours"></div>
     <% } %>
-
-    <div class="card">
-      <h2>Price</h2>
-      <div class="row">
-        <div class="field"><label for="price_basis">Priced</label>
-          <select id="price_basis" name="price_basis"><% cfg.basis.forEach(b => { %><option value="<%= b %>" <%= b === p.price_basis ? 'selected' : '' %>><%= basisLabels[b] %></option><% }) %></select>
-        </div>
-        <% if (cfg.basis.includes('per_group')) { %><div class="field"><label for="group_size">Guests per group / vehicle</label><input id="group_size" type="number" min="1" name="group_size" value="<%= val(p.group_size) %>" placeholder="Per group only"></div><% } %>
-      </div>
-      <div class="row">
-        <div class="field"><label for="net_adult"><%= cfg.basis.length === 1 ? netLabel[cfg.basis[0]] : 'VaayuTrip cost per adult, or per group (₹)' %></label><input id="net_adult" type="number" min="0" step="any" name="net_adult" value="<%= cost('adult') %>" required data-margin="<%= margin %>"><div class="hint">Agents see <b data-agent-price="net_adult"></b></div></div>
-        <% if (cfg.basis.includes('per_person')) { %>
-          <div class="field"><label for="net_child">Cost per child 2–11 (₹)</label><input id="net_child" type="number" min="0" step="any" name="net_child" value="<%= cost('child') %>" placeholder="Empty = adult price" data-margin="<%= margin %>"><div class="hint">Agents see <b data-agent-price="net_child"></b></div></div>
-          <div class="field"><label for="net_infant">Cost per infant under 2 (₹)</label><input id="net_infant" type="number" min="0" step="any" name="net_infant" value="<%= cost('infant') %>" placeholder="Empty = free" data-margin="<%= margin %>"><div class="hint">Agents see <b data-agent-price="net_infant"></b></div></div>
-        <% } %>
-      </div>
-      <p class="muted" style="font-size:13px;margin:0">Enter what VaayuTrip pays. Agents see it plus VaayuTrip's <b><%= margin %>% margin</b> for <%= cfg.plural.toLowerCase() %> (set by the admin), rounded to the rupee, and add their own markup on top. Changes apply to new quotes only, and price changes are flagged in the admin's activity log.</p>
-    </div>
-
-    <div class="card">
-      <h2>Seasons &amp; sold-out dates</h2>
-      <p class="muted" style="font-size:13px;margin:0 0 10px">Peak season adds a % to agents' price for travel dates in that range (use a minus % for an offer). Sold-out dates can't be booked. Applies to new quotes.</p>
-      <% const seasonRows = listOf(p.seasons); const blackoutRows = listOf(p.blackouts); %>
-      <table class="season-table">
-        <thead><tr><th>From</th><th>To</th><th>Price change %</th><th>Name</th></tr></thead>
-        <% for (let i = 0; i < Math.max(2, seasonRows.length + 1) && i < 6; i++) { const s = seasonRows[i] || {}; %>
-          <tr>
-            <td><input type="date" name="s_from_<%= i %>" value="<%= s.from || '' %>" aria-label="Season <%= i + 1 %> from"></td>
-            <td><input type="date" name="s_to_<%= i %>" value="<%= s.to || '' %>" aria-label="Season <%= i + 1 %> to"></td>
-            <td><input type="number" step="0.5" min="-50" max="300" name="s_pct_<%= i %>" value="<%= s.pct ?? '' %>" placeholder="e.g. 25" aria-label="Season <%= i + 1 %> price change"></td>
-            <td><input name="s_label_<%= i %>" value="<%= s.label || '' %>" maxlength="40" placeholder="e.g. Christmas &amp; New Year" aria-label="Season <%= i + 1 %> name"></td>
-          </tr>
-        <% } %>
-      </table>
-      <table class="season-table" style="margin-top:12px">
-        <thead><tr><th>Sold out from</th><th>To</th><th colspan="2">Reason</th></tr></thead>
-        <% for (let i = 0; i < Math.max(1, blackoutRows.length + 1) && i < 6; i++) { const s = blackoutRows[i] || {}; %>
-          <tr>
-            <td><input type="date" name="b_from_<%= i %>" value="<%= s.from || '' %>" aria-label="Sold out <%= i + 1 %> from"></td>
-            <td><input type="date" name="b_to_<%= i %>" value="<%= s.to || '' %>" aria-label="Sold out <%= i + 1 %> to"></td>
-            <td colspan="2"><input name="b_label_<%= i %>" value="<%= s.label || '' %>" maxlength="40" placeholder="e.g. Fully booked, Ramadan closure" aria-label="Sold out <%= i + 1 %> reason"></td>
-          </tr>
-        <% } %>
-      </table>
-    </div>
-
-    <div class="card">
-      <h2>Details for travellers</h2>
-      <div class="field"><label for="highlights">Highlights <span class="muted">(one per line)</span></label><textarea id="highlights" name="highlights" style="min-height:70px"><%= val(p.highlights) %></textarea></div>
-      <div class="row">
-        <div class="field"><label for="pickup"><%= p.kind === 'hotel' ? 'Check-in / check-out' : 'Pickup / meeting point' %></label><input id="pickup" name="pickup" value="<%= val(p.pickup) %>"></div>
-        <div class="field"><label for="timing"><%= p.kind === 'flight' ? 'Days of operation' : 'Timings / availability' %></label><input id="timing" name="timing" value="<%= val(p.timing) %>"></div>
-      </div>
-      <div class="row">
-        <div class="field"><label for="inclusions">Included <span class="muted">(one per line)</span></label><textarea id="inclusions" name="inclusions"><%= val(p.inclusions) %></textarea></div>
-        <div class="field"><label for="exclusions">Not included <span class="muted">(one per line)</span></label><textarea id="exclusions" name="exclusions"><%= val(p.exclusions) %></textarea></div>
-      </div>
-      <div class="field"><label for="cancellation">Cancellation policy</label><input id="cancellation" name="cancellation" value="<%= val(p.cancellation) %>"></div>
-    </div>
-
-    <div class="card">
-      <h2>Photo</h2>
-      <% if (p.image_url) { %><img src="<%= p.image_url %>" alt="" class="photo-thumb"><label class="check" style="font-size:13px"><input type="checkbox" name="remove_cover" value="1"> Remove photo</label><% } %>
-      <div class="row">
-        <div class="field"><label for="cover_file">Upload a photo</label><input id="cover_file" type="file" name="cover_file" accept="image/jpeg,image/png,image/webp"><div class="hint">JPG, PNG or WebP up to 5 MB. Without one, a cover with the city name is shown.</div></div>
-        <div class="field"><label for="image_url">Or an image link</label><input id="image_url" type="url" name="image_url" value="<%= linked ? p.image_url : '' %>" placeholder="https://…"></div>
-      </div>
-      <p class="muted" style="font-size:12.5px;margin:0">Use photos you own or have licensed.</p>
-    </div>
   </div>
-
-  <div>
-    <div class="card" style="position:sticky;top:76px">
-      <button class="btn btn-primary btn-lg" style="width:100%"><%= isNew ? `Save ${cfg.label.toLowerCase()}` : 'Save changes' %></button>
-      <% if (problems.length) { %>
-        <div class="alert warn" style="margin:14px 0 0;font-size:13px"><b>Before publishing:</b><ul style="margin:6px 0 0;padding-left:18px"><% problems.forEach(x => { %><li><%= x %></li><% }) %></ul></div>
-      <% } else if (!isNew && p.status !== 'published') { %>
-        <div class="alert success" style="margin:14px 0 0;font-size:13px">Ready to publish.</div>
-      <% } %>
-      <% if (!isNew) { %>
-        <p class="muted" style="font-size:12.5px;margin:14px 0 0">Added by <%= p.created_by_name || 'System' %> on <%= fmtDate(p.created_at) %><br>Last changed by <%= p.updated_by_name || 'System' %> on <%= fmtDate(p.updated_at) %></p>
-        <% if (typeof history !== 'undefined' && history.length) { %>
-          <h3 style="margin-top:14px;font-size:13px">History</h3>
-          <ul class="muted" style="font-size:12px;padding-left:16px;margin:0">
-            <% history.forEach(l => { %><li><%= l.action.replace('product.', '').replace('_', ' ') %> · <%= l.user_name || 'System' %> · <%= fmtDate(l.created_at) %></li><% }) %>
-          </ul>
+  <% if (mainFields.length) { %>
+  <div class="pf-row">
+    <% mainFields.map(fieldInput).forEach(({ key, label, type, options, v }) => { %>
+      <div class="field"><label for="d_<%= key %>"><%= label %></label>
+        <% if (type === 'select') { %>
+          <select id="d_<%= key %>" name="d_<%= key %>"><option value="">—</option><% options.forEach(o => { %><option value="<%= o %>" <%= String(o) === String(v) ? 'selected' : '' %>><%= key === 'mealPlan' ? `${o} · ${mealPlans[o]}` : key === 'trip' ? (o === 'return' ? 'Return fare' : 'One way') : key === 'stars' ? `${o} star` : o %></option><% }) %></select>
+        <% } else { %>
+          <input id="d_<%= key %>" name="d_<%= key %>" type="<%= type %>" value="<%= v %>" <%- key === 'from' || key === 'to' ? 'maxlength="3" style="text-transform:uppercase" placeholder="e.g. ' + (key === 'from' ? 'DEL' : 'DXB') + '"' : '' %>>
         <% } %>
-      <% } %>
-    </div>
+      </div>
+    <% }) %>
   </div>
+  <% } %>
+  <div class="field"><label for="summary">One-line summary</label><input id="summary" name="summary" value="<%= val(p.summary) %>" maxlength="200" placeholder="Shown to agents on the card in one line"></div>
+</section>
+
+<section class="card pf-sec">
+  <h2><span class="pf-n">2</span>Price</h2>
+  <div class="pf-row">
+    <% if (cfg.basis.length > 1) { %>
+      <div class="field"><label for="price_basis">Priced</label>
+        <select id="price_basis" name="price_basis"><% cfg.basis.forEach(b => { %><option value="<%= b %>" <%= b === p.price_basis ? 'selected' : '' %>><%= basisLabels[b] %></option><% }) %></select>
+      </div>
+    <% } else { %><input type="hidden" name="price_basis" value="<%= cfg.basis[0] %>"><% } %>
+    <% if (cfg.basis.includes('per_group')) { %><div class="field pf-group"><label for="group_size">Guests per group / vehicle</label><input id="group_size" type="number" min="1" name="group_size" value="<%= val(p.group_size) %>" placeholder="e.g. 4"></div><% } %>
+    <div class="field"><label for="net_adult"><span class="pf-pp-label"><%= cfg.basis.length === 1 ? netLabel[cfg.basis[0]] : 'Cost per adult' %></span><span class="pf-grp-label">Cost per group</span> (₹) <span class="req">*</span></label>
+      <input id="net_adult" type="number" min="0" step="any" name="net_adult" value="<%= cost('adult') %>" required data-margin="<%= margin %>" inputmode="decimal"><div class="hint">Agents see <b data-agent-price="net_adult"></b></div></div>
+    <% if (cfg.basis.includes('per_person')) { %>
+      <div class="field pf-pp"><label for="net_child">Child 2–11 (₹)</label><input id="net_child" type="number" min="0" step="any" name="net_child" value="<%= cost('child') %>" placeholder="Same as adult" data-margin="<%= margin %>" inputmode="decimal"><div class="hint">Agents see <b data-agent-price="net_child"></b></div></div>
+      <div class="field pf-pp"><label for="net_infant">Infant under 2 (₹)</label><input id="net_infant" type="number" min="0" step="any" name="net_infant" value="<%= cost('infant') %>" placeholder="Free" data-margin="<%= margin %>" inputmode="decimal"><div class="hint">Agents see <b data-agent-price="net_infant"></b></div></div>
+    <% } %>
+  </div>
+  <p class="pf-note">Enter what VaayuTrip pays. Agents see it + <b><%= margin %>%</b> VaayuTrip margin, then add their own markup.</p>
+</section>
+
+<details class="card pf-more" <%= (moreFields.some(([k]) => val(d[k]) !== '') || has('description')) ? 'open' : '' %>>
+  <summary><%- icon('plus') %>More <%= cfg.label.toLowerCase() %> details <span>optional</span></summary>
+  <% if (moreFields.length) { %>
+  <div class="pf-row">
+    <% moreFields.map(fieldInput).forEach(({ key, label, type, options, v }) => { %>
+      <div class="field" style="<%= type === 'textarea' ? 'grid-column:1/-1' : '' %>"><label for="d_<%= key %>"><%= label %></label>
+        <% if (type === 'select') { %>
+          <select id="d_<%= key %>" name="d_<%= key %>"><option value="">—</option><% options.forEach(o => { %><option value="<%= o %>" <%= String(o) === String(v) ? 'selected' : '' %>><%= key === 'trip' ? (o === 'return' ? 'Return fare' : 'One way') : o %></option><% }) %></select>
+        <% } else if (type === 'textarea') { %>
+          <textarea id="d_<%= key %>" name="d_<%= key %>" style="min-height:70px"><%= v %></textarea>
+        <% } else { %>
+          <input id="d_<%= key %>" name="d_<%= key %>" type="<%= type %>" value="<%= v %>">
+        <% } %>
+      </div>
+    <% }) %>
+  </div>
+  <% } %>
+  <div class="field"><label for="description">Description</label><textarea id="description" name="description" placeholder="A few lines for agents and their customers"><%= val(p.description) %></textarea></div>
+</details>
+
+<details class="card pf-more" <%= has('highlights', 'pickup', 'timing', 'inclusions', 'exclusions', 'cancellation') ? 'open' : '' %>>
+  <summary><%- icon('plus') %>Inclusions, timings &amp; cancellation <span>optional</span></summary>
+  <div class="pf-row two">
+    <div class="field"><label for="inclusions">Included <small class="muted">one per line</small></label><textarea id="inclusions" name="inclusions"><%= val(p.inclusions) %></textarea></div>
+    <div class="field"><label for="exclusions">Not included <small class="muted">one per line</small></label><textarea id="exclusions" name="exclusions"><%= val(p.exclusions) %></textarea></div>
+  </div>
+  <div class="pf-row">
+    <div class="field"><label for="pickup"><%= p.kind === 'hotel' ? 'Check-in / check-out' : 'Pickup / meeting point' %></label><input id="pickup" name="pickup" value="<%= val(p.pickup) %>"></div>
+    <div class="field"><label for="timing"><%= p.kind === 'flight' ? 'Days of operation' : 'Timings' %></label><input id="timing" name="timing" value="<%= val(p.timing) %>"></div>
+    <div class="field"><label for="cancellation">Cancellation policy</label><input id="cancellation" name="cancellation" value="<%= val(p.cancellation) %>" placeholder="e.g. Free up to 48 hours before"></div>
+  </div>
+  <div class="field"><label for="highlights">Highlights <small class="muted">one per line</small></label><textarea id="highlights" name="highlights" style="min-height:70px"><%= val(p.highlights) %></textarea></div>
+</details>
+
+<details class="card pf-more" <%= seasonRows.length || blackoutRows.length ? 'open' : '' %>>
+  <summary><%- icon('plus') %>Peak season &amp; sold-out dates <span>optional</span></summary>
+  <p class="pf-note" style="margin-top:0">Peak season adds a % to agents' price for those travel dates (a minus % is an offer). Sold-out dates can't be booked.</p>
+  <table class="season-table">
+    <thead><tr><th>From</th><th>To</th><th>Price change %</th><th>Name</th></tr></thead>
+    <% for (let i = 0; i < Math.max(2, seasonRows.length + 1) && i < 6; i++) { const s = seasonRows[i] || {}; %>
+      <tr>
+        <td><input type="date" name="s_from_<%= i %>" value="<%= s.from || '' %>" aria-label="Season <%= i + 1 %> from"></td>
+        <td><input type="date" name="s_to_<%= i %>" value="<%= s.to || '' %>" aria-label="Season <%= i + 1 %> to"></td>
+        <td><input type="number" step="0.5" min="-50" max="300" name="s_pct_<%= i %>" value="<%= s.pct ?? '' %>" placeholder="e.g. 25" aria-label="Season <%= i + 1 %> price change"></td>
+        <td><input name="s_label_<%= i %>" value="<%= s.label || '' %>" maxlength="40" placeholder="e.g. Christmas &amp; New Year" aria-label="Season <%= i + 1 %> name"></td>
+      </tr>
+    <% } %>
+  </table>
+  <table class="season-table" style="margin-top:12px">
+    <thead><tr><th>Sold out from</th><th>To</th><th colspan="2">Reason</th></tr></thead>
+    <% for (let i = 0; i < Math.max(1, blackoutRows.length + 1) && i < 6; i++) { const s = blackoutRows[i] || {}; %>
+      <tr>
+        <td><input type="date" name="b_from_<%= i %>" value="<%= s.from || '' %>" aria-label="Sold out <%= i + 1 %> from"></td>
+        <td><input type="date" name="b_to_<%= i %>" value="<%= s.to || '' %>" aria-label="Sold out <%= i + 1 %> to"></td>
+        <td colspan="2"><input name="b_label_<%= i %>" value="<%= s.label || '' %>" maxlength="40" placeholder="e.g. Fully booked" aria-label="Sold out <%= i + 1 %> reason"></td>
+      </tr>
+    <% } %>
+  </table>
+</details>
+
+<details class="card pf-more" <%= p.image_url ? 'open' : '' %>>
+  <summary><%- icon('plus') %>Photo <span>optional</span></summary>
+  <% if (p.image_url) { %><img src="<%= p.image_url %>" alt="" class="photo-thumb"><label class="check" style="font-size:13px"><input type="checkbox" name="remove_cover" value="1"> Remove photo</label><% } %>
+  <div class="pf-row two">
+    <div class="field"><label for="cover_file">Upload a photo</label><input id="cover_file" type="file" name="cover_file" accept="image/jpeg,image/png,image/webp"><div class="hint">JPG, PNG or WebP up to 5 MB. Without one, a photo of the city is used.</div></div>
+    <div class="field"><label for="image_url">Or an image link</label><input id="image_url" type="url" name="image_url" value="<%= linked ? p.image_url : '' %>" placeholder="https://…"></div>
+  </div>
+</details>
+
+<div class="pf-bar">
+  <span class="pf-bar-note"><% if (isNew) { %>Saved as a draft. Agents see it after you publish.<% } else { %>Last changed by <%= p.updated_by_name || 'System' %> on <%= fmtDate(p.updated_at) %><% } %></span>
+  <%# The main Save comes first, so pressing Enter in a field saves (CSS shows it last). %>
+  <button class="btn btn-primary btn-lg pf-save"><%= isNew ? `Save ${cfg.label.toLowerCase()}` : 'Save changes' %></button>
+  <% if (isNew) { %><button class="btn btn-lg" name="after" value="new" title="Keeps the city and country for the next one">Save &amp; add another</button><% } %>
 </div>
 </form>
+
 <% if (!isNew) { %>
-  <form method="post" action="/backend/products/<%= p.id %>/delete" data-confirm="Delete this item? Agents' packages will show it as no longer offered. Unpublishing keeps its history instead."><button class="btn btn-danger btn-sm">Delete</button></form>
+  <div class="pf-foot">
+    <% if (typeof history !== 'undefined' && history.length) { %>
+      <details><summary>History</summary><ul class="muted"><% history.forEach(l => { %><li><%= l.action.replace('product.', '').replace('_', ' ') %> · <%= l.user_name || 'System' %> · <%= fmtDate(l.created_at) %></li><% }) %></ul></details>
+    <% } %>
+    <form method="post" action="/backend/products/<%= p.id %>/delete" data-confirm="Delete this item? Agents' packages will show it as no longer offered. Unpublishing keeps its history instead."><button class="btn btn-danger btn-sm">Delete</button></form>
+  </div>
 <% } %>
