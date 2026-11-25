@@ -55,10 +55,10 @@
 <% } %>
 
 <div class="quick-grid">
-  <a class="quick" href="/agent/packages/new"><span class="q-ico"><%- icon('briefcase') %></span><b>Build a package</b><small>Day-wise trip from our inventory</small></a>
-  <a class="quick" href="/agent/quotes"><span class="q-ico"><%- icon('file') %></span><b>Quotes</b><small><%= personal.awaiting ? `${personal.awaiting} waiting on your customers` : quotes.length ? 'All answered' : 'Share prices on WhatsApp' %></small></a>
-  <a class="quick" href="/agent/leads"><span class="q-ico"><%- icon('target') %></span><b>Leads</b><small><%= followUps.length ? `${followUps.length} to call today` : `${openLeads} open lead${openLeads === 1 ? '' : 's'}` %></small></a>
-  <% if (agentCan('/agent/wallet')) { %><a class="quick" href="/agent/wallet"><span class="q-ico"><%- icon('wallet') %></span><b>Top up wallet</b><small>Balance <%= inr(agency.wallet_balance) %></small></a><% } %>
+  <a class="quick t-blue" href="/agent/packages/new"><span class="q-go" aria-hidden="true">→</span><span class="q-ico"><%- icon('briefcase') %></span><b>Build a package</b><small>Day-wise trip from our inventory</small></a>
+  <a class="quick t-teal" href="/agent/quotes"><span class="q-go" aria-hidden="true">→</span><span class="q-ico"><%- icon('file') %></span><b>Quotes</b><small><%= personal.awaiting ? `${personal.awaiting} waiting on your customers` : quotes.length ? 'All answered' : 'Share prices on WhatsApp' %></small></a>
+  <a class="quick t-amber" href="/agent/leads"><span class="q-go" aria-hidden="true">→</span><span class="q-ico"><%- icon('target') %></span><b>Leads</b><small><%= followUps.length ? `${followUps.length} to call today` : `${openLeads} open lead${openLeads === 1 ? '' : 's'}` %></small></a>
+  <% if (agentCan('/agent/wallet')) { %><a class="quick t-green" href="/agent/wallet"><span class="q-go" aria-hidden="true">→</span><span class="q-ico"><%- icon('wallet') %></span><b>Top up wallet</b><small>Balance <%= inr(agency.wallet_balance) %></small></a><% } %>
 </div>
 
 <% if (tierNow.tier !== 'standard') { %>
@@ -117,11 +117,18 @@
   </div>
 <% } %>
 
-<div class="grid grid-4" style="margin-bottom:20px">
-  <div class="stat"><div class="label">Wallet balance</div><div class="value"><%= inr(agency.wallet_balance) %></div><div class="sub"><a href="/agent/wallet">Top up →</a></div></div>
-  <div class="stat"><div class="label">Credit available</div><div class="value"><%= inr(agency.credit_limit - agency.credit_used) %></div><div class="sub"><%= agency.credit_limit > 0 ? "of " + inr(agency.credit_limit) + " limit" : "ask VaayuTrip for a credit line" %></div></div>
-  <div class="stat"><div class="label">Sales this month</div><div class="value"><%= inr(stats.sales) %></div><div class="sub"><%= stats.bookings %> booking<%= stats.bookings === 1 ? '' : 's' %></div></div>
-  <div class="stat"><div class="label">Your earnings this month</div><div class="value profit"><%= inr(stats.earnings) %></div><div class="sub"><%= stats.sales > 0 ? `${(stats.earnings / stats.sales * 100).toFixed(1)}% of your sales` : 'No sales yet this month' %></div></div>
+<%
+  const used = agency.credit_limit > 0 ? Math.min(100, Math.round(agency.credit_used / agency.credit_limit * 100)) : 0;
+  const spark = (vals) => { const mx = Math.max(1, ...vals); const n = vals.length; return vals.map((x, i) => `${(n > 1 ? i * 100 / (n - 1) : 50).toFixed(1)},${(30 - x / mx * 26).toFixed(1)}`).join(' '); };
+  const earnVals = chart.map(c => c.value || 0);
+%>
+<div class="grid grid-4 money-row" style="margin-bottom:20px">
+  <div class="stat s-blue"><div class="label"><span class="s-ico"><%- icon('wallet') %></span>Wallet balance</div><div class="value" data-tick><%= inr(agency.wallet_balance) %></div><div class="sub"><a href="/agent/wallet">Top up →</a></div></div>
+  <div class="stat s-teal"><div class="label"><span class="s-ico"><%- icon('shield') %></span>Credit available</div><div class="value" data-tick><%= inr(agency.credit_limit - agency.credit_used) %></div>
+    <% if (agency.credit_limit > 0) { %><% if (used) { %><div class="meter" title="<%= used %>% of your credit line used"><i style="width:<%= used %>%"></i></div><% } %><div class="sub"><%= used ? used + '% used of ' : 'of ' %><%= inr(agency.credit_limit) %> limit</div><% } else { %><div class="sub">ask VaayuTrip for a credit line</div><% } %></div>
+  <div class="stat s-amber"><div class="label"><span class="s-ico"><%- icon('chart') %></span>Sales this month</div><div class="value" data-tick><%= inr(stats.sales) %></div><div class="sub"><%= stats.bookings %> booking<%= stats.bookings === 1 ? '' : 's' %></div></div>
+  <div class="stat s-green"><div class="label"><span class="s-ico"><%- icon('target') %></span>Your earnings this month</div><div class="value profit" data-tick><%= inr(stats.earnings) %></div><div class="sub"><%= stats.sales > 0 ? `${(stats.earnings / stats.sales * 100).toFixed(1)}% of your sales` : 'No sales yet this month' %></div>
+    <% if (earnVals.some(Boolean)) { %><svg class="spark" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,32 <%= spark(earnVals) %> 100,32"/><polyline points="<%= spark(earnVals) %>"/></svg><% } %></div>
 </div>
 
 <div class="card">

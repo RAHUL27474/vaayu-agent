@@ -434,3 +434,20 @@ document.querySelectorAll('[data-chart]').forEach((chart) => {
   });
   if (media && media.addEventListener) media.addEventListener('change', () => { if ((root.dataset.themePref || 'system') === 'system') apply('system'); });
 })();
+
+// Money figures count up once when the page opens (skipped for people who prefer less motion).
+(() => {
+  if (document.hidden || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+  document.querySelectorAll('[data-tick]').forEach((el) => {
+    const text = el.textContent.trim();
+    const m = text.match(/^(-?)(₹?)([\d,]+)(\.\d+)?$/);
+    if (!m) return;
+    const target = Number(m[3].replace(/,/g, ''));
+    if (!target) return;
+    const fmt = (n) => m[1] + m[2] + Math.round(n).toLocaleString('en-IN');
+    const t0 = performance.now(), dur = 700;
+    setTimeout(() => { el.textContent = text; }, dur + 150);
+    const step = () => { const p = Math.max(0, Math.min(1, (performance.now() - t0) / dur)); el.textContent = p < 1 ? fmt(target * (1 - Math.pow(1 - p, 3))) : text; if (p < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  });
+})();
