@@ -431,3 +431,32 @@ body.public input:not([type=checkbox]):not([type=radio]):not([type=range]):not([
 body.public input:focus, body.public select:focus, body.public textarea:focus { border-color: var(--teal); outline: 3px solid var(--ring); outline-offset: 0; }
 body.public .card { border-radius: 6px; box-shadow: none; }
 .v-svc-list li { align-content: start; }
+
+/* ---------- City photos: labels on destination cards, and a city-by-city gallery ---------- */
+.v-dest-cities i { display: inline-flex; align-items: center; gap: 6px; }
+.v-dest-cities i img { position: static; width: 18px; height: 18px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255, 255, 255, .6); z-index: auto; transform: none !important; }
+.v-cities { padding: 0 0 104px; }
+.v-cities-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.v-cities-head h2 { font-size: clamp(28px, 3vw, 40px); line-height: 1.12; margin: 0 0 10px; }
+.v-cities-head p { margin: 0; color: var(--text-2); font-size: 17px; }
+.v-rail-nav { display: flex; gap: 8px; }
+.v-rail-btn { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--rule); background: #fff; color: var(--navy); cursor: pointer; transition: border-color .15s, background .15s; }
+.v-rail-btn:hover { border-color: var(--navy); }
+.v-rail-btn .i { width: 18px; height: 18px; }
+.v-rail { display: grid; grid-auto-flow: column; grid-auto-columns: 260px; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-left: max(40px, calc((100vw - 1280px) / 2 + 40px)); padding: 4px max(40px, calc((100vw - 1280px) / 2 + 40px)) 12px; scrollbar-width: thin; scrollbar-color: var(--rule) transparent; }
+.v-rail:focus-visible { outline: 2px solid var(--teal); outline-offset: 4px; }
+.v-city { position: relative; display: block; aspect-ratio: 3 / 4; border-radius: 6px; overflow: hidden; scroll-snap-align: start; background: var(--navy); color: #fff !important; text-decoration: none !important; isolation: isolate; }
+.v-city img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; transition: transform .6s cubic-bezier(.2, .7, .2, 1); }
+.v-city::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(10, 30, 50, 0) 45%, rgba(10, 30, 50, .85)); }
+.v-city:hover img { transform: scale(1.05); }
+.v-city span { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 2px; padding: 18px; }
+.v-city b { font: 700 20px/1.2 var(--display); letter-spacing: -.01em; }
+.v-city small { font-size: 12.5px; color: rgba(255, 255, 255, .82); }
+.v-city:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+@media (max-width: 760px) { .v-cities { padding-bottom: 72px; } .v-rail-nav { display: none; } .v-rail { grid-auto-columns: 62%; gap: 12px; padding: 4px 20px 12px; scroll-padding-left: 20px; } }
+@media (prefers-reduced-motion: reduce) { .v-city img { transition: none; } }
+.v-city::before { background: linear-gradient(180deg, rgba(10, 30, 50, 0) 38%, rgba(10, 30, 50, .55) 62%, rgba(10, 30, 50, .92)); }
+.v-city b, .v-city small { text-shadow: 0 1px 8px rgba(0, 0, 0, .35); }
+/* Scrim above the photo, text above the scrim (both used z-index:-1, so the photo covered the scrim) */
+.v-city::before, .v-dest::before { z-index: 0; }
+.v-city span, .v-dest-body { z-index: 1; }

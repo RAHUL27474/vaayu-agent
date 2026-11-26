@@ -95,13 +95,36 @@
           <span class="v-dest-body">
             <span class="v-dest-top"><b><%= name %></b><small><%= d.items %> services</small></span>
             <span class="v-dest-note"><%= NOTE[name] %></span>
-            <% if (d.cities.length && !(d.cities.length === 1 && d.cities[0] === name)) { %><span class="v-dest-cities"><% d.cities.slice(0, 4).forEach(c => { %><i><%= c %></i><% }) %><% if (d.cities.length > 4) { %><i>+<%= d.cities.length - 4 %></i><% } %></span><% } %>
+            <% if (d.cities.length && !(d.cities.length === 1 && d.cities[0] === name)) { %><span class="v-dest-cities"><% d.cities.slice(0, 4).forEach(c => { %><i><% if (cityThumbs[c]) { %><img src="<%= cityThumbs[c] %>" alt="" loading="lazy"><% } %><%= c %></i><% }) %><% if (d.cities.length > 4) { %><i>+<%= d.cities.length - 4 %></i><% } %></span><% } %>
           </span>
         </a>
       <% }) %>
     </div>
   </div>
 </section>
+
+<% if (cityShots.length) { %>
+<section class="v-cities" aria-labelledby="cities-h">
+  <div class="v-wrap v-cities-head">
+    <div>
+      <h2 id="cities-h">City by city</h2>
+      <p>Hotels, sightseeing and transfers in <%= cityShots.length %> cities across six destinations.</p>
+    </div>
+    <div class="v-rail-nav">
+      <button type="button" class="v-rail-btn" data-rail-step="-1" aria-label="Previous cities"><%- icon('arrowLeft') %></button>
+      <button type="button" class="v-rail-btn" data-rail-step="1" aria-label="Next cities"><%- icon('arrowRight') %></button>
+    </div>
+  </div>
+  <div class="v-rail" data-rail tabindex="0" role="list" aria-label="Cities">
+    <% cityShots.forEach((s) => { %>
+      <a class="v-city" role="listitem" href="<%= user && user.role === 'agent' ? '/agent/hotels?city=' + encodeURIComponent(s.city) : '/signup' %>">
+        <img src="<%= s.src %>" alt="<%= s.city %>" loading="lazy" width="640" height="480">
+        <span><b><%= s.city %></b><small><%= s.dest === s.city ? 'Destination' : s.dest %><%= s.n ? ` · ${s.n} service${s.n === 1 ? '' : 's'}` : '' %></small></span>
+      </a>
+    <% }) %>
+  </div>
+</section>
+<% } %>
 
 <section class="v-portal" id="portal">
   <div class="v-wrap v-portal-grid">

@@ -5,6 +5,7 @@ const { hashPassword, verifyPassword, uniqueSlug, num, code, round2 } = require(
 const { h, homeFor } = require('../auth');
 const { COUNTRIES, withKycDocs, checkTax, checkKycFiles, removeUploaded } = require('../kyc');
 const { DESTINATIONS, destinationOf } = require('../products');
+const { CITY_PHOTOS, DEST_PHOTOS } = require('../destination-photos');
 const mailer = require('../mailer');
 const otp = require('../otp');
 const payments = require('../payments');
@@ -23,12 +24,22 @@ router.get('/', h(async (req, res) => {
   };
   // Cities and live items per destination for the destinations grid.
   const byDest = Object.fromEntries(Object.keys(DESTINATIONS).map((d) => [d, { name: d, cities: new Set(), items: 0 }]));
+  const perCity = new Map();
   for (const r of await all("SELECT city, country, COUNT(*) AS n FROM products WHERE status = 'published' GROUP BY city, country")) {
     const d = byDest[destinationOf(r.country)];
-    if (d) { d.cities.add(r.city); d.items += r.n; }
+    if (d) { d.cities.add(r.city); d.items += r.n; perCity.set(r.city, (perCity.get(r.city) || 0) + r.n); }
   }
   const destinations = Object.values(byDest).map((d) => ({ name: d.name, cities: [...d.cities], items: d.items }));
-  res.page('public/home', { title: 'B2B travel platform for agents', activities, stats, destinations }, 'public');
+  // Small photos (public/img/*/thumbs) for the city gallery and the city labels on destination cards.
+  const thumb = (path) => path.replace(/\/([^/]+)$/, '/thumbs/$1');
+  const cityThumbs = Object.fromEntries(Object.entries(CITY_PHOTOS).map(([c, p]) => [c, thumb(p)]));
+  const cityShots = [];
+  for (const d of destinations) {
+    const withPhoto = d.cities.filter((c) => cityThumbs[c]).sort();
+    if (!withPhoto.length && DEST_PHOTOS[d.name]) cityShots.push({ city: d.name, dest: d.name, src: thumb(DEST_PHOTOS[d.name]), n: d.items });
+    for (const c of withPhoto) cityShots.push({ city: c, dest: d.name, src: cityThumbs[c], n: perCity.get(c) || 0 });
+  }
+  res.page('public/home', { title: 'B2B travel platform for agents', activities, stats, destinations, cityShots, cityThumbs }, 'public');
 }));
 
 // Generated cover card for packages and hotels without an uploaded photo.

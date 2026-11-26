@@ -494,3 +494,11 @@ if (siteHeader) {
   window.addEventListener('scroll', syncLine, { passive: true });
   syncLine();
 }
+
+// Home city gallery: arrow buttons scroll the rail by about one screen of photos.
+document.querySelectorAll('[data-rail]').forEach((rail) => {
+  const section = rail.closest('section');
+  section.querySelectorAll('[data-rail-step]').forEach((b) => b.addEventListener('click', () => {
+    rail.scrollBy({ left: Number(b.dataset.railStep) * rail.clientWidth * 0.8, behavior: calmMotion ? 'auto' : 'smooth' });
+  }));
+});
