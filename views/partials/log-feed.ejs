@@ -21,23 +21,23 @@
   for (const l of entries) { const k = dayKey(l.created_at); if (!days.length || days[days.length - 1].k !== k) days.push({ k, items: [] }); days[days.length - 1].items.push(l); }
 %>
 <% if (!entries.length) { %><div class="empty"><span class="big"><%- icon('activity') %></span><strong>Nothing here yet</strong><p>Try a wider date range or clear the filters.</p></div><% } else { %>
-<div class="feed">
+<table class="logt">
+  <thead><tr><th scope="col">Time</th><th scope="col">Who</th><th scope="col">What happened</th><th scope="col">Details</th></tr></thead>
   <% days.forEach(d => { %>
-    <section class="feed-day">
-      <h2 class="feed-date"><span><%= dayLabel(d.k) %></span><small><%= d.items.length %> <%= d.items.length === 1 ? 'change' : 'changes' %></small></h2>
-      <ol class="feed-list">
-        <% d.items.forEach(l => { const a = AREA[l.action.split('.')[0]] || ['activity', 'slate', l.action.split('.')[0]]; %>
-          <li class="feed-item feed-<%= a[1] %>">
-            <span class="feed-ico" aria-hidden="true"><%- icon(a[0]) %></span>
-            <div class="feed-body">
-              <p class="feed-line"><b><%= l.user_name || 'System' %></b> <%= verb(l.action) %> <span class="feed-tag"><%= a[2] %></span></p>
-              <% if (l.summary) { %><p class="feed-sum"><% if (l.link) { %><a href="<%= l.link %>"><%= l.summary %></a><% } else { %><%= l.summary %><% } %></p><% } %>
-              <p class="feed-meta"><time datetime="<%= ist(l.created_at).toISOString() %>"><%= time(l.created_at) %></time><span><%= roleName[l.role] || l.role %></span><% if (l.role === 'agent' && l.agency_name) { %><span><%= l.agency_name %></span><% } %></p>
-            </div>
-          </li>
-        <% }) %>
-      </ol>
-    </section>
+    <tbody>
+      <tr class="logt-day"><th colspan="4" scope="colgroup"><span><%= dayLabel(d.k) %></span><small><%= d.items.length %> <%= d.items.length === 1 ? 'change' : 'changes' %></small></th></tr>
+      <% d.items.forEach(l => { const a = AREA[l.action.split('.')[0]] || ['activity', 'slate', l.action.split('.')[0]]; %>
+        <tr class="logt-row feed-<%= a[1] %>"<% if (l.link) { %> data-href="<%= l.link %>"<% } %>>
+          <td class="logt-time"><time datetime="<%= ist(l.created_at).toISOString() %>"><%= time(l.created_at) %></time></td>
+          <td class="logt-who">
+            <span class="feed-av" style="--h:<%= hue(l.user_name) %>" aria-hidden="true"><%= initials(l.user_name) %></span>
+            <span><b><%= l.user_name || 'System' %></b><small><%= roleName[l.role] || l.role %><%= l.role === 'agent' && l.agency_name ? ` · ${l.agency_name}` : '' %></small></span>
+          </td>
+          <td class="logt-what"><span class="logt-pill"><%- icon(a[0]) %><%= a[2] %> <%= l.action.split('.').slice(1).join(' ').replace(/_/g, ' ') %></span></td>
+          <td class="logt-sum"><% if (l.link) { %><a href="<%= l.link %>"><%= l.summary || 'Open' %></a><% } else { %><%= l.summary || '' %><% } %></td>
+        </tr>
+      <% }) %>
+    </tbody>
   <% }) %>
-</div>
+</table>
 <% } %>
