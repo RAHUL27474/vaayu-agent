@@ -11,11 +11,11 @@
   }[kind];
 %>
 <div class="page-head">
-  <div><h1><%= cfg.plural %></h1><p><%= intro %> from VaayuTrip in Dubai, Bali, Vietnam, Cambodia, the UK and Europe. Add them to a quote, or build them into your own packages. Your default markup is <%= mk %>.</p></div>
+  <div><h1><%= cfg.plural %></h1><p><%= intro %>. Add services to a quote or package. Your default markup is <strong><%= mk %></strong>.</p></div>
   <a class="btn btn-primary" href="/agent/packages/new"><%- icon('plus') %>Build a package</a>
 </div>
-<nav class="svc-nav" aria-label="Services">
-  <% services.forEach(s => { %><a class="<%= s.kind === kind ? 'on' : '' %>" href="/agent/<%= s.path %><%= f.dest ? '?dest=' + encodeURIComponent(f.dest) : '' %>"><%- icon(s.icon) %><span><%= s.label %></span></a><% }) %>
+<nav class="svc-nav catalogue-services" aria-label="Services">
+  <% services.forEach(s => { %><a class="<%= s.kind === kind ? 'on' : '' %>" <%- s.kind === kind ? 'aria-current="page"' : '' %> href="/agent/<%= s.path %><%= f.dest ? '?dest=' + encodeURIComponent(f.dest) : '' %>"><%- icon(s.icon) %><span><%= s.label %></span></a><% }) %>
 </nav>
 <div class="chips filter-chips" style="margin-bottom:12px">
   <a class="<%= !f.dest ? 'on' : '' %>" href="<%= qs({ dest: '', city: '' }) %>">All destinations</a>
@@ -23,23 +23,23 @@
 </div>
 <% const activeFilters = [f.q, f.city, f.category].filter(Boolean).length; %>
 <button type="button" class="btn filter-toggle" data-filter-toggle aria-controls="catalogue-filters" aria-expanded="false"><%- icon('search') %>Search &amp; filters<% if (activeFilters) { %> <span class="badge info"><%= activeFilters %></span><% } %></button>
-<form class="card filter-bar<%= activeFilters ? ' has-filters' : '' %>" id="catalogue-filters" method="get">
+<form class="card filter-bar catalogue-filters<%= activeFilters ? ' has-filters' : '' %>" id="catalogue-filters" method="get" role="search" aria-label="Filter <%= cfg.plural.toLowerCase() %>">
   <% if (f.dest) { %><input type="hidden" name="dest" value="<%= f.dest %>"><% } %>
-  <div style="flex:1;min-width:200px"><label for="q">Search</label><input id="q" type="search" name="q" value="<%= f.q %>" placeholder="Name or city"></div>
+  <div><label for="q">Search</label><input id="q" type="search" name="q" value="<%= f.q %>" placeholder="Name or city"></div>
   <div><label for="city">City</label><select id="city" name="city"><option value="">All cities</option><% cities.forEach(c => { %><option value="<%= c.city %>" <%= c.city === f.city ? 'selected' : '' %>><%= c.city %>, <%= c.country %> (<%= c.n %>)</option><% }) %></select></div>
   <div><label for="category"><%= { hotel: 'Type', flight: 'Cabin', visa: 'Visa type', insurance: 'Plan' }[kind] || 'Category' %></label><select id="category" name="category"><option value="">All</option><% cfg.categories.forEach(c => { %><option <%= c === f.category ? 'selected' : '' %>><%= c %></option><% }) %></select></div>
-  <button class="btn btn-primary">Filter</button>
+  <button class="btn btn-primary"><%- icon('search') %>Apply filters</button>
   <% if (f.q || f.city || f.category) { %><a class="btn btn-ghost" href="<%= qs({ q: '', city: '', category: '' }) %>">Clear</a><% } %>
 </form>
-<% if (!products.length) { %><div class="card empty"><span class="big"><%- icon(cfg.icon) %></span>Nothing matches yet. Our team adds new <%= cfg.plural.toLowerCase() %> regularly; ask us on <a href="/agent/support">Help &amp; support</a> if you need something specific.</div><% } %>
+<% if (!products.length) { %><div class="card empty"><span class="big"><%- icon(cfg.icon) %></span><strong>No matching <%= cfg.plural.toLowerCase() %></strong><p>Try another destination or change your filters. For a specific request, contact <a href="/agent/support">Help &amp; support</a>.</p></div><% } %>
 <div class="pkg-grid">
   <% products.forEach(p => { %>
-    <a class="pkg" href="/agent/<%= cfg.path %>/<%= p.id %>" style="color:inherit;text-decoration:none">
+    <a class="pkg catalogue-card" href="/agent/<%= cfg.path %>/<%= p.id %>">
       <% if (kind === 'activity' || kind === 'hotel') { %><img src="<%= cover({ image_url: p.image_url, city: p.city }) %>" alt="" loading="lazy"><% } %>
       <div class="body">
-        <div class="meta"><span class="badge info"><%= p.category %></span> <%= p.city %>, <%= p.country %><%= p.duration ? ` · ${p.duration}` : '' %></div>
+        <div class="meta"><span class="badge info"><%= p.category %></span><span><%= p.city %>, <%= p.country %><%= p.duration ? ` · ${p.duration}` : '' %></span></div>
         <h3><%= p.title %></h3>
-        <p class="muted" style="font-size:13px;margin:0"><%= kind === 'activity' ? p.summary : p.line %></p>
+        <p class="description"><%= kind === 'activity' ? p.summary : p.line %></p>
         <div class="price">
           <div><small class="muted">Net <%= p.price.unit %></small><br><% if (p.price.was) { %><s class="was-price"><%= inr(p.price.was) %></s> <b class="tier-price"><%= inr(p.price.net) %></b><br><span class="tier-badge <%= p.price.tier %>"><%= p.price.tier === 'gold' ? 'Gold' : 'Silver' %> price</span><% } else { %><b><%= inr(p.price.net) %></b><% } %></div>
           <div class="num"><small class="muted"><%= p.price.earnLabel %></small><br><span class="profit"><%= inr(p.price.earn) %></span></div>

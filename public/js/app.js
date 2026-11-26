@@ -135,17 +135,38 @@ document.addEventListener('click', (e) => {
   const btn = e.target.closest('.tp-gbtn');
   tpGroups.forEach((g) => { if (btn && g.contains(btn)) setGroup(g, !g.classList.contains('open')); else if (!g.contains(e.target)) setGroup(g, false); });
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') tpGroups.forEach((g) => setGroup(g, false)); });
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  tpGroups.filter((g) => g.classList.contains('open')).forEach((g) => {
+    setGroup(g, false);
+    if (g.contains(document.activeElement)) g.querySelector('.tp-gbtn').focus();
+  });
+});
 
 // Sidebar drawer on small screens: toggle, backdrop / close button / Escape / link click close it.
-const navToggle = document.querySelector('[data-nav-toggle]');
-const setNav = (open) => {
+const navToggles = document.querySelectorAll('[data-nav-toggle]');
+const drawerBackground = document.querySelectorAll('.tp-top, body.tp > .content, .bottom-nav');
+let drawerTrigger;
+const setNav = (open, trigger) => {
+  if (document.body.classList.contains('nav-open') === open) return;
   document.body.classList.toggle('nav-open', open);
-  if (navToggle) navToggle.setAttribute('aria-expanded', String(open));
+  navToggles.forEach((button) => button.setAttribute('aria-expanded', String(open)));
+  drawerBackground.forEach((region) => { region.inert = open; });
+  if (open) {
+    drawerTrigger = trigger;
+    document.querySelector('.tp-drawer-head [data-nav-close]')?.focus();
+  } else {
+    drawerTrigger?.focus();
+    drawerTrigger = undefined;
+  }
 };
 document.addEventListener('click', (e) => {
-  if (e.target.closest('[data-nav-toggle]')) setNav(!document.body.classList.contains('nav-open'));
+  const trigger = e.target.closest('[data-nav-toggle]');
+  if (trigger) setNav(!document.body.classList.contains('nav-open'), trigger);
   else if (e.target.closest('[data-nav-close], .tp-nav a')) setNav(false);
+});
+window.matchMedia('(max-width: 1024px)').addEventListener('change', (e) => {
+  if (!e.matches) setNav(false);
 });
 
 // Public site menu on phones.
@@ -224,7 +245,7 @@ document.addEventListener('click', (e) => {
   const form = document.getElementById(btn.getAttribute('aria-controls'));
   const open = form.classList.toggle('open');
   btn.setAttribute('aria-expanded', String(open));
-  if (open) form.querySelector('input, select')?.focus();
+  if (open) form.querySelector('input:not([type=hidden]), select')?.focus();
 });
 
 // Messages after an action: a close button on each; success messages fade out after a few seconds.
@@ -312,39 +333,24 @@ document.addEventListener('input', (e) => {
   if (empty) empty.hidden = shown > 0;
 });
 
-// ---------- Home page: hero slideshow, count-up numbers, margin calculator, scroll reveal ----------
+// ---------- Home page: destination photos, count-up numbers, margin calculator, scroll reveal ----------
 const calmMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const hero = document.querySelector('[data-hero]');
 if (hero) {
   const slides = hero.querySelectorAll('.hx-slide');
-  const dots = hero.querySelectorAll('[data-slide]');
-  const word = hero.querySelector('[data-hero-word]');
+  const choices = [...hero.querySelectorAll('[data-slide]')];
   const line = hero.querySelector('[data-hero-line]');
   const destSel = hero.querySelector('[data-hero-dest]');
-  if (destSel) destSel.addEventListener('change', () => { destSel.dataset.touched = '1'; });
-  const MS = 6000;
-  hero.style.setProperty('--slide-ms', `${MS}ms`);
-  let at = 0;
-  let timer;
-  const show = (i) => {
-    at = (i + slides.length) % slides.length;
-    slides.forEach((s, k) => s.classList.toggle('on', k === at));
-    dots.forEach((d, k) => {
-      d.classList.remove('on');
-      if (k === at) { void d.offsetWidth; d.classList.add('on'); }
-    });
-    if (line) line.textContent = dots[at].dataset.line;
-    if (destSel && !destSel.dataset.touched) destSel.value = dots[at].dataset.dest;
-    if (word) {
-      word.classList.add('out');
-      setTimeout(() => { word.textContent = dots[at].dataset.word; word.classList.remove('out'); }, 300);
-    }
+  const show = (index) => {
+    if (index < 0) return;
+    slides.forEach((slide, i) => slide.classList.toggle('on', i === index));
+    choices.forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
+    line.textContent = choices[index].dataset.line;
+    destSel.value = choices[index].dataset.dest;
   };
-  const play = () => { clearInterval(timer); if (!calmMotion) timer = setInterval(() => { if (!document.hidden) show(at + 1); }, MS); };
-  dots.forEach((d) => d.addEventListener('click', () => { show(Number(d.dataset.slide)); play(); }));
-  if (calmMotion) hero.setAttribute('data-paused', '');
-  play();
+  choices.forEach((button, index) => button.addEventListener('click', () => show(index)));
+  destSel.addEventListener('change', () => show(choices.findIndex((button) => button.dataset.dest === destSel.value)));
 }
 
 const io = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
@@ -425,6 +431,7 @@ document.querySelectorAll('[data-chart]').forEach((chart) => {
 
 // Theme: light / dark / follow the system. The choice lives in this browser; the head script applies it before paint.
 (() => {
+  if (!document.body.classList.contains('app')) return;
   const root = document.documentElement;
   const media = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
   const apply = (pref) => {
@@ -432,7 +439,7 @@ document.querySelectorAll('[data-chart]').forEach((chart) => {
     root.dataset.theme = pref === 'dark' || (pref === 'system' && media && media.matches) ? 'dark' : 'light';
     document.querySelectorAll('[data-theme-set]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeSet === pref)));
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = root.dataset.theme === 'dark' ? '#0d171e' : '#ffffff';
+    if (meta) meta.content = root.dataset.theme === 'dark' ? '#102331' : '#ffffff';
   };
   apply(root.dataset.themePref || 'system');
   document.addEventListener('click', (e) => {

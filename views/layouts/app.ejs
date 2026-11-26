@@ -78,7 +78,8 @@
       <button class="icon-btn menu-toggle" type="button" data-nav-toggle aria-label="Open menu" aria-controls="tp-nav" aria-expanded="false"><%- icon('menu') %></button>
       <a class="tp-logo" href="<%= home %>"><img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip" height="38"></a>
       <% if (agency) { %>
-        <a class="tp-agency" href="/agent/settings" title="Company &amp; branding"><b><%= agency.name %></b><small><%= agency.status === 'active' ? ((typeof tierNow !== 'undefined' && tierNow.source === 'own' && { gold: 'Gold partner', silver: 'Silver partner' }[tierNow.tier]) || 'Verified partner') : agency.status.charAt(0).toUpperCase() + agency.status.slice(1) %> · <%= roleLabel.replace('Agent · ', '') %></small></a>
+        <% const companyTag = canOpen('/agent/settings') ? 'a' : 'span'; %>
+        <<%= companyTag %> class="tp-agency"<% if (companyTag === 'a') { %> href="/agent/settings" title="Company &amp; branding"<% } %>><b><%= agency.name %></b><small><%= agency.status === 'active' ? ((typeof tierNow !== 'undefined' && tierNow.source === 'own' && { gold: 'Gold partner', silver: 'Silver partner' }[tierNow.tier]) || 'Verified partner') : agency.status.charAt(0).toUpperCase() + agency.status.slice(1) %> · <%= roleLabel.replace('Agent · ', '') %></small></<%= companyTag %>>
       <% } else { %>
         <span class="tp-agency"><b><%= isBackend ? 'Backend portal' : 'Admin console' %></b><small>VaayuTrip HQ</small></span>
       <% } %>
@@ -90,7 +91,7 @@
         </form>
         <a class="icon-btn search-btn" href="<%= home %>/search" aria-label="Search"><%- icon('search') %></a>
       <% } %>
-      <% if (agency && agency.status === 'active') { %>
+      <% if (agency && agency.status === 'active' && canOpen('/agent/wallet')) { %>
         <a class="balance" href="/agent/wallet"><span>Wallet</span><b><%= inr(agency.wallet_balance) %></b></a>
         <% if (agency.credit_limit > 0) { %><a class="balance" href="/agent/wallet"><span>Credit available</span><b><%= inr(agency.credit_limit - agency.credit_used) %></b></a><% } %>
       <% } %>
@@ -137,8 +138,9 @@
       <div class="tp-drawer-head"><img src="/img/vaayutrip-logo-sm.png" alt="VaayuTrip" height="32"><button class="icon-btn" type="button" data-nav-close aria-label="Close menu"><%- icon('x') %></button></div>
       <% menu.forEach((m) => { if (!m.group) { %><%- item(m, 'tp-link') %><% } else { const on = m.items.some((i) => i.active); %>
         <div class="tp-group<%= on ? ' on' : '' %>" data-tp-group>
-          <button type="button" class="tp-link tp-gbtn<%= on ? ' on' : '' %>" aria-expanded="false"><%- icon(m.ico) %><span><%= m.group %></span><%- icon('chevron', 'caret') %></button>
-          <div class="tp-drop"><% m.items.forEach((i) => { %><%- item(i, 'tp-item') %><% }) %></div>
+          <button type="button" class="tp-link tp-gbtn<%= on ? ' on' : '' %>" aria-expanded="false" aria-controls="nav-group-<%= m.ico %>"><%- icon(m.ico) %><span><%= m.group %></span><%- icon('chevron', 'caret') %></button>
+          <span class="tp-group-label"><%= m.group %></span>
+          <div class="tp-drop" id="nav-group-<%= m.ico %>"><% m.items.forEach((i) => { %><%- item(i, 'tp-item') %><% }) %></div>
         </div>
       <% } }) %>
       <% if (agency && settings.phone) { %>
@@ -163,10 +165,10 @@
   <% } else { %>
   <nav class="bottom-nav" aria-label="Quick menu">
     <a href="/agent" class="<%= isActive('/agent') ? 'on' : '' %>"><%- icon('dashboard') %><span>Home</span></a>
-    <a href="/agent/hotels" class="<%= bookPaths.some(isActive) ? 'on' : '' %>"><%- icon('search') %><span>Book</span></a>
+    <% if (canOpen('/agent/hotels')) { %><a href="/agent/hotels" class="<%= bookPaths.some(isActive) ? 'on' : '' %>"><%- icon('search') %><span>Book</span></a><% } else { %><a href="/agent/invoices" class="<%= isActive('/agent/invoices') ? 'on' : '' %>"><%- icon('receipt') %><span>Invoices</span></a><% } %>
     <a href="/agent/quotes" class="<%= isActive('/agent/quotes') ? 'on' : '' %>"><%- icon('file') %><span>Quotes</span></a>
     <a href="/agent/bookings" class="<%= isActive('/agent/bookings') ? 'on' : '' %>"><%- icon('clipboard') %><span>Bookings</span></a>
-    <button type="button" data-nav-toggle aria-label="More"><%- icon('menu') %><span>More</span></button>
+    <button type="button" data-nav-toggle aria-label="More" aria-controls="tp-nav" aria-expanded="false"><%- icon('menu') %><span>More</span></button>
   </nav>
   <% } %>
 <% } %>

@@ -1,34 +1,42 @@
 <%
-  const first = user.name.split(' ')[0];
-  const brand = /^#[0-9a-f]{6}$/i.test(agency.brand_color || '') ? agency.brand_color : '#0077c0';
   const diff = stats.earnings - personal.prevEarnings;
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-  let story;
-  if (stats.bookings) story = `You've earned <b>${inr(stats.earnings)}</b> this month from ${plural(stats.bookings, 'booking')}${personal.prevEarnings > 0 ? (diff >= 0 ? `, <b class="up">${inr(diff)} more</b> than last month` : `, ${inr(-diff)} behind last month so far`) : ''}.`;
-  else if (personal.life.n) story = `No bookings yet this month. Last month you earned ${inr(personal.prevEarnings)}; a quote or two today gets you going.`;
-  else { const nextStep = checklist.find((c) => !c.done); story = nextStep ? 'Welcome aboard. ' + checklist.filter((c) => c.done).length + ' of ' + checklist.length + ' set-up steps done; next: <a href="' + nextStep.href + '">' + nextStep.label.charAt(0).toLowerCase() + nextStep.label.slice(1) + '</a>.' : 'Welcome aboard. Build your first package and send a quote: your customers see only your brand.'; }
+  const canBook = agentCan('/agent/find');
+  const canUseLeads = agentCan('/agent/leads');
+  const canUseWallet = agentCan('/agent/wallet');
+  const creditUsedPercent = agency.credit_limit > 0 ? Math.min(100, Math.round(agency.credit_used / agency.credit_limit * 100)) : 0;
   const since = personal.life.first ? new Date(personal.life.first.replace(' ', 'T') + 'Z').toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }) : null;
 %>
-<section class="hello" style="--brand-agency:<%= brand %>">
+<section class="hello agent-overview">
   <div class="hello-id">
     <h1>Dashboard</h1>
     <p class="hello-line"><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %> · <%= personal.life.n %> <%= personal.life.n === 1 ? 'trip' : 'trips' %> booked<%= since ? ` since ${since}` : '' %> · <%= personal.customersCount %> <%= personal.customersCount === 1 ? 'customer' : 'customers' %></p>
   </div>
   <div class="hello-actions">
-    <% if (agentCan('/agent/wallet')) { %><a class="btn" href="/agent/wallet">Top up wallet</a><% } %>
-    <a class="btn btn-primary" href="/agent/packages/new"><%- icon('plus') %>New package</a>
+    <% if (canUseWallet) { %><a class="btn" href="/agent/wallet"><%- icon('wallet') %>Top up wallet</a><% } %>
+    <% if (agentCan('/agent/packages/new')) { %><a class="btn btn-primary" href="/agent/packages/new"><%- icon('plus') %>New package</a><% } %>
   </div>
 </section>
 
-<% if (agentCan('/agent/find')) { const heroDest = destinations[new Date().getDate() % destinations.length]; %>
-<section class="dash-hero" style="--hero:url('<%= cover({ destination: heroDest }) %>')">
-  <div class="dash-hero-copy">
-    <h2>Book at agent net rates</h2>
-    <p>Hotels, airfares, activities, transfers, visas and insurance in <%= destinations.join(', ').replace(/, ([^,]*)$/, ' and $1') %>.</p>
+<% if (credit.dueOn && (credit.overdue || credit.daysLeft <= 3)) { %>
+  <div class="alert <%= credit.overdue ? 'error' : 'warn' %>"><span><b><%= credit.overdue ? 'Credit overdue' : 'Credit due soon' %>:</b> <%= inr(credit.used) %> <%= credit.overdue ? `was due on ${fmtDate(credit.dueOn)}. Bookings can't use credit until it's repaid.` : `is due on ${fmtDate(credit.dueOn)}.` %> <% if (canUseWallet) { %><a href="/agent/wallet">Repay from wallet</a><% } %></span></div>
+<% } %>
+<% if (lowWallet) { %>
+  <div class="alert warn"><span><b>Low wallet balance:</b> <%= inr(agency.wallet_balance) %>, below your alert of <%= inr(agency.low_balance_alert) %>. <% if (canUseWallet) { %><a href="/agent/wallet">Top up</a><% } %></span></div>
+<% } %>
+
+<% if (canBook) { const heroDest = destinations[0]; %>
+<section class="dash-hero" aria-labelledby="book-net-rates">
+  <div class="dash-hero-banner" style="--hero:url('<%= cover({ destination: heroDest }) %>')">
+    <div class="dash-hero-copy">
+      <h2 id="book-net-rates">Book at agent net rates</h2>
+      <p>Find hotels, airfares and travel services for your next client trip.</p>
+    </div>
+    <span class="dash-hero-cap"><%- icon('mapPin') %><%= heroDest %></span>
   </div>
-<form class="book-panel" method="get" action="/agent/find">
+<form class="book-panel" method="get" action="/agent/find" role="search" aria-labelledby="book-net-rates">
   <div class="svc-tabs" role="radiogroup" aria-label="Service">
-    <% services.forEach((s, i) => { %>
+    <% services.forEach(s => { %>
       <label class="svc-tab"><input type="radio" name="svc" value="<%= s.path %>" <%= s.path === 'hotels' ? 'checked' : '' %>><%- icon(s.icon) %><span><%= s.label %></span></label>
     <% }) %>
   </div>
@@ -52,18 +60,38 @@
           <% } else { %><input id="<%= id %>" type="search" name="<%= s.path %>_q" placeholder="<%= ph %>"><% } %>
         </div>
       <% }) %>
-      <button class="btn btn-accent btn-lg"><%- icon('search') %><%= cfg.go %></button>
+      <button class="btn btn-primary btn-lg"><%- icon('search') %><%= cfg.go %></button>
     </div>
   <% }) %>
 </form>
-  <span class="dash-hero-cap"><%= heroDest %></span>
 </section>
+<% } %>
 
+<dl class="dash-metrics" aria-label="Account and monthly performance">
+  <div class="dash-metric">
+    <dt><span><%- icon('wallet') %></span>Wallet balance</dt>
+    <dd><b><%= inr(agency.wallet_balance) %></b><% if (canUseWallet) { %><a href="/agent/wallet/statement">View statement</a><% } %></dd>
+  </div>
+  <div class="dash-metric">
+    <dt><span><%- icon('card') %></span>Credit available</dt>
+    <dd><b><%= inr(agency.credit_limit - agency.credit_used) %></b><small><%= agency.credit_limit > 0 ? (creditUsedPercent ? `${creditUsedPercent}% of ${inr(agency.credit_limit)} used` : `Limit ${inr(agency.credit_limit)}`) : 'No credit line' %></small><% if (creditUsedPercent) { %><span class="meter" aria-hidden="true"><i style="width:<%= creditUsedPercent %>%"></i></span><% } %></dd>
+  </div>
+  <div class="dash-metric">
+    <dt><span><%- icon('receipt') %></span>Sales this month</dt>
+    <dd><b><%= inr(stats.sales) %></b><small><%= plural(stats.bookings, 'booking') %></small></dd>
+  </div>
+  <div class="dash-metric dash-metric-earnings">
+    <dt><span><%- icon('chart') %></span>Earnings this month</dt>
+    <dd><b><%= inr(stats.earnings) %></b><% if (personal.prevEarnings > 0) { %><small class="<%= diff >= 0 ? 'up' : 'down' %>"><%= diff >= 0 ? '+' : '−' %><%= inr(Math.abs(diff)) %> vs last month</small><% } %></dd>
+  </div>
+</dl>
+
+<% if (canBook) { %>
 <section class="dest-row" aria-label="Destinations">
-  <div class="sec-head"><h3>Destinations</h3><a href="/agent/vaayutrip-packages">Ready packages</a></div>
+  <div class="sec-head"><h2>Destinations</h2><a href="/agent/vaayutrip-packages">Ready packages</a></div>
   <div class="dest-tiles">
     <% destinations.forEach((d) => { %>
-      <a class="dest-tile" href="/agent/find?svc=hotels&amp;dest=<%= encodeURIComponent(d) %>"><img src="<%= cover({ destination: d }) %>" alt="" loading="lazy"><span><b><%= d %></b><small>Hotels, tours &amp; visas</small></span></a>
+      <a class="dest-tile" href="/agent/find?svc=hotels&amp;dest=<%= encodeURIComponent(d) %>"><img src="<%= cover({ destination: d }) %>" alt="" loading="lazy"><span><b><%= d %></b><small>Browse hotels</small></span></a>
     <% }) %>
   </div>
 </section>
@@ -71,7 +99,7 @@
 
 <% if (offers.length) { %>
 <section class="deals" aria-label="Deals for you">
-  <div class="sec-head"><h3>Deals for you</h3><a href="/agent/offers">All offers</a></div>
+  <div class="sec-head"><h2>Deals for you</h2><a href="/agent/offers">All offers</a></div>
   <div class="offer-strip">
     <% offers.forEach(o => { %><%- include('../partials/offer-card', { o }) %><% }) %>
   </div>
@@ -82,15 +110,8 @@
   <div class="tier-banner <%= tierNow.tier %>"><span class="tier-badge <%= tierNow.tier %>"><%= tierNow.tier === 'gold' ? 'Gold' : 'Silver' %> prices</span>
     <span><%= tierNow.source === 'all' ? (tierNow.label || 'Special offer') + ': lower net rates on all VaayuTrip inventory and packages' : `You're a ${tierNow.tier === 'gold' ? 'Gold' : 'Silver'} partner: lower net rates on all VaayuTrip inventory and packages` %><%= tierNow.until ? ` till ${fmtDate(tierNow.until)}` : '' %>.</span></div>
 <% } %>
-<% if (credit.dueOn && (credit.overdue || credit.daysLeft <= 3)) { %>
-  <div class="alert <%= credit.overdue ? 'error' : 'warn' %>"><b><%= credit.overdue ? 'Credit overdue' : 'Credit due soon' %>:</b> <%= inr(credit.used) %> <%= credit.overdue ? `was due on ${fmtDate(credit.dueOn)}. Bookings can't use credit until it's repaid.` : `is due on ${fmtDate(credit.dueOn)}.` %> <% if (agentCan('/agent/wallet')) { %><a href="/agent/wallet">Repay from wallet</a><% } %></div>
-<% } %>
-<% if (lowWallet) { %>
-  <div class="alert warn"><b>Low wallet balance:</b> <%= inr(agency.wallet_balance) %>, below your alert of <%= inr(agency.low_balance_alert) %>. <% if (agentCan('/agent/wallet')) { %><a href="/agent/wallet">Top up</a><% } %></div>
-<% } %>
-<% if (followUps.length) { %>
+<% if (canUseLeads && followUps.length) { %>
   <div class="today-grid">
-    <% if (followUps.length) { %>
     <div class="card flush">
       <div class="card-head"><h3>Follow-ups due</h3><a href="/agent/leads?due=1">All</a></div>
       <table class="table">
@@ -102,7 +123,6 @@
         <% }) %>
       </table>
     </div>
-    <% } %>
   </div>
 <% } %>
 
@@ -128,12 +148,11 @@
   </div>
 <% } %>
 
-<% const used = agency.credit_limit > 0 ? Math.min(100, Math.round(agency.credit_used / agency.credit_limit * 100)) : 0; %>
-<div class="split dash-split">
+<div class="split dash-split<%= canUseLeads || canBook ? '' : ' dash-split-wide' %>">
   <div>
     <div class="card flush">
       <div class="card-head"><h3>Recent quotes<% if (personal.awaiting) { %> <small class="muted head-note"><%= personal.awaiting %> awaiting reply</small><% } %></h3><a href="/agent/quotes">All quotes</a></div>
-      <% if (!quotes.length) { %><div class="empty">No quotes yet. Start from <a href="/agent/packages">one of your packages</a> or any <a href="/agent/hotels">hotel</a>, <a href="/agent/flights">airfare</a> or <a href="/agent/activities">activity</a>.</div><% } else { %>
+      <% if (!quotes.length) { %><div class="empty">No quotes yet.<% if (canBook) { %> Start from <a href="/agent/packages">one of your packages</a> or browse <a href="/agent/hotels">hotels</a>, <a href="/agent/flights">airfares</a> and <a href="/agent/activities">activities</a>.<% } %></div><% } else { %>
       <table class="table">
         <thead><tr><th>Quote</th><th>Trip</th><th>Status</th></tr></thead>
         <% quotes.forEach(q => { const [trip, who] = q.title.split(' — '); %>
@@ -161,25 +180,15 @@
     </div>
 
     <div class="card">
-      <div class="card-head"><h3>Earnings by month</h3><a href="/agent/reports">Full reports</a></div>
+      <div class="card-head"><h3>Earnings by month</h3><% if (agentCan('/agent/reports')) { %><a href="/agent/reports">Full reports</a><% } %></div>
       <% if (!chart.some(c => c.value)) { %><div class="empty">Your commission from bookings will show here.</div><% } else { %>
         <%- include('../partials/bar-chart', { bars: chart, format: (n) => n >= 1e5 ? `₹${(n / 1e5).toFixed(1)}L` : n >= 1e3 ? `₹${Math.round(n / 1e3)}k` : inr(n) }) %>
       <% } %>
     </div>
   </div>
 
-  <aside>
-    <div class="card flush acct">
-      <div class="card-head"><h3>Account</h3><% if (agentCan('/agent/wallet')) { %><a href="/agent/wallet/statement">Statement</a><% } %></div>
-      <dl class="acct-list">
-        <div><dt>Wallet balance</dt><dd><%= inr(agency.wallet_balance) %></dd></div>
-        <div><dt>Credit available</dt><dd><%= inr(agency.credit_limit - agency.credit_used) %><% if (agency.credit_limit > 0) { %><small><%= used ? `${used}% used of ` : 'Limit ' %><%= inr(agency.credit_limit) %></small><% if (used) { %><span class="meter"><i style="width:<%= used %>%"></i></span><% } %><% } else { %><small>No credit line</small><% } %></dd></div>
-        <div><dt>Sales this month</dt><dd><%= inr(stats.sales) %><small><%= plural(stats.bookings, 'booking') %></small></dd></div>
-        <div><dt>Earnings this month</dt><dd class="profit"><%= inr(stats.earnings) %><% if (personal.prevEarnings > 0) { %><small class="<%= diff >= 0 ? 'up' : 'down' %>"><%= diff >= 0 ? '+' : '−' %><%= inr(Math.abs(diff)) %> vs last month</small><% } %></dd></div>
-      </dl>
-      <% if (agentCan('/agent/wallet')) { %><div class="acct-foot"><a class="btn btn-accent" href="/agent/wallet">Top up wallet</a></div><% } %>
-    </div>
-
+  <% if (canUseLeads || canBook) { %><aside>
+    <% if (canUseLeads) { %>
     <div class="card flush">
       <div class="card-head"><h3>New leads</h3><a href="/agent/leads">All leads</a></div>
       <% if (!leads.length) { %><div class="empty">No new leads. Add enquiries from phone or WhatsApp in <a href="/agent/leads">Leads</a>.</div><% } else { %>
@@ -190,15 +199,16 @@
       </table>
       <% } %>
     </div>
+    <% } %>
 
 
-    <div class="card flush">
+    <% if (canBook) { %><div class="card flush">
       <div class="card-head"><h3>New inventory</h3><a href="/agent/activities">Browse</a></div>
       <table class="table">
         <% featured.forEach(x => { %>
           <tr class="click" data-href="/agent/<%= x.path %>/<%= x.id %>"><td><a href="/agent/<%= x.path %>/<%= x.id %>" style="color:inherit"><b><%= x.title %></b></a><br><small class="muted"><%= x.city %>, <%= x.country %></small></td><td class="num nowrap"><% if (x.price.was) { %><s class="was-price"><%= inr(x.price.was) %></s><br><% } %><b><%= inr(x.price.net) %></b><br><small class="muted"><%= x.price.unit %></small></td></tr>
         <% }) %>
       </table>
-    </div>
-  </aside>
+    </div><% } %>
+  </aside><% } %>
 </div>

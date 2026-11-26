@@ -33,14 +33,14 @@
   <div class="v-wrap v-hero-grid">
     <div class="v-hero-copy">
       <p class="v-kicker">B2B travel platform for agencies</p>
-      <h1>Book at net rates.<br>Sell under your own name.</h1>
+      <h1>Book at net rates. <em>Sell under your own name.</em></h1>
       <p class="v-lead">Airfares, hotels, activities, transfers, visas and insurance for Dubai, Bali, Vietnam, Cambodia, the UK and Europe. You set the price; quotes, invoices and vouchers carry your agency's name.</p>
       <div class="v-ctas">
         <% if (user) { %>
-          <a class="v-btn v-btn-primary" href="<%= home %>">Open your portal<%- icon('arrowRight') %></a>
+          <a class="v-btn v-btn-primary" href="<%= home %>">Open your portal</a>
         <% } else { %>
           <a class="v-btn v-btn-primary" href="/signup">Become a partner</a>
-          <a class="v-btn v-btn-ghost" href="#destinations">Explore destinations</a>
+          <a class="v-btn v-btn-ghost" href="/login">Partner log in</a>
         <% } %>
       </div>
 
@@ -56,22 +56,19 @@
       <p class="v-search-note"><%- icon('lock') %><% if (user) { %>Opens your portal with live rates.<% } else { %>Live net rates are shown to verified partners after login.<% } %></p>
     </div>
 
-    <figure class="v-hero-media">
-      <div class="v-hero-photo">
+    <div class="v-hero-media">
+      <figure class="v-hero-photo">
         <div class="hx-slides" aria-hidden="true">
           <% HERO.forEach((h, i) => { %><img class="hx-slide<%= i === 0 ? ' on' : '' %>" src="<%= cover({ destination: h.name }) %>" alt="" <%- i === 0 ? 'fetchpriority="high"' : 'loading="lazy"' %>><% }) %>
         </div>
         <figcaption class="v-hero-cap"><%- icon('mapPin') %><span data-hero-line><%= HERO[0].line %></span></figcaption>
-      </div>
-      <div class="v-hero-shot" aria-hidden="true">
-        <img src="/img/portal-dashboard.jpg?v=6" alt="" width="1440" height="900" loading="lazy">
-      </div>
-      <div class="hx-dots v-hero-dots" role="tablist" aria-label="Destinations">
+      </figure>
+      <div class="v-hero-dots" role="group" aria-label="Destination photos">
         <% HERO.forEach((h, i) => { %>
-          <button type="button" class="<%= i === 0 ? 'on' : '' %>" data-slide="<%= i %>" data-line="<%= h.line %>" data-word="<%= h.name === 'United Kingdom' ? 'the UK' : h.name %>" data-dest="<%= h.name %>" aria-label="Show <%= h.name %>"><span><%= h.name === 'United Kingdom' ? 'UK' : h.name %></span><i></i></button>
+          <button type="button" data-slide data-line="<%= h.line %>" data-dest="<%= h.name %>" aria-label="Show <%= h.name %>" aria-pressed="<%= i === 0 %>"><span><%= h.name === 'United Kingdom' ? 'UK' : h.name %></span></button>
         <% }) %>
       </div>
-    </figure>
+    </div>
   </div>
 </section>
 
@@ -91,8 +88,8 @@
       <p>Hotels, fares, sightseeing, transfers and visas, bought by VaayuTrip and sold to you at net. Pick a destination to see what's available.</p>
     </div>
     <div class="v-dests">
-      <% order.forEach((name, i) => { const d = D[name]; %>
-        <a class="v-dest v-dest-<%= i + 1 %>" href="<%= destLink(name) %>">
+      <% order.forEach(name => { const d = D[name]; %>
+        <a class="v-dest" href="<%= destLink(name) %>">
           <img src="<%= cover({ destination: name }) %>" alt="" loading="lazy">
           <span class="v-dest-body">
             <span class="v-dest-top"><b><%= name %></b><small><%= d.items %> services</small></span>
