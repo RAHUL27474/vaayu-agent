@@ -2521,3 +2521,30 @@ tr[data-href]:focus-visible { outline: 2px solid var(--brand); outline-offset: -
 .enq-tabs, .filter-chips { margin-bottom: 14px; }
 /* R48 counts inside a selected chip stay readable */
 .filter-chips a.on small, .enq-tabs a.on small { color: inherit; opacity: .85; }
+/* Admin settings: sections across the full width, a section index, save bar always in reach */
+.set-form { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: start; }
+.set-nav { position: sticky; top: calc(var(--topbar-h) + 16px); display: flex; flex-direction: column; gap: 2px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.set-nav a { padding: 8px 10px; border-radius: 6px; color: var(--ink-2); font-size: 14px; font-weight: 500; }
+.set-nav a:hover { background: var(--line-2); text-decoration: none; }
+.set-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.set-card { margin: 0; scroll-margin-top: calc(var(--topbar-h) + 16px); }
+.set-span { grid-column: 1 / -1; }
+.set-card > h2 { margin: 0 0 12px; }
+.set-intro { font-size: 13px; margin: -4px 0 14px; }
+.set-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 16px; }
+.set-fields .set-wide { grid-column: 1 / -1; }
+.set-sub { margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--line); }
+.set-sub-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.set-sub p { margin: 0 0 6px; font-size: 13px; }
+.set-bar { grid-column: 2; position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 12px 16px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 -6px 16px rgba(15, 23, 42, .06); }
+@media (max-width: 1100px) { .set-form { grid-template-columns: minmax(0, 1fr); } .set-nav { position: static; flex-direction: row; flex-wrap: wrap; } .set-bar { grid-column: 1; } }
+@media (max-width: 760px) { .set-grid { grid-template-columns: minmax(0, 1fr); } .set-bar .muted { display: none; } .set-bar .btn { width: 100%; } }
+/* Inventory form uses the width on large screens: "What and where" beside "Price", optional sections full width */
+@media (min-width: 1500px) {
+  .pf { max-width: none; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 0 16px; align-items: start; }
+  .pf > .pf-more, .pf > .pf-bar { grid-column: 1 / -1; }
+  .pf-foot { max-width: none; }
+}
+.set-span .set-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .set-span .set-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .set-span .set-fields { grid-template-columns: minmax(0, 1fr); } }

@@ -5,7 +5,7 @@
   const dd = booking.travel_date ? Math.round((Date.parse(booking.travel_date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 864e5) : null;
   const when = dd === null ? '' : booking.status !== 'confirmed' ? '' : dd > 1 ? `in ${dd} days` : dd === 1 ? 'tomorrow' : dd === 0 ? 'today' : 'travelled';
 %>
-<section class="trip-hero" style="--trip-img:url('<%= cover({ destination: dest, city: dest, title: tripName }) %>')">
+<section class="trip-hero" style="--trip-img:url('<%= cover({ destination: dest, city: dest, title: tripName }, 1600) %>')">
   <div>
     <p class="trip-kicker"><%= who ? `${who}'s trip` : 'Trip' %><%= when ? ` · ${when}` : '' %></p>
     <h1><%= tripName %></h1>

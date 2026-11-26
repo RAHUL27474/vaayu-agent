@@ -21,42 +21,69 @@
     bank_details: ['Bank details for wallet top-ups', 'Shown to agents who top up by bank transfer: bank, account number, IFSC, UPI ID (one per line).'],
   };
 %>
+<%
+  // Settings grouped into sections laid out across the page.
+  const SECTIONS = [
+    { id: 'bookings', title: 'Bookings & payments', keys: ['booking_approval'], phonepe: true },
+    { id: 'tax', title: 'Tax', keys: ['gst_enabled', 'tax_rate', 'tcs_rate', 'sac_code'] },
+    { id: 'company', title: 'Company on VaayuTrip invoices', keys: ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'whatsapp', 'email'], wide: true },
+    { id: 'topups', title: 'Wallet top-ups by bank transfer', keys: ['bank_details'] },
+    { id: 'tiers', title: 'Silver / Gold prices & offers', keys: ['tier_silver_pct', 'tier_gold_pct', 'tier_all', 'tier_all_label', 'tier_all_from', 'tier_all_to'],
+      intro: 'Set how much cheaper Silver and Gold are, and optionally give every agent Silver or Gold for a period. To put particular agents on Silver or Gold, use <a href="/admin/tiers">Silver / Gold</a>.' },
+  ];
+  const field = (k) => {
+    const L = labels[k]; if (!L) return '';
+    const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const hint = L[1] ? `<div class="hint">${esc(L[1])}</div>` : '';
+    const v = esc(values[k] || '');
+    if (k === 'booking_approval' || k === 'gst_enabled') {
+      const on = k === 'booking_approval' ? values.booking_approval !== '0' : values.gst_enabled === '1';
+      return `<div class="field set-wide"><input type="hidden" name="${k}" value="0"><label class="check"><input type="checkbox" name="${k}" value="1" ${on ? 'checked' : ''}> <b>${k === 'booking_approval' ? 'Bookings need operations approval before payment' : 'Charge GST'}</b></label>${hint}</div>`;
+    }
+    let input;
+    if (k === 'tier_all') input = `<select id="tier_all" name="tier_all">${[['none', 'No offer'], ['silver', 'Silver prices for everyone'], ['gold', 'Gold prices for everyone']].map(([o, l]) => `<option value="${o}" ${(values.tier_all || 'none') === o ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+    else if (k === 'tier_all_from' || k === 'tier_all_to') input = `<input id="${k}" type="date" name="${k}" value="${v}">`;
+    else if (k === 'bank_details') input = `<textarea id="${k}" name="${k}" rows="5">${v}</textarea>`;
+    else input = `<input id="${k}" name="${k}" value="${v}" ${k === 'whatsapp' ? 'placeholder="96676 72467"' : ''} ${['tax_rate', 'tcs_rate', 'tier_silver_pct', 'tier_gold_pct'].includes(k) ? 'type="number" step="0.01" min="0"' : ''}>`;
+    const wide = ['address', 'bank_details', 'tier_all_label'].includes(k);
+    return `<div class="field${wide ? ' set-wide' : ''}"><label for="${k}">${esc(L[0])}</label>${input}${hint}</div>`;
+  };
+%>
 <div class="page-head"><div><h1>Settings</h1><p>Company details on VaayuTrip's invoices to agents, tax rates, partner tiers and VaayuTrip's margin on inventory.</p></div></div>
-<div class="card" style="max-width:720px">
-  <h2 class="h3">Online payments (PhonePe)</h2>
-  <p style="margin:6px 0"><span class="badge as-is <%= phonepe === 'not set up' ? 'pending' : 'approved' %>"><%= phonepe.charAt(0).toUpperCase() + phonepe.slice(1) %></span></p>
-  <p class="muted" style="font-size:13px;margin:0">Keys are kept in the hosting environment, not here. Webhook URL for the PhonePe dashboard:</p><p style="margin:6px 0 0"><code class="code-line"><%= origin %>/payments/phonepe/webhook</code></p>
-</div>
-<form class="card" method="post" action="/admin/settings" style="max-width:720px">
-  <% keys.filter(k => labels[k]).forEach(k => { %>
-    <% if (k === 'booking_approval') { %><h2 class="h3" style="margin:0 0 10px">Bookings</h2><% } %>
-    <% if (k === 'company_name') { %><h2 class="h3" style="margin:24px 0 10px;padding-top:18px;border-top:1px solid var(--line)">Company on VaayuTrip invoices</h2><% } %>
-    <% if (k === 'tier_silver_pct') { %><h2 class="h3" id="tiers" style="margin:28px 0 4px;padding-top:18px;border-top:1px solid var(--line)">Silver / Gold prices &amp; offers</h2><p class="muted" style="font-size:13px;margin:0 0 14px">Set how much cheaper Silver and Gold are, and optionally give every agent Silver or Gold for a period. To put particular agents on Silver or Gold, use <a href="/admin/tiers">Silver / Gold</a>.</p><% } %>
-    <div class="field">
-      <% if (k === 'booking_approval') { %>
-      <input type="hidden" name="booking_approval" value="0">
-      <label class="check"><input type="checkbox" name="booking_approval" value="1" <%= values.booking_approval !== '0' ? 'checked' : '' %>> <b>Bookings need operations approval before payment</b></label>
-      <% } else if (k === 'gst_enabled') { %>
-      <input type="hidden" name="gst_enabled" value="0">
-      <label class="check"><input type="checkbox" name="gst_enabled" value="1" <%= values.gst_enabled === '1' ? 'checked' : '' %>> <b>Charge GST</b></label>
-      <% } else { %><label for="<%= k %>"><%= labels[k][0] %></label><% } %>
-      <% if (k === 'gst_enabled' || k === 'booking_approval') { %>
-      <% } else if (k === 'tier_all') { %><select id="tier_all" name="tier_all"><% [['none', 'No offer'], ['silver', 'Silver prices for everyone'], ['gold', 'Gold prices for everyone']].forEach(([v, l]) => { %><option value="<%= v %>" <%= (values.tier_all || 'none') === v ? 'selected' : '' %>><%= l %></option><% }) %></select>
-      <% } else if (k === 'tier_all_from' || k === 'tier_all_to') { %><input id="<%= k %>" type="date" name="<%= k %>" value="<%= values[k] || '' %>">
-      <% } else if (k === 'bank_details') { %><textarea id="<%= k %>" name="<%= k %>" rows="4"><%= values[k] || '' %></textarea><% } else { %>
-      <input id="<%= k %>" name="<%= k %>" value="<%= values[k] || '' %>" <%- k === 'whatsapp' ? 'placeholder="96676 72467"' : '' %> <%= ['tax_rate', 'tcs_rate', 'emi_rate', 'pg_fee_pct', 'tier_silver_pct', 'tier_gold_pct'].includes(k) ? 'type=number step=0.01 min=0' : '' %>><% } %>
-      <% if (labels[k][1]) { %><div class="hint"><%= labels[k][1] %></div><% } %>
-    </div>
-  <% }) %>
-  <h2 class="h3" style="margin-top:24px">VaayuTrip margin</h2>
-  <p class="muted" style="font-size:13px;margin-top:-4px">Added to what VaayuTrip pays (entered by the backend team) to give the price agents see and pay. Example: a cost of ₹100 with 5% shows agents ₹105. Changing a margin updates agents' prices right away; quotes already made keep theirs.</p>
-  <div class="margin-grid">
-    <% Object.entries(kinds).forEach(([k, c]) => { %>
-      <div class="field">
-        <label for="margin_<%= k %>"><%= c.plural %> (%)</label>
-        <input id="margin_<%= k %>" name="margin_<%= k %>" type="number" step="0.1" min="0" max="100" value="<%= margins[k] %>">
-      </div>
+
+<form class="set-form" method="post" action="/admin/settings">
+  <nav class="set-nav" aria-label="Settings sections">
+    <% SECTIONS.forEach(sec => { %><a href="#set-<%= sec.id %>"><%= sec.title %></a><% }) %><a href="#set-margin">VaayuTrip margin</a>
+  </nav>
+  <div class="set-grid">
+    <% SECTIONS.forEach(sec => { %>
+      <section class="card set-card<%= sec.wide ? ' set-span' : '' %>" id="set-<%= sec.id %>" aria-labelledby="set-<%= sec.id %>-h">
+        <h2 class="h3" id="set-<%= sec.id %>-h"><%= sec.title %></h2>
+        <% if (sec.intro) { %><p class="muted set-intro"><%- sec.intro %></p><% } %>
+        <div class="set-fields">
+          <% sec.keys.forEach(k => { %><%- field(k) %><% }) %>
+        </div>
+        <% if (sec.phonepe) { %>
+          <div class="set-sub">
+            <div class="set-sub-head"><b>Online payments (PhonePe)</b><span class="badge as-is <%= phonepe === 'not set up' ? 'pending' : 'approved' %>"><%= phonepe.charAt(0).toUpperCase() + phonepe.slice(1) %></span></div>
+            <p class="muted">Keys are kept in the hosting environment, not here. Webhook URL for the PhonePe dashboard:</p>
+            <code class="code-line"><%= origin %>/payments/phonepe/webhook</code>
+          </div>
+        <% } %>
+      </section>
     <% }) %>
+    <section class="card set-card set-span" id="set-margin" aria-labelledby="set-margin-h">
+      <h2 class="h3" id="set-margin-h">VaayuTrip margin</h2>
+      <p class="muted set-intro">Added to what VaayuTrip pays (entered by the backend team) to give the price agents see and pay. Example: a cost of ₹100 with 5% shows agents ₹105. Changing a margin updates agents' prices right away; quotes already made keep theirs.</p>
+      <div class="margin-grid">
+        <% Object.entries(kinds).forEach(([k, c]) => { %>
+          <div class="field">
+            <label for="margin_<%= k %>"><%= c.plural %> (%)</label>
+            <input id="margin_<%= k %>" name="margin_<%= k %>" type="number" step="0.1" min="0" max="100" value="<%= margins[k] %>">
+          </div>
+        <% }) %>
+      </div>
+    </section>
   </div>
-  <button class="btn btn-primary">Save settings</button>
+  <div class="set-bar"><span class="muted">Changes apply when you save.</span><button class="btn btn-primary btn-lg">Save settings</button></div>
 </form>

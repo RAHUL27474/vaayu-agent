@@ -29,7 +29,7 @@
 
 <div class="split">
   <div>
-    <% if (p.image_url || kind === 'activity' || isHotel) { %><img src="<%= cover({ image_url: p.image_url, city: p.city }) %>" alt="" style="width:100%;max-height:300px;object-fit:cover;border-radius:14px;margin-bottom:20px"><% } %>
+    <% if (p.image_url || kind === 'activity' || isHotel) { %><img src="<%= cover({ image_url: p.image_url, city: p.city }, 1600) %>" alt="" style="width:100%;max-height:300px;object-fit:cover;border-radius:14px;margin-bottom:20px"><% } %>
     <div class="card">
       <% if (p.summary) { %><p style="font-size:15px;font-weight:500"><%= p.summary %></p><% } %>
       <% if (p.description) { %><p style="white-space:pre-line"><%= p.description %></p><% } %>
