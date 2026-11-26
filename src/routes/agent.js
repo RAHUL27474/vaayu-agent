@@ -765,7 +765,10 @@ router.get('/bookings/:id', h(async (req, res, next) => {
   if (!booking) return next();
   const full = booking.quote_id ? await svc.getQuote(booking.quote_id, req.agency.id) : null;
   const invoices = await all('SELECT * FROM invoices WHERE booking_id = ? OR (quote_id = ? AND quote_id IS NOT NULL) ORDER BY id DESC', booking.id, booking.quote_id);
-  res.page('agent/booking', { title: `Booking ${booking.code}`, booking, full, invoices });
+  // Trips not built from a package take their cover photo from the first VaayuTrip service in them.
+  const firstItem = full && full.items.find((i) => i.product_id);
+  const heroProduct = firstItem ? await one('SELECT image_url, city, title FROM products WHERE id = ?', firstItem.product_id) : null;
+  res.page('agent/booking', { title: `Booking ${booking.code}`, booking, full, invoices, heroProduct });
 }));
 
 router.get('/bookings/:id/voucher', h(async (req, res, next) => {
