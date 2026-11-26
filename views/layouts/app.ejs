@@ -36,6 +36,7 @@
       L('/admin/bookings', 'clipboard', 'Bookings'),
       L('/admin/invoices', 'receipt', 'Invoices'),
       L('/admin/tickets', 'message', 'Support', typeof openTickets !== 'undefined' && openTickets ? openTickets : ''),
+      L('/backend/enquiries', 'inbox', 'Enquiries', typeof newEnquiries !== 'undefined' && newEnquiries ? newEnquiries : ''),
       G('Monitor', 'activity', [L('/admin/log', 'activity', 'Activity log'), L('/backend', 'layers', 'Inventory'), L('/admin/team', 'users', 'Team')]),
       G('More', 'settings', [L('/admin/tiers', 'tag', 'Silver / Gold'), L('/admin/ledger', 'wallet', 'Wallet ledger'), L('/admin/offers', 'tag', 'Offers &amp; deals'), L('/admin/notifications', 'bell', 'Notifications', unread || ''), L('/admin/settings', 'settings', 'Settings')]),
     ];
@@ -43,6 +44,7 @@
     const navKind = typeof locals.navKind !== 'undefined' ? locals.navKind : '';
     menu = [
       L('/backend', 'dashboard', 'Dashboard'),
+      L('/backend/enquiries', 'inbox', 'Enquiries', typeof newEnquiries !== 'undefined' && newEnquiries ? newEnquiries : ''),
       G('Inventory', 'layers', [L('/backend/products', 'layers', 'All inventory', '', path === '/backend/products' && !navKind), ...Object.entries(locals.kindsNav || {}).map(([k, c]) => L(`/backend/products?kind=${k}`, c.icon, c.plural, '', navKind === k))]),
       L('/backend/packages', 'briefcase', 'VaayuTrip packages'),
       L('/backend/import', 'upload', 'Bulk import'),

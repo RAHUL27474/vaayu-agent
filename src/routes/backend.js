@@ -22,7 +22,8 @@ const router = express.Router();
 router.param('id', idParam);
 router.param('itemId', idParam);
 router.use(requireBackend);
-router.use((req, res, next) => {
+router.use(async (req, res, next) => {
+  res.locals.newEnquiries = (await one("SELECT COUNT(*)::int AS n FROM enquiries WHERE status = 'new'")).n;
   res.locals.kindsNav = KINDS;
   res.locals.listOf = listOf;
   res.locals.navKind = KINDS[req.query.kind] ? req.query.kind : '';
@@ -96,6 +97,51 @@ const formData = (p) => ({
 });
 // Cities already in the inventory, so typing one fills in its country.
 const cityList = () => all('SELECT city, MIN(country) AS country FROM products GROUP BY city ORDER BY city');
+
+// ---------- website enquiries ----------
+const ENQ_STATUSES = ['new', 'contacted', 'converted', 'closed'];
+const ENQ_TOPIC_LABEL = { partner: 'Partner agency', trip: 'Trip or group quote', other: 'Other' };
+
+router.get('/enquiries', h(async (req, res) => {
+  const status = ENQ_STATUSES.includes(req.query.status) ? req.query.status : '';
+  const q = str(req.query.q).slice(0, 60);
+  const mine = req.query.mine === '1';
+  const where = [];
+  const params = [];
+  if (status) { where.push('e.status = ?'); params.push(status); } else if (!q) where.push("e.status IN ('new', 'contacted')");
+  if (q) { where.push('(e.name ILIKE ? OR e.phone ILIKE ? OR e.email ILIKE ? OR e.company ILIKE ? OR e.city ILIKE ?)'); params.push(...Array(5).fill(`%${q}%`)); }
+  if (mine) { where.push('e.assigned_to = ?'); params.push(req.user.id); }
+  const rows = await all(
+    `SELECT e.*, u.name AS assignee FROM enquiries e LEFT JOIN users u ON u.id = e.assigned_to
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY (e.status = 'new') DESC, e.created_at DESC LIMIT 200`, ...params,
+  );
+  const counts = Object.fromEntries((await all('SELECT status, COUNT(*)::int AS n FROM enquiries GROUP BY status')).map((r) => [r.status, r.n]));
+  const due = (await one("SELECT COUNT(*)::int AS n FROM enquiries WHERE status IN ('new', 'contacted') AND follow_up_on IS NOT NULL AND follow_up_on <= sqldate('now')")).n;
+  res.page('backend/enquiries', { title: 'Enquiries', rows, counts, due, status, q, mine, statuses: ENQ_STATUSES, topics: ENQ_TOPIC_LABEL });
+}));
+
+router.get('/enquiries/:id', h(async (req, res, next) => {
+  const e = await one('SELECT e.*, u.name AS assignee FROM enquiries e LEFT JOIN users u ON u.id = e.assigned_to WHERE e.id = ?', num(req.params.id));
+  if (!e) return next();
+  const team = await all("SELECT id, name FROM users WHERE role IN ('backend', 'admin') AND is_active = 1 ORDER BY name");
+  const history = await all("SELECT a.*, u.name AS user_name FROM audit_log a LEFT JOIN users u ON u.id = a.user_id WHERE a.entity = 'enquiry' AND a.entity_id = ? ORDER BY a.id DESC LIMIT 20", e.id).catch(() => []);
+  res.page('backend/enquiry', { title: `Enquiry: ${e.name}`, e, team, history, statuses: ENQ_STATUSES, topics: ENQ_TOPIC_LABEL });
+}));
+
+router.post('/enquiries/:id', h(async (req, res, next) => {
+  const e = await one('SELECT * FROM enquiries WHERE id = ?', num(req.params.id));
+  if (!e) return next();
+  const b = req.body;
+  const status = ENQ_STATUSES.includes(b.status) ? b.status : e.status;
+  const assignee = b.assigned_to === 'me' ? req.user.id : num(b.assigned_to, 0) || null;
+  const follow = /^\d{4}-\d{2}-\d{2}$/.test(b.follow_up_on || '') ? b.follow_up_on : null;
+  const note = String(b.team_note ?? '').trim().slice(0, 3000) || null;
+  await run("UPDATE enquiries SET status = ?, assigned_to = ?, follow_up_on = ?, team_note = ?, updated_at = datetime('now') WHERE id = ?", status, assignee, follow, note, e.id);
+  const changes = [status !== e.status && `status ${e.status} → ${status}`, assignee !== e.assigned_to && 'assignee changed', follow !== e.follow_up_on && `follow-up ${follow || 'cleared'}`, note !== e.team_note && 'note updated'].filter(Boolean);
+  if (changes.length) await audit(req.user, 'enquiry.updated', { entity: 'enquiry', id: e.id, summary: `${e.name}: ${changes.join(', ')}`, link: `/backend/enquiries/${e.id}` });
+  req.flash('success', 'Enquiry updated.');
+  res.redirect(b.back === 'list' ? '/backend/enquiries' : `/backend/enquiries/${e.id}`);
+}));
 
 router.get('/products/new', h(async (req, res) => {
   const kind = KINDS[req.query.kind] ? req.query.kind : 'activity';

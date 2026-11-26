@@ -22,7 +22,8 @@ router.param('itemId', idParam);
 router.use(requireAdmin);
 // Menu badges, in one round trip.
 router.use(async (req, res, next) => {
-  const c = await one("SELECT (SELECT COUNT(*) FROM topup_requests WHERE status = 'pending') AS topups, (SELECT COUNT(*) FROM tickets WHERE status = 'open') AS tickets");
+  const c = await one("SELECT (SELECT COUNT(*) FROM topup_requests WHERE status = 'pending') AS topups, (SELECT COUNT(*) FROM tickets WHERE status = 'open') AS tickets, (SELECT COUNT(*)::int FROM enquiries WHERE status = 'new') AS enquiries");
+  res.locals.newEnquiries = c.enquiries;
   res.locals.pendingTopups = c.topups;
   res.locals.openTickets = c.tickets;
   next();

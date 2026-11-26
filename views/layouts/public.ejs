@@ -29,6 +29,7 @@
     <a href="/#calc">Your margin</a>
     <a href="/#how">How it works</a>
     <a href="/#faq">FAQ</a>
+    <a href="/#enquiry">Enquire</a>
     <% if (waNumber && path === '/') { %><a class="nav-partner-chat" href="https://wa.me/<%= waNumber %>" target="_blank" rel="noopener">Chat on WhatsApp</a><% } %>
     <% if (user) { %>
       <a class="btn btn-primary" href="<%= user.role === 'admin' ? '/admin' : user.role === 'backend' ? '/backend' : '/agent' %>">Open portal</a>
@@ -40,7 +41,7 @@
 </nav>
 </header>
 <% } %>
-<% if ((typeof bare === 'undefined' || !bare) && !body.includes('<div class="auth"')) flash.forEach(f => { %><div class="section" style="padding-top:0;padding-bottom:0"><div class="alert <%= f.type %>" role="<%= f.type === 'error' ? 'alert' : 'status' %>" data-flash><%= f.message %></div></div><% }) %>
+<% if ((typeof bare === 'undefined' || !bare) && !body.includes('<div class="auth"')) flash.filter(f => !(body.includes('class="v-enq-form"') && /enquiry|call you|phone number|your name|email address/i.test(f.message))).forEach(f => { %><div class="section" style="padding-top:0;padding-bottom:0"><div class="alert <%= f.type %>" role="<%= f.type === 'error' ? 'alert' : 'status' %>" data-flash><%= f.message %></div></div><% }) %>
 <%- body %>
 <% if (typeof bare === 'undefined' || !bare) { %>
 <footer class="site-footer">
@@ -56,7 +57,7 @@
     </div>
     <div>
       <h4>Partners</h4>
-      <a href="/signup">Become a partner</a><a href="/login">Log in</a><a href="/#calc">Your margin</a><a href="/#how">How it works</a><a href="/#faq">FAQ</a>
+      <a href="/signup">Become a partner</a><a href="/login">Log in</a><a href="/#calc">Your margin</a><a href="/#how">How it works</a><a href="/#faq">FAQ</a><a href="/#enquiry">Send an enquiry</a>
     </div>
     <div>
       <h4>Contact</h4>

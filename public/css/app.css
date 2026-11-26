@@ -2404,3 +2404,11 @@ html body.app .dash-hero .svc-tab:has(input:focus-visible) { outline: 2px solid 
 @media (prefers-reduced-motion: reduce) {
   .tp-nav, .tp .backdrop, .dest-tile img, .catalogue-card { transition: none; }
 }
+
+/* Backend enquiries */
+.enq-tabs small { margin-left: 4px; opacity: .7; }
+.enq-search > div { flex: 1; min-width: 220px; }
+.enq-table tr.enq-new td:first-child { box-shadow: inset 3px 0 0 var(--brand); font-weight: 600; }
+.enq-msg-h { margin: 18px 0 6px; font-size: 14px; }
+.enq-msg { margin: 0; padding: 12px 14px; border-radius: 6px; background: var(--line-2); white-space: pre-wrap; }
+.enq-hist { margin: 0; padding-left: 18px; font-size: 12.5px; }

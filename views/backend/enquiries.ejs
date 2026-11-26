@@ -1,0 +1,43 @@
+<%
+  const qs = (extra) => { const p = new URLSearchParams({ ...(status ? { status } : {}), ...(q ? { q } : {}), ...(mine ? { mine: '1' } : {}), ...extra }); [...p.keys()].forEach((k) => { if (!p.get(k)) p.delete(k); }); const s = p.toString(); return '/backend/enquiries' + (s ? '?' + s : ''); };
+  const ago = (t) => { const m = Math.round((Date.now() - Date.parse(String(t).replace(' ', 'T') + 'Z')) / 60000); return m < 60 ? `${Math.max(1, m)} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : fmtDate(String(t).slice(0, 10)); };
+%>
+<div class="page-head">
+  <div><h1>Enquiries</h1><p>Sent from the VaayuTrip website. Call back, note what was agreed, and move each one along.</p></div>
+</div>
+
+<nav class="chips filter-chips enq-tabs" aria-label="Filter enquiries">
+  <a class="<%= !status ? 'on' : '' %>" href="<%= qs({ status: '' }) %>">Open <small><%= (counts.new || 0) + (counts.contacted || 0) %></small></a>
+  <% statuses.forEach(s => { %><a class="<%= status === s ? 'on' : '' %>" href="<%= qs({ status: s }) %>"><%= s.charAt(0).toUpperCase() + s.slice(1) %> <small><%= counts[s] || 0 %></small></a><% }) %>
+  <a class="<%= mine ? 'on' : '' %>" href="<%= qs({ mine: mine ? '' : '1' }) %>">Assigned to me</a>
+</nav>
+
+<form class="card filter-bar enq-search" method="get" role="search" aria-label="Search enquiries">
+  <% if (status) { %><input type="hidden" name="status" value="<%= status %>"><% } %>
+  <% if (mine) { %><input type="hidden" name="mine" value="1"><% } %>
+  <div><label for="enq-q">Search</label><input id="enq-q" type="search" name="q" value="<%= q %>" placeholder="Name, phone, email, agency or city"></div>
+  <button class="btn btn-primary"><%- icon('search') %>Search</button>
+  <% if (q) { %><a class="btn" href="<%= qs({ q: '' }) %>">Clear</a><% } %>
+</form>
+
+<% if (due) { %><div class="alert warn"><b><%= due %> follow-up<%= due === 1 ? '' : 's' %> due</b> today or earlier.</div><% } %>
+
+<div class="card flush">
+  <% if (!rows.length) { %>
+    <div class="empty"><span class="big"><%- icon('inbox') %></span><strong>No enquiries here</strong><p>New enquiries from the website form appear here, newest first.</p></div>
+  <% } else { %>
+  <div class="table-wrap"><table class="table enq-table">
+    <thead><tr><th>Received</th><th>From</th><th>Looking for</th><th>Status</th><th>With</th><th class="num">Follow-up</th></tr></thead>
+    <% rows.forEach(e => { const late = e.follow_up_on && e.follow_up_on <= today && ['new', 'contacted'].includes(e.status); %>
+      <tr class="click<%= e.status === 'new' ? ' enq-new' : '' %>" data-href="/backend/enquiries/<%= e.id %>">
+        <td class="nowrap"><%= ago(e.created_at) %></td>
+        <td><a href="/backend/enquiries/<%= e.id %>"><b><%= e.name %></b></a><br><small class="muted"><%= e.company || e.city || '' %><%= e.company && e.city ? ` · ${e.city}` : '' %></small><br><a href="tel:<%= e.phone.replace(/[^\d+]/g, '') %>"><small><%= e.phone %></small></a></td>
+        <td><%= topics[e.topic] || e.topic %><% if (e.destination) { %><br><small class="muted"><%= e.destination %><%= e.pax ? ` · ${e.pax} pax` : '' %></small><% } %></td>
+        <td><span class="badge <%= { new: 'pending', contacted: 'info', converted: 'active', closed: '' }[e.status] %>"><%= e.status %></span></td>
+        <td><%= e.assignee || '—' %></td>
+        <td class="num nowrap"><% if (e.follow_up_on) { %><span class="<%= late ? 'due-soon' : '' %>"><%= fmtDate(e.follow_up_on) %></span><% } else { %>—<% } %></td>
+      </tr>
+    <% }) %>
+  </table></div>
+  <% } %>
+</div>

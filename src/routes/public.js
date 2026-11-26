@@ -357,6 +357,40 @@ router.get('/signup', (req, res) => {
   res.page('public/signup', { title: 'Become a VaayuTrip partner', form: { country: 'India' }, countries: COUNTRIES }, 'public');
 });
 
+// ---------- website enquiries (to the backend team) ----------
+const ENQ_TOPICS = { partner: 'Become a partner agency', trip: 'Quote for a trip or group', other: 'Something else' };
+router.post('/enquiry', h(async (req, res) => {
+  const b = req.body || {};
+  const back = (msg, type = 'error') => { req.flash(type, msg); return res.redirect(303, '/#enquiry'); };
+  if (b.website) return back('Thank you. Our team will call you shortly.', 'success'); // filled only by bots
+  const clean = (v, n) => String(v ?? '').trim().replace(/\s+/g, ' ').slice(0, n);
+  const name = clean(b.name, 80);
+  const phone = clean(b.phone, 20);
+  const email = clean(b.email, 120).toLowerCase();
+  if (!name) return back('Please enter your name.');
+  if (!/^\+?[\d\s()-]{7,20}$/.test(phone) || phone.replace(/\D/g, '').length < 7) return back('Please enter a phone number we can call, e.g. +91 98100 00000.');
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return back('That email address does not look right.');
+  // At most 5 enquiries an hour from one connection.
+  const recent = (await one("SELECT COUNT(*)::int AS n FROM enquiries WHERE ip = ? AND created_at > datetime('now', '-1 hour')", req.ip)).n;
+  if (recent >= 5) return back('We already have your enquiry. Our team will call you; for anything urgent, message us on WhatsApp.');
+  const topic = ENQ_TOPICS[b.topic] ? b.topic : 'partner';
+  const pax = Math.max(0, Math.min(999, Math.floor(Number(b.pax) || 0))) || null;
+  const travel = /^\d{4}-\d{2}-\d{2}$/.test(b.travel_date || '') ? b.travel_date : null;
+  const id = (await run(
+    'INSERT INTO enquiries (topic, name, phone, email, company, city, destination, travel_date, pax, message, page, ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    topic, name, phone, email || null, clean(b.company, 120) || null, clean(b.city, 80) || null, clean(b.destination, 60) || null,
+    travel, pax, String(b.message ?? '').trim().slice(0, 1500) || null, clean(b.page || '/', 120), req.ip,
+  )).lastInsertRowid;
+  const summary = `${name} (${phone})${clean(b.company, 120) ? `, ${clean(b.company, 120)}` : ''}: ${ENQ_TOPICS[topic]}`;
+  // In-app alert for VaayuTrip HQ, and an email to every active backend team member.
+  await notify(null, 'New website enquiry', summary, `/backend/enquiries/${id}`);
+  const team = (await all("SELECT email FROM users WHERE role = 'backend' AND is_active = 1")).map((u) => u.email);
+  if (team.length && mailer.enabled()) {
+    mailer.send({ to: team, subject: `New enquiry: ${name}`, text: summary, button: { href: `${mailer.siteUrl()}/backend/enquiries/${id}`, label: 'Open enquiry' } }).catch(() => false);
+  }
+  return back('Thank you. Our team will call you within one working day.', 'success');
+}));
+
 router.post('/signup', withKycDocs, h(async (req, res) => {
   const f = Object.fromEntries(['agency', 'name', 'email', 'phone', 'city', 'country', 'gstin', 'tax_id', 'password'].map((k) => [k, String(req.body[k] || '').trim()]));
   f.email = f.email.toLowerCase();

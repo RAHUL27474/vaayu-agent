@@ -1,0 +1,48 @@
+<% const wa = e.phone.replace(/\D/g, '').replace(/^0+/, ''); const waNo = wa.length === 10 ? '91' + wa : wa; %>
+<a href="/backend/enquiries"><%- icon('arrowLeft') %>All enquiries</a>
+<div class="page-head" style="margin-top:10px">
+  <div>
+    <h1><%= e.name %></h1>
+    <p><span class="badge <%= { new: 'pending', contacted: 'info', converted: 'active', closed: '' }[e.status] %>"><%= e.status %></span> · <%= topics[e.topic] || e.topic %> · received <%= fmtDate(String(e.created_at).slice(0, 10)) %></p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-primary" href="tel:<%= e.phone.replace(/[^\d+]/g, '') %>"><%- icon('phone') %>Call <%= e.phone %></a>
+    <a class="btn" href="https://wa.me/<%= waNo %>?text=<%= encodeURIComponent(`Hi ${e.name.split(' ')[0]}, this is VaayuTrip. Thank you for your enquiry.`) %>" target="_blank" rel="noopener">WhatsApp</a>
+    <% if (e.email) { %><a class="btn" href="mailto:<%= e.email %>?subject=<%= encodeURIComponent('Your VaayuTrip enquiry') %>">Email</a><% } %>
+  </div>
+</div>
+
+<div class="split">
+  <div class="card">
+    <h3>What they sent</h3>
+    <dl class="kv">
+      <dt>Name</dt><dd><%= e.name %></dd>
+      <dt>Phone</dt><dd><a href="tel:<%= e.phone.replace(/[^\d+]/g, '') %>"><%= e.phone %></a></dd>
+      <% if (e.email) { %><dt>Email</dt><dd><a href="mailto:<%= e.email %>"><%= e.email %></a></dd><% } %>
+      <% if (e.company) { %><dt>Agency / company</dt><dd><%= e.company %></dd><% } %>
+      <% if (e.city) { %><dt>City</dt><dd><%= e.city %></dd><% } %>
+      <dt>About</dt><dd><%= topics[e.topic] || e.topic %></dd>
+      <% if (e.destination) { %><dt>Destination</dt><dd><%= e.destination %></dd><% } %>
+      <% if (e.travel_date) { %><dt>Travel date</dt><dd><%= fmtDate(e.travel_date) %></dd><% } %>
+      <% if (e.pax) { %><dt>Travellers</dt><dd><%= e.pax %></dd><% } %>
+    </dl>
+    <% if (e.message) { %><h4 class="enq-msg-h">Message</h4><p class="enq-msg"><%= e.message %></p><% } %>
+    <% if (e.topic === 'partner') { %><p class="muted" style="font-size:13px;margin:14px 0 0">Wants to become a partner: share the sign-up link <a href="/signup" target="_blank">/signup</a> and the documents needed (GSTIN or tax ID and certificate).</p><% } %>
+  </div>
+
+  <div>
+    <form class="card" method="post" action="/backend/enquiries/<%= e.id %>">
+      <h3>Team</h3>
+      <div class="field"><label for="enq-status">Status</label>
+        <select id="enq-status" name="status"><% statuses.forEach(s => { %><option value="<%= s %>" <%= s === e.status ? 'selected' : '' %>><%= s.charAt(0).toUpperCase() + s.slice(1) %></option><% }) %></select></div>
+      <div class="field"><label for="enq-who">Handled by</label>
+        <select id="enq-who" name="assigned_to"><option value="">Nobody yet</option><% team.forEach(u => { %><option value="<%= u.id %>" <%= u.id === e.assigned_to ? 'selected' : '' %>><%= u.name %><%= u.id === user.id ? ' (me)' : '' %></option><% }) %></select></div>
+      <div class="field"><label for="enq-follow">Follow up on</label><input id="enq-follow" type="date" name="follow_up_on" value="<%= e.follow_up_on || '' %>"></div>
+      <div class="field"><label for="enq-note">Notes</label><textarea id="enq-note" name="team_note" placeholder="What was discussed, what to send next"><%= e.team_note || '' %></textarea></div>
+      <button class="btn btn-primary" style="width:100%">Save</button>
+    </form>
+    <% if (history.length) { %>
+      <div class="card"><h3>History</h3><ul class="muted enq-hist"><% history.forEach(h => { %><li><%= h.summary %> · <%= h.user_name || 'System' %> · <%= fmtDate(String(h.created_at).slice(0, 10)) %></li><% }) %></ul></div>
+    <% } %>
+  </div>
+</div>
