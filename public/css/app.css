@@ -2426,3 +2426,58 @@ html body.app .dash-hero .svc-tab:has(input:focus-visible) { outline: 2px solid 
 .btn.disabled { pointer-events: none; opacity: .5; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .req-net { font-weight: 700; }
+
+/* ===== UI QA rounds (contrast, sizes, touch targets) ===== */
+/* R1 WhatsApp buttons: white text needs a darker green (4.5:1) */
+.btn-wa, .btn.btn-wa { background: #0f7a3d; border-color: #0f7a3d; color: #fff; }
+.btn-wa:hover, .btn.btn-wa:hover { background: #0b6332; border-color: #0b6332; color: #fff; }
+/* R2 initials avatars */
+.av { color: hsl(var(--h, 200) 65% 26%); }
+/* R3 meal plan: meals not included stay readable */
+.meal-tags span.off { color: var(--muted); }
+/* R4 statement summary labels on the tinted cell */
+.statement-sum span { color: var(--ink-3); }
+/* R5 chart values on phones */
+@media (max-width: 640px) { .bar-val { font-size: 11.5px; } }
+/* R6 bottom menu labels */
+@media (max-width: 860px) { .bottom-nav a, .bottom-nav button { font-size: 12px; } }
+/* R7 itinerary tags */
+.day-act .tag { font-size: 11.5px; letter-spacing: .04em; }
+/* R8 offer code hint */
+.offer-code small, .offer.deal .offer-code small { font-size: 11.5px; }
+/* R10 chart view buttons are easier to tap on phones */
+@media (max-width: 640px) { .chart-tools button { width: 40px; height: 36px; } }
+/* R11 initials in small avatars */
+.av.sm { font-size: 12px; }
+/* R12 small print never drops below 12px on phones (timestamps, references, hints) */
+@media (max-width: 640px) { small { font-size: max(12px, .85em); } }
+/* R13 day badge in itineraries */
+.day .num { font-size: 12px; }
+/* R14 meal plan tags */
+.meal-tags span { font-size: 12px; }
+/* R15 applicant name under the KYC photo */
+.kyc-photo small { font-size: 13px; }
+/* R16 paragraphs inside cards stay at a readable line length */
+.card > p, .card > p.muted, .card > div > p.muted, .page-head p { max-width: 80ch; }
+/* R17 list tables: every cell lines up on the row's middle (avatars no longer sit lower than the text) */
+.table > tbody > tr > td, .table > tr > td { vertical-align: middle; }
+/* R18 package cards: the meta line stays on one line so titles align across cards */
+.pkg .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* R19 lead actions on phones: the 1%-wide desktop column made the buttons collapse; full width, side by side */
+@media (max-width: 860px) {
+  .table.stack td.num:has(> form[action$="/quote"]) { width: 100%; display: flex; justify-content: stretch; gap: 8px; padding-top: 10px; }
+  .table.stack td.num:has(> form[action$="/quote"]) > * { flex: 1 1 0; margin: 0 !important; }
+  .table.stack td.num:has(> form[action$="/quote"]) .btn { width: 100%; min-height: 40px; }
+}
+/* R20 meal ticks in the itinerary: letters sit level with their boxes */
+.grid-day .meals .check { align-items: center; gap: 5px; font-weight: 600; }
+/* R21 remove-row buttons sit at the end of their row, not floating mid-row */
+.grid-day [data-remove-row], [class^="grid-"] > [data-remove-row] { justify-self: end; }
+/* R22 cancellation slabs: one readable sentence on desktop, two tidy lines on phones (✕ stays inside the card) */
+.grid-cancel { grid-template-columns: auto 70px auto auto 70px auto 36px; }
+@media (max-width: 640px) {
+  .grid-cancel { grid-template-columns: 92px 72px minmax(0, 1fr) 36px; row-gap: 8px; }
+  .grid-cancel .cx-a { grid-column: 3 / -1; }
+  .grid-cancel .cx-b { grid-column: 1; }
+  .grid-cancel [data-remove-row] { grid-column: 4; }
+}

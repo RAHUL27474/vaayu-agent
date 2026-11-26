@@ -552,3 +552,5 @@ body.public .v-enq-form input:focus, body.public .v-enq-form select:focus, body.
 .v-enq-fine { margin: 10px 0 0; font-size: 12.5px; color: var(--text-3); text-align: center; }
 @media (max-width: 1000px) { .v-enq-grid { grid-template-columns: 1fr; gap: 36px; } }
 @media (max-width: 600px) { .v-enquiry { padding: 72px 0; } .v-enq-form { padding: 22px 18px; } .v-enq-row, .v-enq-row.three { grid-template-columns: 1fr; } }
+/* R9 home search selects: full-height touch area on phones */
+@media (max-width: 760px) { .v-search-f { min-height: 56px; } body.public .v-search-f select { min-height: 32px; padding: 6px 0; } }

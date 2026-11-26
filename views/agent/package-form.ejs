@@ -25,7 +25,7 @@
     <div class="grid-day">
       <input name="days[${i}][title]" value="${e(r.title)}" placeholder="Day title, e.g. Arrive in Dubai, dhow cruise" aria-label="Day title">
       <input name="days[${i}][overnight]" value="${e(r.overnight)}" placeholder="Overnight at" aria-label="Overnight">
-      <span class="meals"><label class="check"><input type="checkbox" name="days[${i}][b]" value="1" ${m.b ? 'checked' : ''}>B</label><label class="check"><input type="checkbox" name="days[${i}][l]" value="1" ${m.l ? 'checked' : ''}>L</label><label class="check"><input type="checkbox" name="days[${i}][d]" value="1" ${m.d ? 'checked' : ''}>D</label></span>
+      <span class="meals"><label class="check" title="Breakfast"><input type="checkbox" name="days[${i}][b]" value="1" ${m.b ? 'checked' : ''}>B</label><label class="check" title="Lunch"><input type="checkbox" name="days[${i}][l]" value="1" ${m.l ? 'checked' : ''}>L</label><label class="check" title="Dinner"><input type="checkbox" name="days[${i}][d]" value="1" ${m.d ? 'checked' : ''}>D</label></span>
       ${del}
     </div>
     <textarea name="days[${i}][description]" placeholder="What happens today: transfers, free time, timings, drive distance" aria-label="Description" style="min-height:60px;margin-top:8px">${e(r.description)}</textarea>
@@ -58,7 +58,7 @@
     <input type="number" min="0" name="extras[${i}][price]" value="${e(r.price || '')}" placeholder="Your price" aria-label="Your price">${del}</div>`;
 
   const rowCancel = (i, r) => `<div class="rep-row grid-cancel" data-row>
-    <span>If cancelled</span><input type="number" min="0" name="cancel[${i}][days]" value="${e(r.days)}" aria-label="Days before departure"><span>or more days before departure, charge</span>
+    <span>If cancelled</span><input type="number" min="0" name="cancel[${i}][days]" value="${e(r.days)}" aria-label="Days before departure"><span class="cx-a">or more days before departure,</span><span class="cx-b">charge</span>
     <input type="number" min="0" max="100" name="cancel[${i}][percent]" value="${e(r.percent)}" aria-label="Percent"><span>%</span>${del}</div>`;
 
   const section = (key, fn, list, addLabel) => `<div data-rows="${key}">${list.map((r, i) => fn(i, r)).join('')}</div>
