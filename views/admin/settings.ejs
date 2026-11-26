@@ -23,13 +23,15 @@
 %>
 <div class="page-head"><div><h1>Settings</h1><p>Company details on VaayuTrip's invoices to agents, tax rates, partner tiers and VaayuTrip's margin on inventory.</p></div></div>
 <div class="card" style="max-width:720px">
-  <h3>Online payments (PhonePe)</h3>
+  <h2 class="h3">Online payments (PhonePe)</h2>
   <p style="margin:6px 0"><span class="badge as-is <%= phonepe === 'not set up' ? 'pending' : 'approved' %>"><%= phonepe.charAt(0).toUpperCase() + phonepe.slice(1) %></span></p>
-  <p class="muted" style="font-size:13px;margin:0">Keys are kept in the hosting environment, not here. Webhook URL for the PhonePe dashboard: <code><%= origin %>/payments/phonepe/webhook</code></p>
+  <p class="muted" style="font-size:13px;margin:0">Keys are kept in the hosting environment, not here. Webhook URL for the PhonePe dashboard:</p><p style="margin:6px 0 0"><code class="code-line"><%= origin %>/payments/phonepe/webhook</code></p>
 </div>
 <form class="card" method="post" action="/admin/settings" style="max-width:720px">
   <% keys.filter(k => labels[k]).forEach(k => { %>
-    <% if (k === 'tier_silver_pct') { %><h3 id="tiers" style="margin:28px 0 4px;padding-top:18px;border-top:1px solid var(--line)">Silver / Gold prices &amp; offers</h3><p class="muted" style="font-size:13px;margin:0 0 14px">Set how much cheaper Silver and Gold are, and optionally give every agent Silver or Gold for a period. To put particular agents on Silver or Gold, use <a href="/admin/tiers">Silver / Gold</a>.</p><% } %>
+    <% if (k === 'booking_approval') { %><h2 class="h3" style="margin:0 0 10px">Bookings</h2><% } %>
+    <% if (k === 'company_name') { %><h2 class="h3" style="margin:24px 0 10px;padding-top:18px;border-top:1px solid var(--line)">Company on VaayuTrip invoices</h2><% } %>
+    <% if (k === 'tier_silver_pct') { %><h2 class="h3" id="tiers" style="margin:28px 0 4px;padding-top:18px;border-top:1px solid var(--line)">Silver / Gold prices &amp; offers</h2><p class="muted" style="font-size:13px;margin:0 0 14px">Set how much cheaper Silver and Gold are, and optionally give every agent Silver or Gold for a period. To put particular agents on Silver or Gold, use <a href="/admin/tiers">Silver / Gold</a>.</p><% } %>
     <div class="field">
       <% if (k === 'booking_approval') { %>
       <input type="hidden" name="booking_approval" value="0">
@@ -46,7 +48,7 @@
       <% if (labels[k][1]) { %><div class="hint"><%= labels[k][1] %></div><% } %>
     </div>
   <% }) %>
-  <h3 style="margin-top:24px">VaayuTrip margin</h3>
+  <h2 class="h3" style="margin-top:24px">VaayuTrip margin</h2>
   <p class="muted" style="font-size:13px;margin-top:-4px">Added to what VaayuTrip pays (entered by the backend team) to give the price agents see and pay. Example: a cost of ₹100 with 5% shows agents ₹105. Changing a margin updates agents' prices right away; quotes already made keep theirs.</p>
   <div class="margin-grid">
     <% Object.entries(kinds).forEach(([k, c]) => { %>

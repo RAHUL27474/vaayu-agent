@@ -1,6 +1,6 @@
 <div class="page-head"><div><h1>API access</h1><p>Show your published packages on your own website or app at your prices, and send enquiries straight into your leads.</p></div></div>
 <div class="card">
-  <h3>Your API key</h3>
+  <h2 class="h3">Your API key</h2>
   <% if (agency.api_key && agency.status === 'active') { %>
     <div style="display:flex;gap:8px;max-width:640px"><input type="text" readonly value="<%= agency.api_key %>" aria-label="Your API key"><button class="btn" data-copy="<%= agency.api_key %>">Copy</button></div>
     <form method="post" action="/agent/api/regenerate" data-confirm="Generate a new key? The current key will stop working immediately." style="margin-top:10px"><button class="btn btn-sm btn-danger">Regenerate key</button></form>
@@ -10,7 +10,7 @@
   <% } %>
 </div>
 <div class="card">
-  <h3>Endpoints</h3>
+  <h2 class="h3">Endpoints</h2>
   <p>Base URL <code><%= base %></code> · send <code>Authorization: Bearer &lt;your key&gt;</code></p>
   <table class="table">
     <tr><td><code>GET /packages</code></td><td>Your published packages with their selling price</td></tr>
@@ -18,7 +18,7 @@
     <tr><td><code>POST /leads</code></td><td>Create a lead: <code>name</code>, <code>phone</code>, optional <code>email</code>, <code>package_slug</code>, <code>destination</code>, <code>travel_date</code>, <code>pax</code>, <code>budget</code>, <code>notes</code></td></tr>
     <tr><td><code>GET /bookings</code></td><td>Your latest 100 bookings</td></tr>
   </table>
-  <h3 style="margin-top:18px">Example</h3>
+  <h2 class="h3" style="margin-top:18px">Example</h2>
   <pre style="background:#0f172a;color:#e2e8f0;padding:16px;border-radius:10px;overflow-x:auto;font-size:12.5px">curl <%= base %>/packages \
   -H "Authorization: Bearer <%= agency.api_key || 'vt_live_...' %>"
 

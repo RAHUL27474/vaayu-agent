@@ -20,7 +20,7 @@
 <div class="split">
   <div>
     <div class="card">
-      <h3>Trip</h3>
+      <h2 class="h3">Trip</h2>
       <dl class="kv">
         <dt>Travel date</dt><dd><%= q.travel_date ? fmtDate(q.travel_date) : 'Not set' %></dd>
         <dt>Travellers</dt><dd><%= q.adults %> adult<%= q.adults === 1 ? '' : 's' %><%= q.children ? `, ${q.children} child${q.children === 1 ? '' : 'ren'}` : '' %><%= q.infants ? `, ${q.infants} infant${q.infants === 1 ? '' : 's'}` : '' %></dd>
@@ -30,7 +30,7 @@
       <% if (q.approval_request_note) { %><h4 class="enq-msg-h">Agent's note</h4><p class="enq-msg"><%= q.approval_request_note %></p><% } %>
     </div>
     <div class="card flush">
-      <div class="card-head"><h3>Services to confirm</h3><span class="muted">VaayuTrip net <b class="req-net"><%= inr(priced.net) %></b></span></div>
+      <div class="card-head"><h2 class="h3">Services to confirm</h2><span class="muted">VaayuTrip net <b class="req-net"><%= inr(priced.net) %></b></span></div>
       <div class="table-wrap"><table class="table">
         <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Net each</th><th class="num">Net</th></tr></thead>
         <% vaayu.forEach(l => { %><tr><td><b><%= l.title %></b><% if (l.description) { %><br><small class="muted"><%= l.description %></small><% } %></td><td class="num"><%= l.qty %></td><td class="num"><%= inr(l.unitNet) %></td><td class="num"><%= inr(l.lineNet) %></td></tr><% }) %>
@@ -44,7 +44,7 @@
       <div class="card"><p class="muted" style="margin:0">This quote is <%= q.status %>; nothing to decide.</p></div>
     <% } else { %>
     <form class="card appr-decide" method="post" action="/backend/booking-requests/<%= q.id %>/decide">
-      <h3>Decision</h3>
+      <h2 class="h3">Decision</h2>
       <% if (q.approval_status !== 'requested') { %><p class="muted" style="font-size:13px;margin:0 0 12px"><%= q.approval_status === 'approved' ? 'Approved' : 'Rejected' %> <%= when(q.approval_decided_at) %><%= nameOf(q.approval_decided_by) ? ` by ${nameOf(q.approval_decided_by)}` : '' %>. You can change it.</p><% } %>
       <div class="field"><label for="ap-note">Note to the agent</label><textarea id="ap-note" name="note" rows="3" placeholder="e.g. Confirmed, deluxe room on hold. Or: Hotel full on these dates; try 12 Dec."><%= q.approval_note || '' %></textarea><div class="hint">Needed when rejecting.</div></div>
       <div class="field"><label for="ap-hours">Agent must pay within</label>

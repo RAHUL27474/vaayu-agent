@@ -10,7 +10,7 @@
   </ol>
 
   <form method="post" action="/signup" class="card" enctype="multipart/form-data">
-    <h3>1. Your agency</h3>
+    <h2 class="h3">1. Your agency</h2>
     <div class="row">
       <div class="field"><label for="agency">Agency name</label><input id="agency" name="agency" value="<%= form.agency || '' %>" required autocomplete="organization"></div>
       <div class="field"><label for="city">City</label><input id="city" name="city" value="<%= form.city || '' %>"></div>
@@ -34,7 +34,7 @@
       </div>
     </div>
 
-    <h3 style="margin-top:8px">2. Verification documents</h3>
+    <h3 style="margin-top:8px">2. Verification documents</h2>
     <p class="muted" style="font-size:13px;margin-top:-4px">PDF, JPG or PNG, up to 5 MB each. Only VaayuTrip's verification team can see them.</p>
     <div class="doc-grid">
       <label class="doc-drop" for="tax_doc">
@@ -57,7 +57,7 @@
       </label>
     </div>
 
-    <h3 style="margin-top:8px">3. Your login</h3>
+    <h3 style="margin-top:8px">3. Your login</h2>
     <div class="row">
       <div class="field"><label for="name">Your name</label><input id="name" name="name" value="<%= form.name || '' %>" required autocomplete="name"></div>
       <div class="field"><label for="phone">Mobile</label><input id="phone" type="tel" name="phone" value="<%= form.phone || '' %>" autocomplete="tel"></div>

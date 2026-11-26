@@ -5,27 +5,27 @@
 <% const st = agency.website_status || 'none'; %>
 <% if (st === 'live') { %>
   <div class="card">
-    <h3>Your website is live</h3>
+    <h2 class="h3">Your website is live</h2>
     <p><a href="https://<%= agency.website_domain %>" target="_blank" rel="noopener"><b><%= agency.website_domain %></b><%- icon('external') %></a></p>
     <p class="muted" style="font-size:13px">It shows the packages you publish (My packages → Publish), priced with your markup, and enquiries arrive in <a href="/agent/leads">Leads</a>. Changes? <a href="/agent/support">Write to support</a>.</p>
   </div>
 <% } else if (st === 'requested' || st === 'in_progress') { %>
   <div class="card">
-    <h3><%= st === 'requested' ? 'Request received' : 'Your website is being built' %></h3>
+    <h2 class="h3"><%= st === 'requested' ? 'Request received' : 'Your website is being built' %></h2>
     <p class="muted"><%= st === 'requested' ? 'Our team will call you with the charges and next steps.' : 'Our team is working on it. We will let you know when it is live.' %><%= agency.website_requested_at ? ` Requested on ${fmtDate(agency.website_requested_at)}.` : '' %></p>
     <% if (agency.website_domain) { %><p>Domain: <b><%= agency.website_domain %></b></p><% } %>
   </div>
 <% } else { %>
 <div class="split">
   <form class="card" method="post" action="/agent/website/request">
-    <h3>Request your website</h3>
+    <h2 class="h3">Request your website</h2>
     <div class="field"><label for="w-domain">Your domain <span class="muted">(if you have one)</span></label><input id="w-domain" name="domain" placeholder="e.g. skylineholidays.in"></div>
     <div class="field"><label for="w-phone">Best number to call you</label><input id="w-phone" name="phone" value="<%= agency.phone || '' %>" inputmode="tel"></div>
     <div class="field"><label for="w-msg">What would you like? <span class="muted">(optional)</span></label><textarea id="w-msg" name="message" maxlength="800" placeholder="Pages, languages, anything you have in mind"></textarea></div>
     <button class="btn btn-primary">Send request</button>
   </form>
   <div class="card">
-    <h3>How it works</h3>
+    <h2 class="h3">How it works</h2>
     <ol class="steps" style="margin:0;padding-left:18px;line-height:1.7">
       <li>Send this request.</li>
       <li>Our team calls you with the charges and agrees the design.</li>

@@ -39,8 +39,8 @@
       </table>
       <% if (list(p.inclusions).length || list(p.exclusions).length) { %>
         <div class="grid grid-2" style="margin-top:16px">
-          <div><h3 class="h-ok"><%- icon('checkCircle') %>Included</h3><ul style="padding-left:18px"><% list(p.inclusions).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
-          <div><h3 class="h-bad"><%- icon('xCircle') %>Not included</h3><ul style="padding-left:18px" class="muted"><% list(p.exclusions).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+          <div><h2 class="h3 h-ok"><%- icon('checkCircle') %>Included</h2><ul style="padding-left:18px"><% list(p.inclusions).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+          <div><h2 class="h3 h-bad"><%- icon('xCircle') %>Not included</h2><ul style="padding-left:18px" class="muted"><% list(p.exclusions).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
         </div>
       <% } %>
     </div>
@@ -49,7 +49,7 @@
       <div class="pkg-grid">
         <% more.forEach(m => { %>
           <a class="pkg" href="/agent/<%= cfg.path %>/<%= m.id %>" style="color:inherit;text-decoration:none">
-            <div class="body"><div class="meta"><%= m.category %><%= m.duration ? ` · ${m.duration}` : '' %></div><h3><%= m.title %></h3>
+            <div class="body"><div class="meta"><%= m.category %><%= m.duration ? ` · ${m.duration}` : '' %></div><h2 class="h3"><%= m.title %></h2>
               <div class="price"><div><small class="muted">Net <%= m.price.unit %></small><br><b><%= inr(m.price.net) %></b></div><div class="num"><small class="muted"><%= m.price.earnLabel %></small><br><span class="profit"><%= inr(m.price.earn) %></span></div></div></div>
           </a>
         <% }) %>
@@ -59,7 +59,7 @@
 
   <div>
     <form class="card calc" method="get" action="/agent/<%= cfg.path %>/<%= p.id %>">
-      <h3>Price for your customer</h3>
+      <h2 class="h3">Price for your customer</h2>
       <div class="row">
         <div class="field"><label for="adults">Adults</label><input id="adults" type="number" min="1" name="adults" value="<%= party.adults %>"></div>
         <div class="field"><label for="children">Children 2–11</label><input id="children" type="number" min="0" name="children" value="<%= party.children %>"></div>
@@ -98,7 +98,7 @@
     </form>
     <% if (seasons.length || blackouts.length) { %>
       <div class="card season-card">
-        <h3>Seasonal prices</h3>
+        <h2 class="h3">Seasonal prices</h2>
         <ul>
           <% seasons.forEach(s => { %><li><span class="badge <%= s.pct > 0 ? 'pending' : 'ok' %>"><%= s.pct > 0 ? '+' : '' %><%= s.pct %>%</span> <%= s.label %> · <%= fmtDate(s.from) %> – <%= fmtDate(s.to) %></li><% }) %>
           <% blackouts.forEach(s => { %><li><span class="badge cancelled">Sold out</span> <%= s.label %> · <%= fmtDate(s.from) %> – <%= fmtDate(s.to) %></li><% }) %>
@@ -107,7 +107,7 @@
     <% } %>
 
     <form class="card" method="post" action="/agent/<%= cfg.path %>/<%= p.id %>/add-to-package">
-      <h3>Add to a package</h3>
+      <h2 class="h3">Add to a package</h2>
       <div class="field"><label for="pkg-id">Package</label>
         <select id="pkg-id" name="package_id">
           <option value="new">+ New package in <%= p.city %></option>
@@ -122,7 +122,7 @@
     </form>
 
     <form class="card" method="post" action="/agent/<%= cfg.path %>/<%= p.id %>/quote">
-      <h3>Add to a quote</h3>
+      <h2 class="h3">Add to a quote</h2>
       <% ['adults', 'children', 'infants', 'rooms', 'nights'].forEach(k => { %><input type="hidden" name="<%= k %>" value="<%= party[k] %>"><% }) %>
       <% if (own) { %><input type="hidden" name="mu_type" value="<%= own.markup_type %>"><input type="hidden" name="mu" value="<%= own.markup_value %>"><% } %>
       <div class="field"><label for="q-id">Quote</label>

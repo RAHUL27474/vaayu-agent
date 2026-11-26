@@ -20,7 +20,7 @@
     <% } %>
   </div>
   <form class="card" method="post" action="/backend/packages/<%= pkg.id %>/departures">
-    <h3>Add or change departures</h3>
+    <h2 class="h3">Add or change departures</h2>
     <div class="field"><label for="dates">Dates</label><textarea id="dates" name="dates" rows="3" placeholder="2027-01-15, 2027-01-22, 2027-02-05" required></textarea><div class="hint">One or more dates (YYYY-MM-DD), separated by commas or new lines. An existing date gets the new seat count.</div></div>
     <div class="field"><label for="seats">Seats on each</label><input id="seats" type="number" min="1" max="999" name="seats" required></div>
     <div class="field"><label for="note">Note <span class="muted">(optional)</span></label><input id="note" name="note" maxlength="80" placeholder="e.g. Diwali special, group with tour leader"></div>

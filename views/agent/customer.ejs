@@ -27,13 +27,13 @@
 <div class="split">
   <div>
     <div class="card flush">
-      <div class="card-head"><h3>Quotes</h3></div>
+      <div class="card-head"><h2 class="h3">Quotes</h2></div>
       <% if (!quotes.length) { %><div class="empty">No quotes yet.</div><% } else { %>
       <table class="table" style="margin-top:10px"><% quotes.forEach(q => { %><tr class="click" data-href="/agent/quotes/<%= q.id %>"><td><b><%= q.title %></b><br><small><%= q.code %></small></td><td><span class="badge <%= q.status %>"><%= q.status %></span></td></tr><% }) %></table>
       <% } %>
     </div>
     <div class="card flush" id="docs">
-      <div class="card-head"><h3>Travellers &amp; documents</h3><% if (nextTrip) { %><small class="muted">Next trip <%= fmtDate(nextTrip) %></small><% } %></div>
+      <div class="card-head"><h2 class="h3">Travellers &amp; documents</h2><% if (nextTrip) { %><small class="muted">Next trip <%= fmtDate(nextTrip) %></small><% } %></div>
       <% if (!docs.length) { %><div class="empty">No documents yet. Keep passports, visas and photos here for quick bookings.</div><% } else { %>
       <div class="table-wrap"><table class="table">
         <thead><tr><th>Traveller</th><th>Document</th><th>Expires</th><th></th></tr></thead>
@@ -68,14 +68,14 @@
       </form>
     </div>
     <div class="card flush">
-      <div class="card-head"><h3>Bookings</h3></div>
+      <div class="card-head"><h2 class="h3">Bookings</h2></div>
       <% if (!bookings.length) { %><div class="empty">No bookings yet.</div><% } else { %>
       <table class="table" style="margin-top:10px"><% bookings.forEach(b => { %><tr class="click" data-href="/agent/bookings/<%= b.id %>"><td><b><%= b.title %></b><br><small><%= b.code %></small></td><td><%= fmtDate(b.travel_date) %></td><td><span class="badge <%= b.status %>"><%= b.status.replace('_', ' ') %></span></td><td class="num"><%= inr(b.total_sell) %></td></tr><% }) %></table>
       <% } %>
     </div>
   </div>
   <form class="card" method="post" action="/agent/customers/<%= customer.id %>">
-    <h3>Details</h3>
+    <h2 class="h3">Details</h2>
     <div class="field"><label for="name">Name</label><input id="name" name="name" value="<%= customer.name %>" required></div>
     <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" value="<%= customer.phone || '' %>"></div>
     <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= customer.email || '' %>"></div>

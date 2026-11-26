@@ -38,7 +38,7 @@
 
   <div>
     <form class="card calc" method="get" action="/agent/packages/<%= pkg.id %>" style="position:sticky;top:76px">
-      <h3>Price this trip</h3>
+      <h2 class="h3">Price this trip</h2>
       <div class="field"><label for="date">Travel date</label><input id="date" type="date" min="<%= o.date && o.date < today ? o.date : today %>" name="date" value="<%= o.date %>"></div>
       <div class="row">
         <div class="field"><label for="adults">Adults</label><input id="adults" type="number" min="1" name="adults" value="<%= o.adults %>"></div>
@@ -80,7 +80,7 @@
 
     <% if (!calc.errors.length && calc.lines.length) { %>
       <form class="card" method="post" action="/agent/packages/<%= pkg.id %>/quote">
-        <h3>Create quote</h3>
+        <h2 class="h3">Create quote</h2>
         <% ['date', 'adults', 'children', 'infants', 'rooms'].forEach(k => { %><input type="hidden" name="<%= k %>" value="<%= o[k] %>"><% }) %>
         <div class="field"><label for="customer_id">Customer</label>
           <select id="customer_id" name="customer_id"><option value="">Choose later</option><% customers.forEach(c => { %><option value="<%= c.id %>"><%= c.name %></option><% }) %></select>

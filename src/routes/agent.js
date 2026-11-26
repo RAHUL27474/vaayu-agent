@@ -686,7 +686,7 @@ router.post('/quotes/:id/request-booking', requireActiveAgency, h(async (req, re
   const note = String(req.body.note || '').trim().slice(0, 500) || null;
   await run(`UPDATE quotes SET approval_status = 'requested', approval_net = ?, approval_requested_at = datetime('now'), approval_requested_by = ?, approval_request_note = ?,
     approval_decided_at = NULL, approval_decided_by = NULL, approval_note = NULL, approval_until = NULL WHERE id = ?`, full.priced.net, req.user.id, note, quote.id);
-  const summary = `${req.agency.name}: ${quote.title} (${quote.code}), net ₹${full.priced.net.toLocaleString('en-IN')}${quote.travel_date ? `, travel ${quote.travel_date}` : ''}`;
+  const summary = `${req.agency.name}: ${quote.title} (${quote.code}), net ₹${full.priced.net.toLocaleString('en-IN')}${quote.travel_date ? `, travel ${new Date(quote.travel_date + "T00:00:00Z").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}` : ''}`;
   await notify(null, 'New booking request', summary, `/backend/booking-requests/${quote.id}`);
   const team = (await all("SELECT email FROM users WHERE role = 'backend' AND is_active = 1")).map((u) => u.email);
   const mailer = require('../mailer');

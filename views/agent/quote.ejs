@@ -53,7 +53,7 @@
       <% } else if (approval.expired) { %><div class="alert warn">The approval expired on <%= untilTxt %>. Send the request again.</div><% } %>
       <form method="post" action="/agent/quotes/<%= quote.id %>/request-booking" class="appr-form">
         <div>
-          <h3>Ready to book? Send a booking request</h3>
+          <h2 class="h3">Ready to book? Send a booking request</h2>
           <p class="muted">VaayuTrip operations confirm availability and rates for <%= inr(netPayable.total) %><%= netPayable.tax ? ' (net + GST)' : '' %>. Once approved, you pay by wallet<%= phonepeOn ? ', credit or online' : ' or credit' %> and the booking is confirmed.</p>
           <label for="req-note" class="sr-only">Note for operations</label>
           <textarea id="req-note" name="note" rows="2" maxlength="500" placeholder="Anything operations should know (optional): room preference, flight timing…"></textarea>
@@ -68,7 +68,7 @@
 <div class="split">
   <div>
     <form class="card flush" id="items" method="post" action="/agent/quotes/<%= quote.id %>/items">
-      <div class="card-head"><h3>Items &amp; your prices</h3><span class="muted">Leave "Your price" blank to use your markup: <%= kindLabel || markupLabel %></span></div>
+      <div class="card-head"><h2 class="h3">Items &amp; your prices</h2><span class="muted">Leave "Your price" blank to use your markup: <%= kindLabel || markupLabel %></span></div>
       <div class="table-wrap" style="margin-top:10px">
         <table class="table">
           <thead><tr><th>Item</th><th class="num">Net</th><th class="num" style="width:130px">Your price</th><th class="num" style="width:86px">Qty</th><th class="num">Total</th><th class="num">You earn</th><th></th></tr></thead>
@@ -102,7 +102,7 @@
     <% if (!locked) { %>
       <div class="grid grid-2">
         <form class="card" method="post" action="/agent/quotes/<%= quote.id %>/items/custom">
-          <h3>Add your own service</h3>
+          <h2 class="h3">Add your own service</h2>
           <p class="muted" style="font-size:13px">Hotel you book, guide, visa help, decoration… Billed only on your branded invoice. Add what it costs you to see your real earning.</p>
           <div class="field"><label for="c-title">Service</label><input id="c-title" name="title" required placeholder="e.g. Private photographer, 2 hours"></div>
           <div class="field"><label for="c-desc">Details</label><input id="c-desc" name="description"></div>
@@ -114,7 +114,7 @@
           <button class="btn">Add service</button>
         </form>
         <div class="card">
-          <h3>Add from VaayuTrip</h3>
+          <h2 class="h3">Add from VaayuTrip</h2>
           <p class="muted" style="font-size:13px">Open any item, then choose this quote under "Add to a quote".</p>
           <div class="grid grid-2" style="gap:10px">
             <a class="btn" href="/agent/flights"><%- icon('plane') %>Airfares</a>
@@ -143,7 +143,7 @@
         const cWa = cDigits.length === 10 ? '91' + cDigits : cDigits;
         const waText = `Hi ${cFirst || 'there'}, here is your quote for ${quote.title.split(' — ')[0]}${quote.travel_date ? ` (${fmtDate(quote.travel_date)})` : ''}. The PDF is attached. Happy to adjust anything. – ${user.name.split(' ')[0]}, ${agency.name}`;
       %>
-      <div class="card-head"><h3><%= cName ? `For ${cName}` : 'For your customer' %></h3></div>
+      <div class="card-head"><h2 class="h3"><%= cName ? `For ${cName}` : 'For your customer' %></h2></div>
       <p class="muted" style="font-size:13px;margin:0 0 12px">Download the PDF with your logo, then send it<%= cFirst ? ` to ${cFirst}` : '' %> on WhatsApp or email. Payment is between you and your customer.</p>
       <div class="actions" style="flex-wrap:wrap">
         <a class="btn btn-primary" href="/agent/quotes/<%= quote.id %>/pdf" target="_blank"><%- icon('download') %>Quote PDF</a>
@@ -153,7 +153,7 @@
     </div>
 
     <div class="card flush">
-      <div class="card-head"><h3>Invoices</h3>
+      <div class="card-head"><h2 class="h3">Invoices</h2>
         <form method="post" action="/agent/quotes/<%= quote.id %>/invoice"><button class="btn btn-primary btn-sm" <%= agency.status !== 'active' || !items.length ? 'disabled' : '' %>>Issue <%= quote.invoice_mode === 'agent' ? 'my branded' : 'VaayuTrip' %> invoice</button></form>
       </div>
       <% if (!invoices.length) { %><div class="empty">No invoices yet.</div><% } else { %>
@@ -169,7 +169,7 @@
 
   <div>
     <div class="card">
-      <h3>Summary</h3>
+      <h2 class="h3">Summary</h2>
       <table class="totals">
         <tr><td class="muted">VaayuTrip net</td><td class="num"><%= inr(priced.net) %></td></tr>
         <tr><td class="muted">Your commission</td><td class="num profit">+ <%= inr(priced.vaayuCommission) %></td></tr>
@@ -213,7 +213,7 @@
     </div>
 
     <form class="card" method="post" action="/agent/quotes/<%= quote.id %>">
-      <h3>Quote details</h3>
+      <h2 class="h3">Quote details</h2>
       <div class="field"><label for="title">Title</label><input id="title" name="title" value="<%= quote.title %>"></div>
       <div class="field"><label for="customer_id">Customer</label>
         <select id="customer_id" name="customer_id"><option value="">—</option><% customers.forEach(c => { %><option value="<%= c.id %>" <%= c.id === quote.customer_id ? 'selected' : '' %>><%= c.name %></option><% }) %></select>
@@ -225,7 +225,7 @@
         <div class="field"><label for="children">Children</label><input id="children" type="number" min="0" name="children" value="<%= quote.children %>"></div>
       </div>
 
-      <h3 style="margin-top:8px">Your commission</h3>
+      <h2 class="h3" style="margin-top:8px">Your commission</h2>
       <div class="row">
         <div class="field"><label for="markup_type">Markup</label>
           <select id="markup_type" name="markup_type" <%= locked ? 'disabled' : '' %>><option value="percent" <%= quote.markup_type === 'percent' ? 'selected' : '' %>>Percent of net</option><option value="flat" <%= quote.markup_type === 'flat' ? 'selected' : '' %>>Flat amount</option></select>
@@ -248,7 +248,7 @@
           <% }) %>
         </div>
 
-      <h3>Customer invoice</h3>
+      <h2 class="h3">Customer invoice</h2>
       <p class="muted" style="font-size:13px;margin:0 0 6px">Your customer's invoice, quote and voucher carry <b><%= agency.name %></b>'s name, logo and details.</p>
       <div class="field"><label for="notes">Notes for customer</label><textarea id="notes" name="notes" placeholder="Validity, cancellation policy, special requests…"><%= quote.notes || '' %></textarea></div>
       <button class="btn btn-primary" style="width:100%">Save details</button>

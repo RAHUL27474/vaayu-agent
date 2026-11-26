@@ -15,7 +15,7 @@
       <img src="<%= cover(p, 640) %>" alt="" loading="lazy">
       <div class="body">
         <div class="meta"><span class="badge <%= p.status === 'published' ? 'active' : '' %>"><%= p.status === 'published' ? 'Published' : 'Draft' %></span> <%= p.nights %>N · <%= p.destination %></div>
-        <h3><%= p.title %></h3>
+        <h2 class="h3"><%= p.title %></h2>
         <p class="muted" style="font-size:13px;margin:0"><%= p.services %> VaayuTrip service<%= p.services === 1 ? "" : "s" %> · <%= p.quotes %> quote<%= p.quotes === 1 ? '' : 's' %><% if (p.problems.length && p.status !== 'published') { %> · <span style="color:var(--warn)"><%= p.problems.length %> to finish</span><% } %></p>
         <div class="price">
           <div><small class="muted">Selling price pp</small><br><b><%= p.price.sell ? inr(p.price.sell) : '—' %></b></div>

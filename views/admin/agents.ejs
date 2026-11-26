@@ -15,7 +15,7 @@
         <td><span class="badge <%= a.status %>"><%= a.status %></span></td>
         <td><span class="badge <%= a.kyc_status %>"><%= a.kyc_status %></span><br><small><%= a.missing.length ? `Missing ${a.missing.length} item${a.missing.length === 1 ? "" : "s"}` : "Documents complete" %></small></td>
         <td class="num"><%= inr(a.wallet_balance) %></td>
-        <td class="num"><%= inr(a.credit_used) %> / <%= inr(a.credit_limit) %></td>
+        <td class="num"><% if (a.credit_limit > 0) { %><%= inr(a.credit_used) %> <small class="muted">of <%= inr(a.credit_limit) %></small><% } else { %><span class="muted">No credit line</span><% } %></td>
         <td class="num"><%= a.bookings %></td>
       </tr>
     <% }) %>

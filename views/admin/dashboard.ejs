@@ -35,18 +35,18 @@
     <div class="stat"><div class="label">Cancellation rate</div><div class="value"><%= biz.cancelRate %>%</div><div class="sub">of bookings in 12 months</div></div>
   </div>
   <div class="grid grid-2">
-    <div class="card"><h3>Revenue by month</h3><%- include('../partials/bar-chart', { id: 'revenue', bars: biz.months.map(m => ({ label: m.label, value: Math.round(m.revenue), note: plural(m.bookings || 0, 'booking') })), format: short }) %></div>
-    <div class="card"><h3>Estimated VaayuTrip margin</h3><%- include('../partials/bar-chart', { id: 'margin', bars: biz.months.map(m => ({ label: m.label, value: Math.round(m.margin) })), format: short }) %><p class="muted" style="font-size:12px;margin:8px 0 0">From each service's margin % in Settings.</p></div>
+    <div class="card"><h2 class="h3">Revenue by month</h2><%- include('../partials/bar-chart', { id: 'revenue', bars: biz.months.map(m => ({ label: m.label, value: Math.round(m.revenue), note: plural(m.bookings || 0, 'booking') })), format: short }) %></div>
+    <div class="card"><h2 class="h3">Estimated VaayuTrip margin</h2><%- include('../partials/bar-chart', { id: 'margin', bars: biz.months.map(m => ({ label: m.label, value: Math.round(m.margin) })), format: short }) %><p class="muted" style="font-size:12px;margin:8px 0 0">From each service's margin % in Settings.</p></div>
   </div>
   <div class="grid grid-3">
-    <div class="card"><h3>Top agencies</h3><%- include('../partials/hbars', { id: 'agencies', rows: biz.agencies, format: short }) %></div>
-    <div class="card"><h3>Top destinations</h3><%- include('../partials/hbars', { id: 'destinations', rows: biz.destinations, format: short }) %></div>
-    <div class="card"><h3>Sales by service</h3><%- include('../partials/hbars', { id: 'services', rows: biz.services, format: short }) %></div>
+    <div class="card"><h2 class="h3">Top agencies</h2><%- include('../partials/hbars', { id: 'agencies', rows: biz.agencies, format: short }) %></div>
+    <div class="card"><h2 class="h3">Top destinations</h2><%- include('../partials/hbars', { id: 'destinations', rows: biz.destinations, format: short }) %></div>
+    <div class="card"><h2 class="h3">Sales by service</h2><%- include('../partials/hbars', { id: 'services', rows: biz.services, format: short }) %></div>
   </div>
 </div>
 
 <div class="card flush">
-  <div class="card-head"><h3>Latest bookings</h3><a href="/admin/bookings">All bookings</a></div>
+  <div class="card-head"><h2 class="h3">Latest bookings</h2><a href="/admin/bookings">All bookings</a></div>
   <% if (!bookings.length) { %><div class="empty">No bookings yet.</div><% } else { %>
   <div class="table-wrap"><table class="table" style="margin-top:10px">
     <thead><tr><th>Booking</th><th>Agent</th><th>Travel</th><th>Status</th><th class="num">Net to VaayuTrip</th></tr></thead>
@@ -59,20 +59,20 @@
 
 <div class="grid grid-3">
   <div class="card flush">
-    <div class="card-head"><h3>Top agents</h3><small class="muted">last 90 days</small></div>
+    <div class="card-head"><h2 class="h3">Top agents</h2><small class="muted">last 90 days</small></div>
     <% if (!topAgents.length) { %><div class="empty">No bookings in 90 days.</div><% } %>
     <table class="table" style="margin-top:10px">
       <% topAgents.forEach(a => { %><tr class="click" data-href="/admin/agents/<%= a.id %>"><td><b><%= a.name %></b><br><small><%= a.city || '' %> · <%= plural(a.bookings, 'booking') %></small></td><td class="num"><%= inr(a.revenue) %></td></tr><% }) %>
     </table>
   </div>
   <div class="card flush">
-    <div class="card-head"><h3>Most booked inventory</h3><a href="/backend/products">All</a></div>
+    <div class="card-head"><h2 class="h3">Most booked inventory</h2><a href="/backend/products">All</a></div>
     <table class="table" style="margin-top:10px">
       <% topProducts.forEach(p => { %><tr class="click" data-href="/backend/products/<%= p.id %>"><td><%= p.title %><br><small><%= kinds[p.kind].label %> · <%= p.city %></small></td><td class="num nowrap"><%= p.bookings %> booked</td></tr><% }) %>
     </table>
   </div>
   <div class="card flush">
-    <div class="card-head"><h3>Awaiting approval</h3></div>
+    <div class="card-head"><h2 class="h3">Awaiting approval</h2></div>
     <% if (!pending.length) { %><div class="empty">Nothing waiting for approval.</div><% } else { %>
     <table class="table" style="margin-top:10px">
       <% pending.forEach(a => { %><tr class="click" data-href="/admin/agents/<%= a.id %>"><td><b><%= a.name %></b><br><small><%= a.city || '' %> · <%= fmtDate(a.created_at) %></small></td><td class="num"><span class="badge pending">Review</span></td></tr><% }) %>
@@ -83,7 +83,7 @@
 
 <% if (quietAgents.length) { %>
 <div class="card flush">
-  <div class="card-head"><h3>Agents gone quiet</h3><small class="muted">no booking in 60 days · give them a call</small></div>
+  <div class="card-head"><h2 class="h3">Agents gone quiet</h2><small class="muted">no booking in 60 days · give them a call</small></div>
   <div class="table-wrap"><table class="table" style="margin-top:6px">
     <% quietAgents.forEach(a => { %><tr class="click" data-href="/admin/agents/<%= a.id %>">
       <td><b><%= a.name %></b><br><small><%= a.city || '' %></small></td>
@@ -96,6 +96,6 @@
 <% } %>
 
 <div class="card flush">
-  <div class="card-head"><h3>Latest activity</h3><a href="/admin/log">Full activity log</a></div>
+  <div class="card-head"><h2 class="h3">Latest activity</h2><a href="/admin/log">Full activity log</a></div>
   <%- include('../partials/log-table', { entries: recentLog }) %>
 </div>

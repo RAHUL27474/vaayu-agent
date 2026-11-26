@@ -113,7 +113,7 @@
 <% if (canUseLeads && followUps.length) { %>
   <div class="today-grid">
     <div class="card flush">
-      <div class="card-head"><h3>Follow-ups due</h3><a href="/agent/leads?due=1">All</a></div>
+      <div class="card-head"><h2 class="h3">Follow-ups due</h2><a href="/agent/leads?due=1">All</a></div>
       <table class="table">
         <% followUps.forEach(l => { const overdue = l.follow_up_on < today; %>
           <tr class="click" data-href="/agent/leads?due=1">
@@ -136,7 +136,7 @@
 <% if (doneCount < checklist.length) { %>
   <div class="card setup">
     <div class="card-head">
-      <h3>Get set up</h3>
+      <h2 class="h3">Get set up</h2>
       <span class="muted" style="font-size:13px"><%= doneCount %> of <%= checklist.length %> done</span>
     </div>
     <div class="progress"><div style="width:<%= Math.round(doneCount / checklist.length * 100) %>%"></div></div>
@@ -151,7 +151,7 @@
 <div class="split dash-split<%= canUseLeads || canBook ? '' : ' dash-split-wide' %>">
   <div>
     <div class="card flush">
-      <div class="card-head"><h3>Recent quotes<% if (personal.awaiting) { %> <small class="muted head-note"><%= personal.awaiting %> awaiting reply</small><% } %></h3><a href="/agent/quotes">All quotes</a></div>
+      <div class="card-head"><h2 class="h3">Recent quotes<% if (personal.awaiting) { %> <small class="muted head-note"><%= personal.awaiting %> awaiting reply</small><% } %></h2><a href="/agent/quotes">All quotes</a></div>
       <% if (!quotes.length) { %><div class="empty">No quotes yet.<% if (canBook) { %> Start from <a href="/agent/packages">one of your packages</a> or browse <a href="/agent/hotels">hotels</a>, <a href="/agent/flights">airfares</a> and <a href="/agent/activities">activities</a>.<% } %></div><% } else { %>
       <table class="table">
         <thead><tr><th>Quote</th><th>Trip</th><th>Status</th></tr></thead>
@@ -163,7 +163,7 @@
     </div>
 
     <div class="card flush">
-      <div class="card-head"><h3>Upcoming departures</h3><a href="/agent/bookings">All bookings</a></div>
+      <div class="card-head"><h2 class="h3">Upcoming departures</h2><a href="/agent/bookings">All bookings</a></div>
       <% if (!personal.trips.length) { %><div class="empty">No trips coming up. Confirmed bookings show here.</div><% } else { %>
       <table class="table">
         <thead><tr><th>Travel date</th><th>Customer</th><th>Trip</th><th class="num">Departs</th></tr></thead>
@@ -180,7 +180,7 @@
     </div>
 
     <div class="card">
-      <div class="card-head"><h3>Earnings by month</h3><% if (agentCan('/agent/reports')) { %><a href="/agent/reports">Full reports</a><% } %></div>
+      <div class="card-head"><h2 class="h3">Earnings by month</h2><% if (agentCan('/agent/reports')) { %><a href="/agent/reports">Full reports</a><% } %></div>
       <% if (!chart.some(c => c.value)) { %><div class="empty">Your commission from bookings will show here.</div><% } else { %>
         <%- include('../partials/bar-chart', { bars: chart, format: (n) => n >= 1e5 ? `₹${(n / 1e5).toFixed(1)}L` : n >= 1e3 ? `₹${Math.round(n / 1e3)}k` : inr(n) }) %>
       <% } %>
@@ -190,7 +190,7 @@
   <% if (canUseLeads || canBook) { %><aside>
     <% if (canUseLeads) { %>
     <div class="card flush">
-      <div class="card-head"><h3>New leads</h3><a href="/agent/leads">All leads</a></div>
+      <div class="card-head"><h2 class="h3">New leads</h2><a href="/agent/leads">All leads</a></div>
       <% if (!leads.length) { %><div class="empty">No new leads. Add enquiries from phone or WhatsApp in <a href="/agent/leads">Leads</a>.</div><% } else { %>
       <table class="table">
         <% leads.forEach(l => { %>
@@ -203,7 +203,7 @@
 
 
     <% if (canBook) { %><div class="card flush">
-      <div class="card-head"><h3>New inventory</h3><a href="/agent/activities">Browse</a></div>
+      <div class="card-head"><h2 class="h3">New inventory</h2><a href="/agent/activities">Browse</a></div>
       <table class="table">
         <% featured.forEach(x => { %>
           <tr class="click" data-href="/agent/<%= x.path %>/<%= x.id %>"><td><a href="/agent/<%= x.path %>/<%= x.id %>" style="color:inherit"><b><%= x.title %></b></a><br><small class="muted"><%= x.city %>, <%= x.country %></small></td><td class="num nowrap"><% if (x.price.was) { %><s class="was-price"><%= inr(x.price.was) %></s><br><% } %><b><%= inr(x.price.net) %></b><br><small class="muted"><%= x.price.unit %></small></td></tr>

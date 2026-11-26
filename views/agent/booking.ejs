@@ -22,7 +22,7 @@
   <div>
     <% if (full) { %>
     <div class="card flush">
-      <div class="card-head"><h3>Services</h3></div>
+      <div class="card-head"><h2 class="h3">Services</h2></div>
       <table class="table" style="margin-top:10px">
         <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Net</th><th class="num">Sold</th></tr></thead>
         <% let lastDay = null; full.priced.lines.forEach(l => { const m = /^Day (\d+):\s*(.*)$/.exec(l.title || ''); const day = m ? Number(m[1]) : 0; const name = m ? m[2] : l.title; %>
@@ -34,7 +34,7 @@
     </div>
     <% } %>
     <div class="card flush">
-      <div class="card-head"><h3>Invoices</h3></div>
+      <div class="card-head"><h2 class="h3">Invoices</h2></div>
       <table class="table" style="margin-top:10px">
         <% invoices.forEach(i => { %><tr class="click" data-href="/agent/invoices/<%= i.id %>"><td><b><%= i.number %></b></td><td><%= { customer_agent: 'Your branded invoice', customer_vaayu: 'VaayuTrip invoice to customer', b2b: 'VaayuTrip → you (net)' }[i.kind] %></td><td class="num"><%= inr(i.total) %></td></tr><% }) %>
       </table>
@@ -56,10 +56,10 @@
       </dl>
     </div>
     <% if (booking.status === 'confirmed' && dd !== null && dd < 0) { %>
-      <div class="card"><h3>Trip completed</h3><p class="muted" style="font-size:13px;margin-bottom:12px">Hope <%= who || 'your customers' %> had a great time. Anything to sort out after the trip?</p><a class="btn btn-sm" href="/agent/support?booking=<%= booking.code %>#new">Raise a support ticket</a></div>
+      <div class="card"><h2 class="h3">Trip completed</h2><p class="muted" style="font-size:13px;margin-bottom:12px">Hope <%= who || 'your customers' %> had a great time. Anything to sort out after the trip?</p><a class="btn btn-sm" href="/agent/support?booking=<%= booking.code %>#new">Raise a support ticket</a></div>
     <% } else if (booking.status === 'confirmed') { %>
       <form class="card" method="post" action="/agent/bookings/<%= booking.id %>/cancel" data-confirm="Request cancellation of this booking?">
-        <h3>Request cancellation</h3>
+        <h2 class="h3">Request cancellation</h2>
         <p class="muted" style="font-size:13px">VaayuTrip checks supplier policies and refunds to your wallet/credit.</p>
         <div class="field"><label for="reason">Reason</label><input id="reason" name="reason" placeholder="e.g. Customer's plans changed"></div>
         <button class="btn btn-danger">Request cancellation</button>

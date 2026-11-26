@@ -13,6 +13,12 @@
     groups[groups.length - 1].items.push(p);
   });
   const known = new Set(catalogue.map((p) => p.id));
+  // Only the chosen item is printed per row; the full list is printed once (#item-options) and copied in by app.js.
+  const allItemOptions = '<option value="">Choose from VaayuTrip…</option>'
+    + groups.map((g) => `<optgroup label="${e(g.label)}">${g.items.map((p) => `<option value="${p.id}">${e(p.title)} · ${inr(p.price.net)} net ${e(p.price.unit)}</option>`).join('')}</optgroup>`).join('');
+  const titleOf = (id) => { for (const g of groups) for (const p of g.items) if (p.id === id) return `${p.title} · ${inr(p.price.net)} net ${p.price.unit}`; return null; };
+  const itemOptionsLite = (sel) => (sel && !known.has(sel.id) ? `<option value="${e(sel.id)}" selected>${e(sel.title)} (no longer offered)</option>`
+    : sel ? `<option value="${e(sel.id)}" selected>${e(titleOf(sel.id) || sel.title || '')}</option>` : '<option value="">Choose from VaayuTrip…</option>');
   const itemOptions = (sel) => (sel && !known.has(sel.id) ? `<option value="${e(sel.id)}" selected>${e(sel.title)} (no longer offered)</option>` : '')
     + '<option value="">Choose from VaayuTrip…</option>'
     + groups.map((g) => `<optgroup label="${e(g.label)}">${g.items.map((p) => `<option value="${p.id}" ${sel && sel.id === p.id ? 'selected' : ''}>${e(p.title)} · ${inr(p.price.net)} net ${e(p.price.unit)}</option>`).join('')}</optgroup>`).join('');
@@ -33,7 +39,7 @@
 
   const rowItem = (i, r) => `<div class="rep-row grid-act" data-row>
     <input type="number" min="1" max="60" name="items[${i}][day]" value="${e(r.day || '')}" placeholder="Day" aria-label="Day">
-    <select name="items[${i}][id]" aria-label="VaayuTrip service">${itemOptions(r.id ? r : null)}</select>
+    <select name="items[${i}][id]" aria-label="VaayuTrip service" data-item-select>${itemOptionsLite(r.id ? r : null)}</select>
     <input type="number" min="1" max="60" name="items[${i}][nights]" value="${e(r.nights || '')}" placeholder="Nights" aria-label="Nights (hotels only)" title="Nights (hotels only)">${del}</div>`;
 
   const client = (r) => r.source === 'client';
@@ -65,6 +71,7 @@
     <template data-template="${key}">${fn('__i__', {})}</template>
     <button type="button" class="btn btn-sm" data-add-row="${key}" style="margin-top:8px">${icon('plus')}${addLabel}</button>`;
 %>
+<template id="item-options"><%- allItemOptions %></template>
 <% const base = typeof formBase !== 'undefined' ? formBase : '/agent/packages'; const forVaayu = base.startsWith('/backend'); %>
 <a href="<%= isNew || forVaayu ? base : `${base}/${pkg.id}` %>"><%- icon('arrowLeft') %><%= isNew || forVaayu ? (forVaayu ? 'VaayuTrip packages' : 'My packages') : pkg.title %></a>
 <div class="page-head" style="margin-top:10px">

@@ -523,3 +523,21 @@ if (siteHeader) {
   syncLine();
 }
 
+
+// Package form: rows print only their chosen service; fill each one with the full list (printed once) when used.
+const itemList = document.getElementById('item-options');
+if (itemList) {
+  const fill = (sel) => {
+    if (!sel || sel.dataset.filled) return;
+    const keep = sel.value;
+    sel.innerHTML = itemList.innerHTML;
+    if (keep && ![...sel.options].some((o) => o.value === keep)) return; // a no-longer-offered item keeps its own option
+    sel.value = keep;
+    sel.dataset.filled = '1';
+  };
+  const fillAll = () => document.querySelectorAll('select[data-item-select]').forEach((s) => { if (!s.querySelector('option:not([value=""])') || s.options.length < 3) fill(s); });
+  document.addEventListener('focusin', (e) => { if (e.target.matches('select[data-item-select]')) fill(e.target); });
+  document.addEventListener('pointerdown', (e) => { const s = e.target.closest('select[data-item-select]'); if (s) fill(s); });
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-add-row]')) setTimeout(fillAll, 0); });
+  fillAll();
+}

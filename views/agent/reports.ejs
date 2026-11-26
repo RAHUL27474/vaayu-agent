@@ -56,7 +56,7 @@
 </div>
 
 <div class="card">
-  <div class="card-head"><h3>Earnings by month</h3></div>
+  <div class="card-head"><h2 class="h3">Earnings by month</h2></div>
   <% if (!totals.bookings) { %><div class="empty">No bookings in this period.</div><% } else { %>
     <%- include('../partials/bar-chart', { bars, format: short }) %>
   <% } %>
@@ -64,11 +64,11 @@
 
 <div class="grid grid-2">
   <div class="card flush">
-    <div class="card-head"><h3>Top destinations</h3><a href="/agent/bookings">All bookings</a></div>
+    <div class="card-head"><h2 class="h3">Top destinations</h2><a href="/agent/bookings">All bookings</a></div>
     <div style="padding:16px 20px 20px"><%- include('../partials/hbars', { id: 'my-destinations', rows: destinations.map(d => ({ label: d.destination, value: d.sales, sub: '+' + inr(d.earnings) + ' earned · ' + d.bookings + (d.bookings === 1 ? ' booking' : ' bookings') })), format: (n) => inr(n) }) %></div>
   </div>
   <div class="card flush">
-    <div class="card-head"><h3>Top customers</h3><a href="/agent/customers">All customers</a></div>
+    <div class="card-head"><h2 class="h3">Top customers</h2><a href="/agent/customers">All customers</a></div>
     <% if (!customers.length) { %><div class="empty">Link bookings to customers to see who buys most.</div><% } else { %>
     <table class="table" style="margin-top:10px">
       <% customers.forEach(c => { %><tr class="click" data-href="/agent/customers/<%= c.id %>"><td><b><%= c.name %></b><br><small><%= c.bookings %> booking<%= c.bookings === 1 ? '' : 's' %></small></td><td class="num"><%= inr(c.sales) %></td></tr><% }) %>

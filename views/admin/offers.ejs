@@ -16,7 +16,7 @@
           <td class="num" style="white-space:nowrap">
             <details class="more offer-edit"><summary class="btn btn-sm">Edit</summary>
               <form class="card" method="post" action="/admin/offers/<%= o.id %>/discount">
-                <h3>Code &amp; discount</h3>
+                <h2 class="h3">Code &amp; discount</h2>
                 <div class="row">
                   <div class="field"><label for="e<%= o.id %>-code">Promo code</label><input id="e<%= o.id %>-code" name="code" maxlength="30" value="<%= o.code || '' %>" style="text-transform:uppercase"></div>
                   <div class="field"><label for="e<%= o.id %>-until">Valid till</label><input id="e<%= o.id %>-until" type="date" name="valid_until" value="<%= o.valid_until || '' %>"></div>
@@ -50,7 +50,7 @@
     <% } %>
   </div>
   <form class="card" method="post" action="/admin/offers">
-    <h3>New offer</h3>
+    <h2 class="h3">New offer</h2>
     <div class="field"><label for="o-title">Title</label><input id="o-title" name="title" maxlength="120" required placeholder="e.g. Bali hotels: 10% off for travel in March"></div>
     <div class="field"><label for="o-body">Details</label><textarea id="o-body" name="body" maxlength="400" placeholder="Who it's for, how it applies, any conditions"></textarea></div>
     <div class="row">

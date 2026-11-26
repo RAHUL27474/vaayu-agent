@@ -25,7 +25,7 @@
 
 <div class="split app-split">
   <div class="card">
-    <h3>Progress</h3>
+    <h2 class="h3">Progress</h2>
     <ol class="app-steps">
       <% app.steps.forEach((s, i) => { %>
         <li class="<%= s.state %>">
@@ -42,7 +42,7 @@
 
   <div class="stack-cards">
     <div class="card">
-      <h3>What we received</h3>
+      <h2 class="h3">What we received</h2>
       <dl class="app-facts">
         <dt>Agency</dt><dd><%= agency.name %><% if (agency.city) { %>, <%= agency.city %><% } %></dd>
         <dt>Country</dt><dd><%= agency.country || 'India' %></dd>
@@ -62,7 +62,7 @@
       <a class="btn" href="/agent/settings#tax" style="width:100%;justify-content:center"><%- icon('upload') %>Update documents</a>
     </div>
     <div class="card">
-      <h3>While you wait</h3>
+      <h2 class="h3">While you wait</h2>
       <p class="muted" style="font-size:13px">Add your logo and brand colour so your quotes, invoices and website are ready on day one.</p>
       <div class="app-links">
         <a class="btn" href="/agent/settings"><%- icon('settings') %>Company &amp; branding</a>

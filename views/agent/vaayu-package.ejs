@@ -22,7 +22,7 @@
     <img src="<%= cover(pkg) %>" alt="" style="width:100%;max-height:320px;object-fit:cover;border-radius:14px;margin-bottom:20px">
     <% if (departures.length) { %>
     <div class="card flush">
-      <div class="card-head"><h3>Fixed departures</h3></div>
+      <div class="card-head"><h2 class="h3">Fixed departures</h2></div>
       <table class="table">
         <% departures.forEach(d => { %><tr><td><b><%= fmtDate(d.depart_on) %></b><%= d.note ? ` · ${d.note}` : '' %></td><td class="num"><span class="badge seats <%= d.left === 0 ? 'cancelled' : d.left <= 5 ? 'pending' : 'active' %>"><%= d.left ? `${d.left} of ${d.seats} seats left` : 'Full' %></span></td></tr><% }) %>
       </table>
@@ -36,7 +36,7 @@
 
   <div>
     <form class="card calc" method="get" action="/agent/vaayutrip-packages/<%= pkg.id %>" style="position:sticky;top:76px">
-      <h3>Price this trip</h3>
+      <h2 class="h3">Price this trip</h2>
       <% if (departures.length) { %>
       <div class="field"><label for="date">Departure</label>
         <select id="date" name="date" required><option value="">Choose a departure</option><% departures.forEach(d => { %><option value="<%= d.depart_on %>" <%= o.date === d.depart_on ? 'selected' : '' %> <%= d.left ? '' : 'disabled' %>><%= fmtDate(d.depart_on) %> · <%= d.left ? `${d.left} seat${d.left === 1 ? '' : 's'} left` : 'full' %></option><% }) %></select>
@@ -73,7 +73,7 @@
 
     <% if (!calc.errors.length && calc.lines.length) { %>
       <form class="card" method="post" action="/agent/vaayutrip-packages/<%= pkg.id %>/quote">
-        <h3>Quote it to your customer</h3>
+        <h2 class="h3">Quote it to your customer</h2>
         <% ['date', 'adults', 'children', 'infants', 'rooms'].forEach(k => { %><input type="hidden" name="<%= k %>" value="<%= o[k] %>"><% }) %>
         <div class="field"><label for="customer_id">Customer</label>
           <select id="customer_id" name="customer_id"><option value="">Choose later</option><% customers.forEach(c => { %><option value="<%= c.id %>"><%= c.name %></option><% }) %></select>

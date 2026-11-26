@@ -4,7 +4,7 @@
 </div>
 <div class="split">
   <form class="card" method="post" action="/backend/import" enctype="multipart/form-data">
-    <h3>Upload a file</h3>
+    <h2 class="h3">Upload a file</h2>
     <div class="field">
       <label for="file">Excel (.xlsx) or CSV file, up to 5 MB</label>
       <input id="file" type="file" name="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required>
@@ -30,7 +30,7 @@
     </div>
   </form>
   <div class="card">
-    <h3>Columns (CSV or a single-sheet Excel)</h3>
+    <h2 class="h3">Columns (CSV or a single-sheet Excel)</h2>
     <p class="muted" style="font-size:13px">The first row must be the header. Column order doesn't matter; unknown columns are ignored.</p>
     <table class="table" style="font-size:13px">
       <colgroup><col style="width:34%"><col></colgroup>

@@ -37,7 +37,7 @@ body.public {
   font: 16px/1.6 var(--text);
   -webkit-font-smoothing: antialiased;
 }
-body.public h1, body.public h2, body.public h3, body.public h4 { font-family: var(--display); color: var(--navy); letter-spacing: -.02em; font-weight: 700; }
+body.public h1, body.public h2, body.public h3, body.public h4, body.public h2.h3 { font-family: var(--display); color: var(--navy); letter-spacing: -.02em; font-weight: 700; }
 body.public a { color: var(--teal-ink); }
 body.public .i { width: 1em; height: 1em; }
 .v-wrap { width: 100%; max-width: 1280px; margin: 0 auto; padding: 0 40px; }
@@ -252,14 +252,14 @@ body.public .v-hero h1 { color: #fff; font-size: clamp(2.65rem, 5vw, 4.4rem); li
 .v-doc-line i { flex: 0 0 64px; height: 7px; border-radius: 2px; background: var(--rule-2); }
 .v-doc-total { display: flex; justify-content: space-between; margin-top: 6px; padding-top: 12px; border-top: 2px solid var(--navy); font-weight: 700; color: var(--navy); }
 .v-doc-total span:last-child { color: var(--teal-ink); }
-.v-feature-copy h3 { font-size: clamp(26px, 2.6vw, 34px); line-height: 1.15; margin: 0 0 16px; }
+.v-feature-copy h3, .v-feature-copy h2.h3 { font-size: clamp(26px, 2.6vw, 34px); line-height: 1.15; margin: 0 0 16px; }
 .v-feature-copy p { font-size: 17px; color: var(--text-2); margin: 0 0 12px; max-width: 480px; }
 .v-feature-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 112px; border-top: 1px solid var(--navy); }
 .v-feature-grid > div { padding: 28px 28px 0 0; }
 .v-feature-grid > div + div { padding-left: 28px; border-left: 1px solid var(--rule); }
 .v-ico { display: inline-flex; color: var(--teal); margin-bottom: 18px; }
 .v-ico .i { width: 24px; height: 24px; stroke-width: 1.7; }
-.v-feature-grid h3 { font-size: 18px; line-height: 1.3; margin: 0 0 8px; }
+.v-feature-grid h3, .v-feature-grid h2.h3 { font-size: 18px; line-height: 1.3; margin: 0 0 8px; }
 .v-feature-grid p { margin: 0; font-size: 14.5px; color: var(--text-2); }
 @media (max-width: 1000px) {
   .v-feature-lead, .v-feature-row { grid-template-columns: 1fr; gap: 40px; }
@@ -319,10 +319,10 @@ body.public .v-hero h1 { color: #fff; font-size: clamp(2.65rem, 5vw, 4.4rem); li
 .v-steps li:first-child { border-top-color: var(--teal); }
 .v-steps li span { display: block; font: 700 14px/1 var(--display); color: var(--teal-ink); margin-bottom: 18px; letter-spacing: .04em; }
 .v-steps li::before { content: ""; position: absolute; top: -7px; left: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--sand-2); border: 2px solid var(--teal); }
-.v-steps h3 { font-size: 21px; margin: 0 0 8px; }
+.v-steps h3, .v-steps h2.h3 { font-size: 21px; margin: 0 0 8px; }
 .v-steps p { margin: 0; color: var(--text-2); font-size: 15px; }
 .v-apply { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 56px; margin-top: 80px; padding: 40px; background: #fff; border-radius: 4px; border: 1px solid var(--rule); }
-.v-apply h3 { font-size: 22px; margin: 0 0 10px; }
+.v-apply h3, .v-apply h2.h3 { font-size: 22px; margin: 0 0 10px; }
 .v-apply > div > p { margin: 0; color: var(--text-2); }
 .v-apply-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
 .v-apply h4 { display: flex; align-items: center; gap: 8px; font-size: 15px; margin: 0 0 12px; }
@@ -379,7 +379,7 @@ body.public .v-hero h1 { color: #fff; font-size: clamp(2.65rem, 5vw, 4.4rem); li
 body.public .site-footer { background: var(--navy); color: rgba(255, 255, 255, .66); border-top: 3px solid var(--vt-leaf); margin: 0; padding: 72px 0 28px; }
 body.public .site-footer .inner { max-width: 1280px; padding: 0 40px; }
 body.public .site-footer .foot-grid { grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 48px; }
-body.public .site-footer h4 { color: #fff; font: 600 12.5px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; margin: 0 0 18px; }
+body.public .site-footer h2.foot-h { color: #fff; font: 600 12.5px/1 var(--text); letter-spacing: .1em; text-transform: uppercase; margin: 0 0 18px; }
 body.public .site-footer a { color: rgba(255, 255, 255, .82); }
 body.public .site-footer a:hover { color: #fff; }
 body.public .site-footer .foot-brand p { color: rgba(255, 255, 255, .66); max-width: 300px; }

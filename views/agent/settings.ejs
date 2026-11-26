@@ -4,7 +4,7 @@
   <div class="split">
     <div>
       <div class="card">
-        <h3>Company</h3>
+        <h2 class="h3">Company</h2>
         <div class="row">
           <div class="field"><label for="name">Brand name</label><input id="name" name="name" value="<%= agency.name %>" required></div>
           <div class="field"><label for="legal_name">Legal name <span class="req">*</span></label><input id="legal_name" name="legal_name" value="<%= agency.legal_name || '' %>" placeholder="As registered"></div>
@@ -21,7 +21,7 @@
         <div class="field"><label for="city">City <span class="req">*</span></label><input id="city" name="city" value="<%= agency.city || '' %>"></div>
       </div>
       <div class="card">
-        <h3>Default commission</h3>
+        <h2 class="h3">Default commission</h2>
         <p class="muted" style="font-size:13px">Applied to new quotes, your website and API prices. You can change it on any quote.</p>
         <div class="row">
           <div class="field"><label for="markup_type">Type</label><select id="markup_type" name="markup_type"><option value="percent" <%= agency.markup_type === 'percent' ? 'selected' : '' %>>Percent of net</option><option value="flat" <%= agency.markup_type === 'flat' ? 'selected' : '' %>>Flat ₹ per booking</option></select></div>
@@ -42,7 +42,7 @@
     </div>
     <div>
       <div class="card">
-        <h3>Branding</h3>
+        <h2 class="h3">Branding</h2>
         <div class="field">
           <label>Logo</label>
           <div style="border:1px dashed #cbd5e1;border-radius:10px;padding:16px;text-align:center;margin-bottom:10px;background:#fafbfd">
@@ -58,7 +58,7 @@
         </div>
       </div>
       <div class="card">
-        <h3>Verification</h3>
+        <h2 class="h3">Verification</h2>
         <dl class="kv">
           <dt>Account</dt><dd><span class="badge <%= agency.status %>"><%= agency.status %></span></dd>
           <dt>KYC</dt><dd><span class="badge <%= agency.kyc_status %>"><%= agency.kyc_status %></span></dd>
@@ -74,7 +74,7 @@
 <% const india = (agency.country || 'India') === 'India'; %>
 <form method="post" action="/agent/settings/tax" enctype="multipart/form-data" class="card" id="tax" style="margin-top:20px">
   <div class="card-head">
-    <h3>Verification (KYC)</h3>
+    <h2 class="h3">Verification (KYC)</h2>
     <span class="badge <%= agency.kyc_status %>">KYC <%= agency.kyc_status %></span>
   </div>
   <% if (missing.length) { %>

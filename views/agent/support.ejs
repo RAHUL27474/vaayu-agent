@@ -2,7 +2,7 @@
 <div class="split">
   <div>
     <div class="card flush">
-      <div class="card-head" style="padding:18px 20px 0"><h3>Your tickets</h3></div>
+      <div class="card-head" style="padding:18px 20px 0"><h2 class="h3">Your tickets</h2></div>
       <% if (!tickets.length) { %><div class="empty"><span class="big"><%- icon('message') %></span><b>No tickets yet</b><p>Questions about a booking or payment? Open a ticket and our team replies here.</p></div><% } else { %>
       <div class="table-wrap"><table class="table" style="margin-top:10px">
         <% tickets.forEach(t => { %>
@@ -16,7 +16,7 @@
       <% } %>
     </div>
     <form class="card" id="new" method="post" action="/agent/support">
-      <h3>Raise a ticket</h3>
+      <h2 class="h3">Raise a ticket</h2>
       <div class="row">
         <div class="field"><label for="category">Topic</label><select id="category" name="category"><% Object.entries(categories).forEach(([k, v]) => { %><option value="<%= k %>"><%= v %></option><% }) %></select></div>
         <div class="field"><label for="booking_id">Booking <span class="muted">(optional)</span></label><select id="booking_id" name="booking_id"><option value="">Not about a booking</option><% bookings.forEach(b => { %><option value="<%= b.id %>" <%= query.booking === b.code ? 'selected' : '' %>><%= b.code %> · <%= b.title %></option><% }) %></select></div>
@@ -34,7 +34,7 @@
     %>
     <div class="team-head">
       <span class="team-av"><%- icon('message') %></span>
-      <div><h3>Hi <%= user.name.split(' ')[0] %>, we're here to help</h3><span class="open-pill <%= openNow ? 'on' : '' %>"><i></i><%= openNow ? 'Open now · replies within an hour' : 'Closed · back at 9:30 am IST' %></span></div>
+      <div><h2 class="h3">Hi <%= user.name.split(' ')[0] %>, we're here to help</h2><span class="open-pill <%= openNow ? 'on' : '' %>"><i></i><%= openNow ? 'Open now · replies within an hour' : 'Closed · back at 9:30 am IST' %></span></div>
     </div>
     <% if (waNumber) { %><a class="btn btn-wa" style="width:100%;margin-bottom:14px" href="https://wa.me/<%= waNumber %>?text=<%- encodeURIComponent(`Hi VaayuTrip, this is ${user.name} from ${agency.name}.`) %>" target="_blank" rel="noopener">Chat with us on WhatsApp</a><% } %>
     <dl class="kv">

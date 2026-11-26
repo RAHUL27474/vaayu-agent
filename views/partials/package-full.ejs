@@ -31,7 +31,7 @@
       <div class="day">
         <div class="num">DAY<b><%= i + 1 %></b></div>
         <div>
-          <h3 style="margin-bottom:4px"><%= d.title %></h3>
+          <h2 class="h3" style="margin-bottom:4px"><%= d.title %></h2>
           <% if (d.description) { %><p style="margin:0 0 8px;white-space:pre-line"><%= d.description %></p><% } %>
           <% const dayItems = d.items || d.activities || []; %>
           <% if (dayItems.length) { %>
@@ -86,8 +86,8 @@
 
 <% if ((p.inclusions && p.inclusions.length) || (p.exclusions && p.exclusions.length)) { %>
   <div class="grid grid-2" style="margin-top:20px">
-    <div><h3 class="h-ok"><%- icon('checkCircle') %>Included</h3><ul style="padding-left:18px"><% (p.inclusions || []).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
-    <div><h3 class="h-bad"><%- icon('xCircle') %>Not included</h3><ul style="padding-left:18px" class="muted"><% (p.exclusions || []).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+    <div><h2 class="h3 h-ok"><%- icon('checkCircle') %>Included</h2><ul style="padding-left:18px"><% (p.inclusions || []).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
+    <div><h2 class="h3 h-bad"><%- icon('xCircle') %>Not included</h2><ul style="padding-left:18px" class="muted"><% (p.exclusions || []).forEach(x => { %><li><%= x %></li><% }) %></ul></div>
   </div>
 <% } %>
 
@@ -95,19 +95,19 @@
   <h2 style="margin-top:20px">Policies</h2>
   <div class="grid grid-2">
     <div>
-      <h3>Payment</h3>
+      <h2 class="h3">Payment</h2>
       <p><%= p.policies.advancePercent %>% advance to confirm<%= p.policies.balanceDays ? `; balance ${p.policies.balanceDays} days before travel` : '' %>.<% if (p.policies.payment) { %> <%= p.policies.payment %><% } %></p>
       <% if (slabs.length) { %>
-        <h3>Cancellation charges</h3>
+        <h2 class="h3">Cancellation charges</h2>
         <table class="table" style="font-size:13px">
           <% slabs.forEach((s, i) => { %><tr><td><%= slabText(s, i) %></td><td class="num"><b><%= s.percent %>%</b> of package cost</td></tr><% }) %>
         </table>
       <% } %>
     </div>
     <div>
-      <% if (p.policies.child) { %><h3>Children</h3><p style="white-space:pre-line"><%= p.policies.child %></p><% } %>
-      <% if (p.policies.notes) { %><h3>Important notes</h3><p style="white-space:pre-line" class="muted"><%= p.policies.notes %></p><% } %>
-      <% if (p.policies.terms) { %><h3>Terms</h3><p style="white-space:pre-line;font-size:13px" class="muted"><%= p.policies.terms %></p><% } %>
+      <% if (p.policies.child) { %><h2 class="h3">Children</h2><p style="white-space:pre-line"><%= p.policies.child %></p><% } %>
+      <% if (p.policies.notes) { %><h2 class="h3">Important notes</h2><p style="white-space:pre-line" class="muted"><%= p.policies.notes %></p><% } %>
+      <% if (p.policies.terms) { %><h2 class="h3">Terms</h2><p style="white-space:pre-line;font-size:13px" class="muted"><%= p.policies.terms %></p><% } %>
     </div>
   </div>
 <% } %>

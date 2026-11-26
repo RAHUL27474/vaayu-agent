@@ -41,7 +41,7 @@
   </div>
   <div>
     <form class="card" method="post" action="/agent/team">
-      <h3>Add a staff member</h3>
+      <h2 class="h3">Add a staff member</h2>
       <div class="field"><label for="t-name">Name</label><input id="t-name" name="name" required maxlength="80"></div>
       <div class="field"><label for="t-email">Work email</label><input id="t-email" type="email" name="email" required autocomplete="off"></div>
       <div class="field"><label for="t-phone">Mobile <span class="muted">(optional)</span></label><input id="t-phone" name="phone" inputmode="tel"></div>
@@ -52,7 +52,7 @@
       <button class="btn btn-primary">Add staff member</button>
     </form>
     <div class="card">
-      <h3>What each role can do</h3>
+      <h2 class="h3">What each role can do</h2>
       <dl class="kv">
         <% Object.values(roles).forEach(r => { %><dt><%= r.label %></dt><dd><%= r.hint %></dd><% }) %>
       </dl>

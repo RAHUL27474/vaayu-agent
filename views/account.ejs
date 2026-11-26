@@ -7,7 +7,7 @@
 </div>
 <div class="split">
   <form class="card" method="post" action="/account/password">
-    <h3>Change password</h3>
+    <h2 class="h3">Change password</h2>
     <p class="muted" style="font-size:13px">You'll stay logged in here; any other device using your account is logged out.</p>
     <input type="hidden" name="username" value="<%= me.email %>" autocomplete="username">
     <div class="field"><label for="current">Current password</label><input id="current" type="password" name="current" required autocomplete="current-password"></div>
@@ -17,7 +17,7 @@
   </form>
   <div>
     <div class="card">
-      <h3>Your details</h3>
+      <h2 class="h3">Your details</h2>
       <dl class="kv">
         <dt>Name</dt><dd><%= me.name %></dd>
         <dt>Email</dt><dd><%= me.email %></dd>
@@ -27,7 +27,7 @@
       <p class="muted" style="font-size:13px;margin:12px 0 0">To change your name or email, <%= user.role === 'agent' ? 'contact VaayuTrip support' : 'ask an administrator' %>.</p>
     </div>
     <div class="card" id="two-step">
-      <h3>2-step login <% if (me.two_step) { %><span class="badge approved">On</span><% } else { %><span class="badge">Off</span><% } %></h3>
+      <h2 class="h3">2-step login <% if (me.two_step) { %><span class="badge approved">On</span><% } else { %><span class="badge">Off</span><% } %></h2>
       <% if (me.two_step) { %>
         <p class="muted" style="font-size:13px">After your password we email a 6-digit code to <b><%= me.email %></b>. Someone who learns your password still can't get in.</p>
         <form method="post" action="/account/2step/off" data-confirm="Turn off 2-step login? Your password alone will be enough to log in.">
@@ -46,7 +46,7 @@
     </div>
     <% if (logins.length) { %>
     <div class="card flush">
-      <div class="card-head"><h3>Recent logins</h3></div>
+      <div class="card-head"><h2 class="h3">Recent logins</h2></div>
       <table class="table" style="margin-top:6px">
         <% logins.forEach((l, i) => { const where = (l.summary || '').split(' · ').slice(1).join(' · '); %>
           <tr><td style="white-space:nowrap"><%= fmtDate(l.created_at) %> <small class="muted"><%= fmtTime(l.created_at) %></small></td><td><small><%= where || 'details not recorded' %></small><%- i === 0 ? ' <span class="badge approved as-is">Current</span>' : '' %></td></tr>

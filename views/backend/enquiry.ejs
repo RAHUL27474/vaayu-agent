@@ -14,7 +14,7 @@
 
 <div class="split">
   <div class="card">
-    <h3>What they sent</h3>
+    <h2 class="h3">What they sent</h2>
     <dl class="kv">
       <dt>Name</dt><dd><%= e.name %></dd>
       <dt>Phone</dt><dd><a href="tel:<%= e.phone.replace(/[^\d+]/g, '') %>"><%= e.phone %></a></dd>
@@ -32,7 +32,7 @@
 
   <div>
     <form class="card" method="post" action="/backend/enquiries/<%= e.id %>">
-      <h3>Team</h3>
+      <h2 class="h3">Team</h2>
       <div class="field"><label for="enq-status">Status</label>
         <select id="enq-status" name="status"><% statuses.forEach(s => { %><option value="<%= s %>" <%= s === e.status ? 'selected' : '' %>><%= s.charAt(0).toUpperCase() + s.slice(1) %></option><% }) %></select></div>
       <div class="field"><label for="enq-who">Handled by</label>
@@ -42,7 +42,7 @@
       <button class="btn btn-primary" style="width:100%">Save</button>
     </form>
     <% if (history.length) { %>
-      <div class="card"><h3>History</h3><ul class="muted enq-hist"><% history.forEach(h => { %><li><%= h.summary %> · <%= h.user_name || 'System' %> · <%= fmtDate(String(h.created_at).slice(0, 10)) %></li><% }) %></ul></div>
+      <div class="card"><h2 class="h3">History</h2><ul class="muted enq-hist"><% history.forEach(h => { %><li><%= h.summary %> · <%= h.user_name || 'System' %> · <%= fmtDate(String(h.created_at).slice(0, 10)) %></li><% }) %></ul></div>
     <% } %>
   </div>
 </div>
