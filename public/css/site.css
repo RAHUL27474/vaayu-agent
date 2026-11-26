@@ -417,7 +417,7 @@ body.public .site-footer .foot-wa:hover { border-color: #fff; }
 
 /* ---------- Login / sign-up ---------- */
 body.public .auth { background: var(--paper); }
-body.public .auth .art { background: linear-gradient(180deg, rgba(20, 40, 59, .55) 0%, rgba(20, 40, 59, .78) 55%, rgba(20, 40, 59, .94) 100%), url('/img/destinations/europe.jpg') center / cover; }
+body.public .auth .art { background: linear-gradient(180deg, rgba(20, 40, 59, .55) 0%, rgba(20, 40, 59, .78) 55%, rgba(20, 40, 59, .94) 100%), url('/img/opt/europe-1024.webp') center / cover; }
 body.public .auth .art::after { display: none; }
 body.public .auth .art h2 { font-size: clamp(30px, 3vw, 42px); line-height: 1.1; letter-spacing: -.03em; text-shadow: none; }
 body.public .auth .art li { color: rgba(255, 255, 255, .85); padding-left: 30px; }
@@ -496,3 +496,29 @@ body.public .v-login input:focus { border-color: var(--teal); outline: 3px solid
 }
 @media (max-width: 560px) { .v-login { padding: 24px 20px 20px; border-radius: 10px; } .v-login h2 { font-size: 22px; } }
 @media (max-width: 960px) { .v-hero-grid { row-gap: 32px; } .v-hero-main .v-hero-location { display: none; } }
+
+/* ---------- Cities we cover: a calm grid instead of a sideways rail ---------- */
+.v-cities { padding: 0 0 104px; }
+.v-city-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
+.v-city-grid li { min-width: 0; }
+.v-city-grid .v-city { aspect-ratio: 4 / 3.4; border-radius: 8px; }
+.v-city-grid .v-city span { padding: 12px 14px; }
+.v-city-grid .v-city b { font-size: 16px; }
+.v-city-grid .v-city small { font-size: 12px; }
+@media (max-width: 1100px) { .v-city-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .v-city-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .v-cities { padding-bottom: 72px; } }
+/* Final call to action: the photo is a lazy <img> (a CSS background would load with the page) */
+.v-final { isolation: isolate; overflow: hidden; background: var(--navy); }
+.v-final-bg { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; }
+.v-final::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(20, 40, 59, .94) 0%, rgba(20, 40, 59, .82) 45%, rgba(20, 40, 59, .35) 100%); }
+.v-city small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 960px) { .v-hero .v-login { margin-top: 8px; } .v-hero-main { padding-bottom: 4px; } }
+/* Tablets keep the login beside the text; it stacks only on phones */
+@media (max-width: 960px) and (min-width: 761px) {
+  .v-hero-grid { grid-template-columns: minmax(0, 1fr) 330px; gap: 28px; align-items: center; padding-block: 40px 76px; }
+  body.public .v-hero h1 { font-size: 40px; }
+  .v-hero .v-ctas { flex-wrap: wrap; }
+  .v-login { padding: 24px 22px 20px; }
+  .v-login h2 { font-size: 22px; }
+  .v-login-sub { margin-bottom: 16px; }
+}

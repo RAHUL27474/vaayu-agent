@@ -35,7 +35,7 @@
 <div class="pkg-grid">
   <% products.forEach(p => { %>
     <a class="pkg catalogue-card" href="/agent/<%= cfg.path %>/<%= p.id %>">
-      <% if (kind === 'activity' || kind === 'hotel') { %><img src="<%= cover({ image_url: p.image_url, city: p.city }) %>" alt="" loading="lazy"><% } %>
+      <% if (kind === 'activity' || kind === 'hotel') { %><img src="<%= cover({ image_url: p.image_url, city: p.city }, 640) %>" alt="" loading="lazy"><% } %>
       <div class="body">
         <div class="meta"><span class="badge info"><%= p.category %></span><span><%= p.city %>, <%= p.country %><%= p.duration ? ` · ${p.duration}` : '' %></span></div>
         <h3><%= p.title %></h3>

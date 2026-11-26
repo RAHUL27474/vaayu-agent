@@ -91,7 +91,7 @@
   <div class="sec-head"><h2>Destinations</h2><a href="/agent/vaayutrip-packages">Ready packages</a></div>
   <div class="dest-tiles">
     <% destinations.forEach((d) => { %>
-      <a class="dest-tile" href="/agent/find?svc=hotels&amp;dest=<%= encodeURIComponent(d) %>"><img src="<%= cover({ destination: d }) %>" alt="" loading="lazy"><span><b><%= d %></b><small>Browse hotels</small></span></a>
+      <a class="dest-tile" href="/agent/find?svc=hotels&amp;dest=<%= encodeURIComponent(d) %>"><img src="<%= cover({ destination: d }, 640) %>" alt="" loading="lazy"><span><b><%= d %></b><small>Browse hotels</small></span></a>
     <% }) %>
   </div>
 </section>
@@ -171,7 +171,7 @@
           <tr class="click" data-href="/agent/bookings/<%= t.id %>">
             <td class="nowrap"><%= fmtDate(t.travel_date) %></td>
             <td><b><%= t.who || '—' %></b></td>
-            <td><span class="trip-cell"><img src="<%= cover({ destination: t.destination, city: t.destination, title: t.trip }) %>" alt="" loading="lazy"><span><%= t.trip %><br><small class="muted"><%= t.code %></small></span></span></td>
+            <td><span class="trip-cell"><img src="<%= cover({ destination: t.destination, city: t.destination, title: t.trip }, 640) %>" alt="" loading="lazy"><span><%= t.trip %><br><small class="muted"><%= t.code %></small></span></span></td>
             <td class="num nowrap"><span class="<%= t.days <= 3 ? 'due-soon' : '' %>"><%= t.days === 0 ? 'Today' : t.days === 1 ? 'Tomorrow' : `in ${t.days} days` %></span></td>
           </tr>
         <% }) %>

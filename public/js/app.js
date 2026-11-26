@@ -345,7 +345,11 @@ if (hero) {
   const STEP_MS = 6000; // a new destination photo every 6 seconds
   let selected = 0;
   let destChosen = false; // once the visitor picks a destination in the search, the slideshow leaves it alone
-  const load = (slide) => { if (slide && !slide.getAttribute('src')) slide.src = slide.dataset.src; };
+  const load = (slide) => {
+    if (!slide || slide.getAttribute('src')) return;
+    if (slide.dataset.srcset) slide.srcset = slide.dataset.srcset;
+    slide.src = slide.dataset.src;
+  };
   const show = async (index, { auto = false } = {}) => {
     if (index < 0) return;
     selected = index;
@@ -378,7 +382,9 @@ if (hero) {
     show(slides.findIndex((slide) => slide.dataset.dest === destSel.value));
     start();
   });
-  load(slides[1]);
+  // The next photo is fetched once the page has settled, so it never competes with the first screen.
+  const warm = () => setTimeout(() => load(slides[1]), 2500);
+  if (document.readyState === 'complete') warm(); else window.addEventListener('load', warm, { once: true });
   start();
 }
 
@@ -517,10 +523,3 @@ if (siteHeader) {
   syncLine();
 }
 
-// Home city gallery: arrow buttons scroll the rail by about one screen of photos.
-document.querySelectorAll('[data-rail]').forEach((rail) => {
-  const section = rail.closest('section');
-  section.querySelectorAll('[data-rail-step]').forEach((b) => b.addEventListener('click', () => {
-    rail.scrollBy({ left: Number(b.dataset.railStep) * rail.clientWidth * 0.8, behavior: calmMotion ? 'auto' : 'smooth' });
-  }));
-});

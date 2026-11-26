@@ -30,16 +30,18 @@ router.get('/', h(async (req, res) => {
     if (d) { d.cities.add(r.city); d.items += r.n; perCity.set(r.city, (perCity.get(r.city) || 0) + r.n); }
   }
   const destinations = Object.values(byDest).map((d) => ({ name: d.name, cities: [...d.cities], items: d.items }));
-  // Small photos (public/img/*/thumbs) for the city gallery and the city labels on destination cards.
-  const thumb = (path) => path.replace(/\/([^/]+)$/, '/thumbs/$1');
-  const cityThumbs = Object.fromEntries(Object.entries(CITY_PHOTOS).map(([c, p]) => [c, thumb(p)]));
+  // City photos for the gallery and the small round photos on destination cards (served as WebP, see pic() in server.js).
+  const cityThumbs = CITY_PHOTOS;
   const cityShots = [];
   for (const d of destinations) {
     const withPhoto = d.cities.filter((c) => cityThumbs[c]).sort();
-    if (!withPhoto.length && DEST_PHOTOS[d.name]) cityShots.push({ city: d.name, dest: d.name, src: thumb(DEST_PHOTOS[d.name]), n: d.items });
-    for (const c of withPhoto) cityShots.push({ city: c, dest: d.name, src: cityThumbs[c], n: perCity.get(c) || 0 });
+    const own = DEST_PHOTOS[d.name];
+    if (!withPhoto.length && own) cityShots.push({ city: d.name, dest: d.name, photo: own, n: d.items });
+    for (const c of withPhoto) cityShots.push({ city: c, dest: d.name, photo: CITY_PHOTOS[c], n: perCity.get(c) || 0 });
   }
-  res.page('public/home', { title: 'B2B travel platform for agents', activities, stats, destinations, cityShots, cityThumbs }, 'public');
+  // The first hero photo starts downloading with the stylesheet (it is the largest thing on the first screen).
+  const heroImage = req.app.locals.pic('/img/destinations/bali-kelingking-hero.jpg');
+  res.page('public/home', { title: 'B2B travel platform for agents', activities, stats, destinations, cityShots, cityThumbs, heroImage }, 'public');
 }));
 
 // Generated cover card for packages and hotels without an uploaded photo.

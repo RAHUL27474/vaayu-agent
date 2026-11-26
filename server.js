@@ -54,6 +54,24 @@ const ASSET_VERSIONS = { '/css/app.css': fingerprint('css/app.css'), '/css/site.
 // "1 booking", "3 bookings": <%= plural(n, 'booking') %>
 app.locals.plural = (n, one, many = `${one}s`) => `${Number(n).toLocaleString('en-IN')} ${Number(n) === 1 ? one : many}`;
 app.locals.asset = (p) => (ASSET_VERSIONS[p] ? `${p}?v=${ASSET_VERSIONS[p]}` : p);
+// Lighter photos: for /img/.../name.jpg, the WebP copies in public/img/opt (name-640.webp, name-1280.webp …).
+// <img src="<%= pic(p).src %>" srcset="<%= pic(p).srcset %>" sizes="…"> — falls back to the JPEG when there are none.
+const OPT_WIDTHS = {};
+for (const f of require('fs').readdirSync(path.join(__dirname, 'public/img/opt'))) {
+  const m = f.match(/^(.+)-(\d+)\.webp$/);
+  if (m) (OPT_WIDTHS[m[1]] = OPT_WIDTHS[m[1]] || []).push(Number(m[2]));
+}
+Object.values(OPT_WIDTHS).forEach((ws) => ws.sort((a, b) => a - b));
+app.locals.pic = (p, max = Infinity) => {
+  // Accepts the original JPEG path or one of its WebP copies (name-1024.webp).
+  const name = String(p || '').split('?')[0].split('/').pop().replace(/\.(jpe?g|png)$/i, '').replace(/-\d+\.webp$/i, '');
+  const all = OPT_WIDTHS[name] || [];
+  // 64px files are square icons; the rest keep the photo's shape.
+  const ws = all.filter((w) => w > 64 && w <= max);
+  const small = all.includes(64) ? `/img/opt/${name}-64.webp` : ws.length ? `/img/opt/${name}-${ws[0]}.webp` : p;
+  if (!ws.length) return { src: p, srcset: '', small };
+  return { src: `/img/opt/${name}-${ws[ws.length - 1]}.webp`, srcset: ws.map((w) => `/img/opt/${name}-${w}.webp ${w}w`).join(', '), small };
+};
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1h',
   setHeaders: (res, file) => { if (/[\\/](css|js|fonts)[\\/]/.test(file)) res.set('Cache-Control', 'public, max-age=31536000, immutable'); },
@@ -113,7 +131,11 @@ app.use(async (req, res, next) => {
   res.locals.fmtTime = fmtTime;
   res.locals.icon = icon;
   // Package image, or a generated cover card with the destination name when none is uploaded.
-  res.locals.cover = (p) => p.image_url || destinationPhoto(p.destination) || cityPhoto(p.city) || `/cover/${encodeURIComponent(p.city || p.destination || p.title || 'Holiday')}.svg`;
+  // Our own destination and city photos come as a WebP of at most 1024px (about a quarter of the JPEG's weight).
+  res.locals.cover = (p, max = 1024) => {
+    const raw = p.image_url || destinationPhoto(p.destination) || cityPhoto(p.city) || `/cover/${encodeURIComponent(p.city || p.destination || p.title || 'Holiday')}.svg`;
+    return raw.startsWith('/img/') ? app.locals.pic(raw, max).src : raw;
+  };
   res.locals.path = req.path;
   res.locals.today = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10); // India date, for date pickers' min
   res.locals.origin = `${req.protocol}://${req.get('host')}`;

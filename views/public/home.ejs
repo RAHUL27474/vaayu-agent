@@ -33,7 +33,7 @@
   <div class="v-hero-frame">
     <div class="v-hero-backdrop" aria-hidden="true">
       <% HERO.forEach((h, i) => { const photo = h.photo || cover({ destination: h.name }); %>
-        <img class="v-hero-slide<%= i === 0 ? ' on' : '' %>" style="--photo-focus: <%= h.focus %>" data-line="<%= h.line %>" data-dest="<%= h.name %>" alt="" <% if (i === 0) { %>src="<%= photo %>" fetchpriority="high"<% } else { %>data-src="<%= photo %>"<% } %> decoding="async">
+        <% const hp = pic(photo); %><img class="v-hero-slide<%= i === 0 ? ' on' : '' %>" style="--photo-focus: <%= h.focus %>" data-line="<%= h.line %>" data-dest="<%= h.name %>" alt="" sizes="100vw" <% if (i === 0) { %>src="<%= hp.src %>" srcset="<%= hp.srcset %>" fetchpriority="high"<% } else { %>data-src="<%= hp.src %>" data-srcset="<%= hp.srcset %>"<% } %> decoding="async">
       <% }) %>
     </div>
     <div class="v-wrap v-hero-grid">
@@ -118,11 +118,11 @@
     <div class="v-dests">
       <% order.forEach(name => { const d = D[name]; %>
         <a class="v-dest" href="<%= destLink(name) %>">
-          <img src="<%= cover({ destination: name }) %>" alt="" loading="lazy">
+          <% const dp = pic(cover({ destination: name })); %><img src="<%= dp.src %>" srcset="<%= dp.srcset %>" sizes="(max-width: 600px) 100vw, (max-width: 1000px) 50vw, 42vw" alt="" loading="lazy" decoding="async">
           <span class="v-dest-body">
             <span class="v-dest-top"><b><%= name %></b><small><%= d.items %> services</small></span>
             <span class="v-dest-note"><%= NOTE[name] %></span>
-            <% if (d.cities.length && !(d.cities.length === 1 && d.cities[0] === name)) { %><span class="v-dest-cities"><% d.cities.slice(0, 4).forEach(c => { %><i><% if (cityThumbs[c]) { %><img src="<%= cityThumbs[c] %>" alt="" loading="lazy"><% } %><%= c %></i><% }) %><% if (d.cities.length > 4) { %><i>+<%= d.cities.length - 4 %></i><% } %></span><% } %>
+            <% if (d.cities.length && !(d.cities.length === 1 && d.cities[0] === name)) { %><span class="v-dest-cities"><% d.cities.slice(0, 4).forEach(c => { %><i><% if (cityThumbs[c]) { %><img src="<%= pic(cityThumbs[c]).small %>" alt="" loading="lazy" width="18" height="18"><% } %><%= c %></i><% }) %><% if (d.cities.length > 4) { %><i>+<%= d.cities.length - 4 %></i><% } %></span><% } %>
           </span>
         </a>
       <% }) %>
@@ -132,23 +132,19 @@
 
 <% if (cityShots.length) { %>
 <section class="v-cities" aria-labelledby="cities-h">
-  <div class="v-wrap v-cities-head">
-    <div>
-      <h2 id="cities-h">City by city</h2>
+  <div class="v-wrap">
+    <div class="v-head v-head-split">
+      <h2 id="cities-h">Cities we cover</h2>
       <p>Hotels, sightseeing and transfers in <%= cityShots.length %> cities across six destinations.</p>
     </div>
-    <div class="v-rail-nav">
-      <button type="button" class="v-rail-btn" data-rail-step="-1" aria-label="Previous cities"><%- icon('arrowLeft') %></button>
-      <button type="button" class="v-rail-btn" data-rail-step="1" aria-label="Next cities"><%- icon('arrowRight') %></button>
-    </div>
-  </div>
-  <div class="v-rail" data-rail tabindex="0" role="list" aria-label="Cities">
-    <% cityShots.forEach((s) => { %>
-      <a class="v-city" role="listitem" href="<%= user && user.role === 'agent' ? '/agent/hotels?city=' + encodeURIComponent(s.city) : '/signup' %>">
-        <img src="<%= s.src %>" alt="<%= s.city %>" loading="lazy" width="640" height="480">
-        <span><b><%= s.city %></b><small><%= s.dest === s.city ? 'Destination' : s.dest %><%= s.n ? ` · ${s.n} service${s.n === 1 ? '' : 's'}` : '' %></small></span>
-      </a>
-    <% }) %>
+    <ul class="v-city-grid">
+      <% cityShots.forEach((s) => { const cp = pic(s.photo, 800); %>
+        <li><a class="v-city" href="<%= user && user.role === 'agent' ? '/agent/hotels?city=' + encodeURIComponent(s.city) : '/signup' %>">
+          <img src="<%= cp.src %>" srcset="<%= cp.srcset %>" sizes="(max-width: 600px) 50vw, (max-width: 1000px) 33vw, 210px" alt="" loading="lazy" decoding="async" width="480" height="360">
+          <span><b><%= s.city %></b><small><%= s.dest === s.city ? 'Destination' : s.dest === 'United Kingdom' ? 'UK' : s.dest %><%= s.n ? ` · ${s.n} service${s.n === 1 ? '' : 's'}` : '' %></small></span>
+        </a></li>
+      <% }) %>
+    </ul>
   </div>
 </section>
 <% } %>
@@ -169,7 +165,7 @@
     </div>
     <figure class="v-browser">
       <div class="v-browser-bar"><i></i><i></i><i></i><span>vaayu-agent.vercel.app/agent</span></div>
-      <img src="/img/portal-dashboard.jpg?v=6" alt="The VaayuTrip agent portal: search, recent quotes, upcoming departures, account and earnings" loading="lazy" width="1440" height="900">
+      <img src="<%= pic('/img/portal-dashboard.jpg').src %>" srcset="<%= pic('/img/portal-dashboard.jpg').srcset %>" sizes="(max-width: 1000px) 100vw, 60vw" decoding="async" alt="The VaayuTrip agent portal: search, recent quotes, upcoming departures, account and earnings" loading="lazy" width="1440" height="900">
     </figure>
   </div>
 </section>
@@ -328,7 +324,8 @@
   </div>
 </section>
 
-<section class="v-final" style="--final-img:url('<%= cover({ destination: 'Europe' }) %>')">
+<section class="v-final">
+  <% const fp = pic(cover({ destination: 'Europe' }), 1280); %><img class="v-final-bg" src="<%= fp.src %>" srcset="<%= fp.srcset %>" sizes="100vw" alt="" loading="lazy" decoding="async">
   <div class="v-wrap v-final-in">
     <h2>Your travel business.<br>Your brand. Your growth.</h2>
     <p>Free to join, no monthly targets. Sign up in about ten minutes; we verify your agency within one working day.</p>

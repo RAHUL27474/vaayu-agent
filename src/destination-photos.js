@@ -3,7 +3,7 @@
 // are public domain / CC0 from Wikimedia Commons, so no credit line is needed anywhere.
 const DEST_PHOTOS = {
   "Dubai": "/img/destinations/dubai.jpg",
-  "Bali": "/img/destinations/bali.jpg",
+  "Bali": "/img/destinations/bali-kelingking-hero.jpg",
   "Vietnam": "/img/destinations/vietnam.jpg",
   "Cambodia": "/img/destinations/cambodia.jpg",
   "United Kingdom": "/img/destinations/united-kingdom.jpg",
