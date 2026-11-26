@@ -338,19 +338,26 @@ const calmMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 const hero = document.querySelector('[data-hero]');
 if (hero) {
-  const slides = hero.querySelectorAll('.hx-slide');
-  const choices = [...hero.querySelectorAll('[data-slide]')];
+  const slides = [...hero.querySelectorAll('.v-hero-slide')];
+  const choices = hero.querySelectorAll('[data-photo-step]');
   const line = hero.querySelector('[data-hero-line]');
   const destSel = hero.querySelector('[data-hero-dest]');
-  const show = (index) => {
+  let selected = 0;
+  const show = async (index) => {
     if (index < 0) return;
-    slides.forEach((slide, i) => slide.classList.toggle('on', i === index));
-    choices.forEach((button, i) => button.setAttribute('aria-pressed', String(i === index)));
-    line.textContent = choices[index].dataset.line;
-    destSel.value = choices[index].dataset.dest;
+    selected = index;
+    const slide = slides[index];
+    destSel.value = slide.dataset.dest;
+    if (!slide.getAttribute('src')) slide.src = slide.dataset.src;
+    try { await slide.decode(); } catch { return; }
+    if (selected !== index) return;
+    slides.forEach((image, i) => image.classList.toggle('on', i === index));
+    line.textContent = slide.dataset.line;
   };
-  choices.forEach((button, index) => button.addEventListener('click', () => show(index)));
-  destSel.addEventListener('change', () => show(choices.findIndex((button) => button.dataset.dest === destSel.value)));
+  choices.forEach((button) => button.addEventListener('click', () => {
+    show((selected + Number(button.dataset.photoStep) + slides.length) % slides.length);
+  }));
+  destSel.addEventListener('change', () => show(slides.findIndex((slide) => slide.dataset.dest === destSel.value)));
 }
 
 const io = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {

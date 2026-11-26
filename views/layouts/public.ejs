@@ -27,6 +27,7 @@
     <a href="/#calc">Your margin</a>
     <a href="/#how">How it works</a>
     <a href="/#faq">FAQ</a>
+    <% if (waNumber && path === '/') { %><a class="nav-partner-chat" href="https://wa.me/<%= waNumber %>" target="_blank" rel="noopener">Chat on WhatsApp</a><% } %>
     <% if (user) { %>
       <a class="btn btn-primary" href="<%= user.role === 'admin' ? '/admin' : user.role === 'backend' ? '/backend' : '/agent' %>">Open portal</a>
     <% } else { %>

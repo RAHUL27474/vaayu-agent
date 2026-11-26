@@ -1,11 +1,11 @@
 <%
   const HERO = [
-    { name: 'Dubai', line: 'Dubai by night' },
-    { name: 'Bali', line: 'Kelingking Beach, Nusa Penida' },
-    { name: 'Vietnam', line: 'Ha Long Bay' },
-    { name: 'Cambodia', line: 'Angkor Wat, Siem Reap' },
-    { name: 'United Kingdom', line: 'Tower Bridge, London' },
-    { name: 'Europe', line: 'Chapel Bridge, Lucerne' },
+    { name: 'Bali', line: 'Kelingking Beach, Nusa Penida', photo: '/img/destinations/bali-kelingking-hero.jpg', focus: '96% 21%' },
+    { name: 'Europe', line: 'Chapel Bridge, Lucerne', focus: '77% 16%' },
+    { name: 'Dubai', line: 'Dubai by night', focus: '42% 39%' },
+    { name: 'Vietnam', line: 'Ha Long Bay', focus: '59% 39%' },
+    { name: 'Cambodia', line: 'Angkor Wat, Siem Reap', focus: '58% 22%' },
+    { name: 'United Kingdom', line: 'Tower Bridge, London', photo: '/img/destinations/london-tower-bridge-hero.jpg', focus: '96% 18%' },
   ];
   const SVCS = [['hotels', 'Hotels'], ['flights', 'Airfares'], ['activities', 'Activities'], ['transfers', 'Transfers'], ['visas', 'Visas'], ['insurance', 'Travel insurance']];
   // Example trips for the margin calculator (illustrative net rates, 2 adults).
@@ -17,7 +17,7 @@
   const inr = (n) => '₹' + Math.round(n).toLocaleString('en-IN');
   const t0 = TRIPS[0], net0 = t0.lines.reduce((s, l) => s + l[1], 0), m0 = 12;
   const home = user ? (user.role === 'admin' ? '/admin' : user.role === 'backend' ? '/backend' : '/agent') : null;
-  const destLink = (name) => (user && user.role === 'agent' ? `/agent/find?svc=hotels&dest=${encodeURIComponent(name)}` : '/signup');
+  const destLink = (name) => user && user.role !== 'agent' ? home : `/agent/find?svc=hotels&dest=${encodeURIComponent(name)}`;
   const D = Object.fromEntries(destinations.map((d) => [d.name, d]));
   const NOTE = {
     Dubai: 'Desert safaris, Burj Khalifa, Abu Dhabi day trips and city hotels.',
@@ -29,46 +29,48 @@
   };
   const order = ['Dubai', 'Bali', 'Vietnam', 'Europe', 'United Kingdom', 'Cambodia'].filter((n) => D[n]);
 %>
-<section class="v-hero" data-hero>
-  <div class="v-wrap v-hero-grid">
-    <div class="v-hero-copy">
-      <p class="v-kicker">B2B travel platform for agencies</p>
-      <h1>Book at net rates. <em>Sell under your own name.</em></h1>
-      <p class="v-lead">Airfares, hotels, activities, transfers, visas and insurance for Dubai, Bali, Vietnam, Cambodia, the UK and Europe. You set the price; quotes, invoices and vouchers carry your agency's name.</p>
-      <div class="v-ctas">
-        <% if (user) { %>
-          <a class="v-btn v-btn-primary" href="<%= home %>">Open your portal</a>
-        <% } else { %>
-          <a class="v-btn v-btn-primary" href="/signup">Become a partner</a>
-          <a class="v-btn v-btn-ghost" href="/login">Partner log in</a>
-        <% } %>
-      </div>
-
-      <form class="v-search" method="get" action="/agent/find" role="search" aria-label="Search net rates">
-        <label class="v-search-f"><span>Destination</span>
-          <select name="dest" data-hero-dest><% HERO.forEach(h => { %><option><%= h.name %></option><% }) %></select>
-        </label>
-        <label class="v-search-f"><span>Service</span>
-          <select name="svc"><% SVCS.forEach(([v, l]) => { %><option value="<%= v %>"><%= l %></option><% }) %></select>
-        </label>
-        <button class="v-btn v-btn-teal" type="submit"><%- icon('search') %>Search net rates</button>
-      </form>
-      <p class="v-search-note"><%- icon('lock') %><% if (user) { %>Opens your portal with live rates.<% } else { %>Live net rates are shown to verified partners after login.<% } %></p>
+<section class="v-hero" data-hero aria-labelledby="home-title">
+  <div class="v-hero-frame">
+    <div class="v-hero-backdrop" aria-hidden="true">
+      <% HERO.forEach((h, i) => { const photo = h.photo || cover({ destination: h.name }); %>
+        <img class="v-hero-slide<%= i === 0 ? ' on' : '' %>" style="--photo-focus: <%= h.focus %>" data-line="<%= h.line %>" data-dest="<%= h.name %>" alt="" <% if (i === 0) { %>src="<%= photo %>" fetchpriority="high"<% } else { %>data-src="<%= photo %>"<% } %> decoding="async">
+      <% }) %>
     </div>
-
-    <div class="v-hero-media">
-      <figure class="v-hero-photo">
-        <div class="hx-slides" aria-hidden="true">
-          <% HERO.forEach((h, i) => { %><img class="hx-slide<%= i === 0 ? ' on' : '' %>" src="<%= cover({ destination: h.name }) %>" alt="" <%- i === 0 ? 'fetchpriority="high"' : 'loading="lazy"' %>><% }) %>
+    <div class="v-wrap v-hero-grid">
+      <div class="v-hero-copy">
+        <p class="v-kicker">For travel agencies</p>
+        <h1 id="home-title">Book travel<br>at agent rates.</h1>
+        <p class="v-lead">Find hotels, airfares and experiences. Set your markup and sell under your agency’s name.</p>
+        <div class="v-ctas">
+          <% if (user) { %>
+            <a class="v-btn v-btn-primary" href="<%= home %>">Open your portal</a>
+          <% } else { %>
+            <a class="v-btn v-btn-primary" href="/signup">Join VaayuTrip</a>
+            <a class="v-btn v-btn-outline-light" href="/login">Log in</a>
+          <% } %>
         </div>
-        <figcaption class="v-hero-cap"><%- icon('mapPin') %><span data-hero-line><%= HERO[0].line %></span></figcaption>
-      </figure>
-      <div class="v-hero-dots" role="group" aria-label="Destination photos">
-        <% HERO.forEach((h, i) => { %>
-          <button type="button" data-slide data-line="<%= h.line %>" data-dest="<%= h.name %>" aria-label="Show <%= h.name %>" aria-pressed="<%= i === 0 %>"><span><%= h.name === 'United Kingdom' ? 'UK' : h.name %></span></button>
-        <% }) %>
+      </div>
+      <div class="v-hero-location">
+        <p class="v-hero-cap"><%- icon('mapPin') %><span data-hero-line aria-live="polite"><%= HERO[0].line %></span></p>
+        <div class="v-hero-choices" role="group" aria-label="Destination photos">
+          <button type="button" data-photo-step="-1" aria-label="Previous destination photo"><%- icon('chevron') %></button>
+          <button type="button" data-photo-step="1" aria-label="Next destination photo"><%- icon('chevron') %></button>
+        </div>
       </div>
     </div>
+  </div>
+
+  <div class="v-wrap v-hero-booking">
+    <form class="v-search" method="get" action="/agent/find" role="search" aria-label="Search net rates" <% if (!user) { %>aria-describedby="rates-access"<% } %>>
+      <label class="v-search-f"><span>Destination</span>
+        <select name="dest" data-hero-dest><% HERO.forEach(h => { %><option><%= h.name %></option><% }) %></select>
+      </label>
+      <label class="v-search-f"><span>Service</span>
+        <select name="svc"><% SVCS.forEach(([v, l]) => { %><option value="<%= v %>"><%= l %></option><% }) %></select>
+      </label>
+      <button class="v-btn v-btn-teal" type="submit"><%- icon('search') %>Search net rates</button>
+    </form>
+    <% if (!user) { %><p class="v-search-note" id="rates-access"><%- icon('lock') %>Live rates are available to verified partners after login.</p><% } %>
   </div>
 </section>
 
@@ -77,15 +79,14 @@
     <div><b><%= stats.hotels %></b><span>hotels at net rates</span></div>
     <div><b><%= stats.activities %></b><span>tours &amp; activities</span></div>
     <div><b><%= stats.cities %></b><span>cities in 6 destinations</span></div>
-    <div class="v-facts-terms"><span><%- icon('check') %>Free to join</span><span><%- icon('check') %>No monthly targets</span><span><%- icon('check') %>Your brand on every document</span></div>
   </div>
 </section>
 
 <section class="v-sec" id="destinations">
   <div class="v-wrap">
     <div class="v-head v-head-split">
-      <h2>Six destinations, contracted and kept current by our team</h2>
-      <p>Hotels, fares, sightseeing, transfers and visas, bought by VaayuTrip and sold to you at net. Pick a destination to see what's available.</p>
+      <h2>Explore our destinations</h2>
+      <p>Find hotels, flights, activities, transfers and visas at contracted net rates.</p>
     </div>
     <div class="v-dests">
       <% order.forEach(name => { const d = D[name]; %>
