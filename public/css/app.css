@@ -2487,3 +2487,37 @@ html body.app .dash-hero .svc-tab:has(input:focus-visible) { outline: 2px solid 
 html[data-theme="dark"] body.app a.chip.on { background: #1f5f7a; border-color: #1f5f7a; color: #fff; }
 /* R34 keyboard-reachable table rows show where focus is */
 tr[data-href]:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+/* R41 dashboard on phones: quotes and departures stay compact rows instead of label-heavy cards */
+@media (max-width: 640px) {
+  .dash-quotes th:first-child, .dash-quotes td:first-child { display: none; }
+  .dash-trips th:nth-child(2), .dash-trips td:nth-child(2) { display: none; }
+  .dash-quotes td, .dash-trips td { padding: 10px 12px; font-size: 13.5px; }
+  .dash-trips .trip-cell img { display: none; }
+}
+/* R42 deal cards on phones: the code becomes a full-width strip under the text */
+@media (max-width: 640px) {
+  .offer.deal { grid-template-columns: minmax(0, 1fr); }
+  .offer.deal .offer-code { flex-direction: row; justify-content: center; gap: 10px; padding: 12px; min-height: 48px; border-left: 0; border-top: 1px dashed var(--line-strong); }
+}
+/* R43 inventory list on phones: keep what the team scans (name, price, status) */
+@media (max-width: 860px) {
+  .table.stack.inv-table td[data-label="Type"], .table.stack.inv-table td[data-label="Last updated"], .table.stack.inv-table td[data-label="Bookings"], .table.stack.inv-table td[data-label="Price basis"] { display: none; }
+}
+/* R44 coverage table: a compact grid that scrolls sideways on phones */
+.cov-table th, .cov-table td { white-space: nowrap; }
+@media (max-width: 640px) { .cov-table th, .cov-table td { padding: 8px 10px; font-size: 13px; } }
+/* R45 agents list on phones: contact email and bookings count drop out */
+@media (max-width: 860px) {
+  .table.stack.agents-table td[data-label="Bookings"], .table.stack.agents-table td[data-label="Contact"] small { display: none; }
+}
+/* R46 sideways-scrolling tables show a soft fade at the edge, so a cut column reads as "more →" */
+@media (max-width: 860px) {
+  .table-wrap:has(> .no-stack) { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+  .table-wrap:has(> .no-stack.dash-quotes), .table-wrap:has(> .no-stack.dash-trips) { -webkit-mask-image: none; mask-image: none; }
+}
+/* R49 filter bars hide behind "Search & filters" on phones only where that button exists */
+@media (max-width: 640px) { .filter-bar:not(.filter-toggle + .filter-bar) { display: flex; flex-direction: column; align-items: stretch; } .enq-search .btn { width: 100%; } }
+/* R47 chip filters keep space from the card below */
+.enq-tabs, .filter-chips { margin-bottom: 14px; }
+/* R48 counts inside a selected chip stay readable */
+.filter-chips a.on small, .enq-tabs a.on small { color: inherit; opacity: .85; }

@@ -16,7 +16,7 @@
 </form>
 <div class="card flush">
   <% if (!products.length) { %><div class="empty"><span class="big"><%- icon('layers') %></span>Nothing here yet. <a href="/backend/products/new<%= f.kind ? `?kind=${f.kind}` : '' %>">Add the first one</a> or <a href="/backend/import">import a CSV</a>.</div><% } else { %>
-  <div class="table-wrap"><table class="table">
+  <div class="table-wrap"><table class="table inv-table">
     <thead><tr><th>Item</th><% if (!f.kind) { %><th>Type</th><% } %><th>Price basis</th><th class="num">Cost</th><th class="num">Agents pay</th><th>Status</th><th>Last updated</th><th class="num">Bookings</th></tr></thead>
     <% products.forEach(p => { %>
       <tr class="click" data-href="/backend/products/<%= p.id %>">

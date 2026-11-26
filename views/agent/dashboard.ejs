@@ -153,7 +153,7 @@
     <div class="card flush">
       <div class="card-head"><h2 class="h3">Recent quotes<% if (personal.awaiting) { %> <small class="muted head-note"><%= personal.awaiting %> awaiting reply</small><% } %></h2><a href="/agent/quotes">All quotes</a></div>
       <% if (!quotes.length) { %><div class="empty">No quotes yet.<% if (canBook) { %> Start from <a href="/agent/packages">one of your packages</a> or browse <a href="/agent/hotels">hotels</a>, <a href="/agent/flights">airfares</a> and <a href="/agent/activities">activities</a>.<% } %></div><% } else { %>
-      <table class="table">
+      <table class="table no-stack dash-quotes">
         <thead><tr><th>Quote</th><th>Trip</th><th>Status</th></tr></thead>
         <% quotes.forEach(q => { const [trip, who] = q.title.split(' — '); %>
           <tr class="click" data-href="/agent/quotes/<%= q.id %>"><td class="nowrap"><a href="/agent/quotes/<%= q.id %>"><%= q.code %></a></td><td><b><%= trip %></b><% if (who) { %><br><small class="muted"><%= who %></small><% } %></td><td><span class="badge <%= q.status %>"><%= q.status %></span></td></tr>
@@ -165,7 +165,7 @@
     <div class="card flush">
       <div class="card-head"><h2 class="h3">Upcoming departures</h2><a href="/agent/bookings">All bookings</a></div>
       <% if (!personal.trips.length) { %><div class="empty">No trips coming up. Confirmed bookings show here.</div><% } else { %>
-      <table class="table">
+      <table class="table no-stack dash-trips">
         <thead><tr><th>Travel date</th><th>Customer</th><th>Trip</th><th class="num">Departs</th></tr></thead>
         <% personal.trips.forEach(t => { %>
           <tr class="click" data-href="/agent/bookings/<%= t.id %>">

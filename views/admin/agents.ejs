@@ -6,7 +6,7 @@
 </div>
 <div class="card flush">
   <% if (!agents.length) { %><div class="empty"><span class="big"><%- icon('building') %></span><b>No agents here</b><p>Agencies appear here when they sign up.</p></div><% } else { %>
-  <div class="table-wrap"><table class="table">
+  <div class="table-wrap"><table class="table agents-table">
     <thead><tr><th>Agency</th><th>Contact</th><th>Status</th><th>KYC</th><th class="num">Wallet</th><th class="num">Credit</th><th class="num">Bookings</th></tr></thead>
     <% agents.forEach(a => { %>
       <tr class="click" data-href="/admin/agents/<%= a.id %>">
