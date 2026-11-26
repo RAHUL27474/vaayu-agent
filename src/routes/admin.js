@@ -334,6 +334,15 @@ const LOG_AREAS = {
   topup: 'Wallet top-ups', wallet: 'Wallet', user: 'Users & logins', offer: 'Offers', settings: 'Settings', ticket: 'Support',
 };
 
+// Plain names for settings, used in the activity log.
+const SETTING_LABELS = { booking_approval: 'booking approval', company_name: 'brand name', legal_name: 'legal name', gstin: 'GSTIN', address: 'address', phone: 'support phone', whatsapp: 'WhatsApp number', email: 'support email', gst_enabled: 'GST on/off', tax_rate: 'GST rate', tcs_rate: 'TCS rate', bank_details: 'bank details', sac_code: 'SAC code', tier_silver_pct: 'Silver discount', tier_gold_pct: 'Gold discount', tier_all: 'offer for every agent', tier_all_label: 'offer name', tier_all_from: 'offer start', tier_all_to: 'offer end' };
+// Older log entries stored raw setting keys ("gst_enabled, tcs_rate"); show them by name.
+const niceSettingKeys = (summary) => String(summary || '').split(', ').map((k) => {
+  if (SETTING_LABELS[k]) return SETTING_LABELS[k];
+  const mk = /^margin_(\w+)$/.exec(k);
+  return mk ? `${(KINDS[mk[1]] || {}).plural || mk[1]} margin` : k;
+}).join(', ').replace(/^./, (c) => c.toUpperCase());
+
 router.get('/log', h(async (req, res) => {
   const f = {
     role: LOG_ROLES.includes(req.query.role) ? req.query.role : '',
@@ -362,7 +371,7 @@ router.get('/log', h(async (req, res) => {
   const busy = await all("SELECT split_part(action, '.', 1) AS area, COUNT(*)::int AS n FROM audit_log WHERE action != 'user.login' AND created_at > datetime('now', '-30 days') GROUP BY 1 ORDER BY n DESC LIMIT 8");
   const people = await all("SELECT u.id, u.name, l.role, MAX(a.name) AS agency, COUNT(*)::int AS n FROM audit_log l JOIN users u ON u.id = l.user_id LEFT JOIN agencies a ON a.id = l.agency_id WHERE l.action != 'user.login' AND l.created_at > datetime('now', '-30 days') GROUP BY u.id, u.name, l.role ORDER BY n DESC LIMIT 6");
   res.page('admin/log', {
-    title: 'Activity log', entries: rows.slice(0, 100), more: rows.length > 100, page, f, users, agencies, areas: LOG_AREAS, roles: LOG_ROLES, pulse, busy, people,
+    title: 'Activity log', entries: rows.slice(0, 100).map((l) => (l.action === 'settings.updated' ? { ...l, summary: niceSettingKeys(l.summary) } : l)), more: rows.length > 100, page, f, users, agencies, areas: LOG_AREAS, roles: LOG_ROLES, pulse, busy, people,
   });
 }));
 
@@ -715,10 +724,9 @@ router.post('/settings', h(async (req, res) => {
   for (const k of SETTING_KEYS) if (req.body[k] !== undefined) await setSetting(k, str(req.body[k]));
   // New margins apply to agents' prices right away (quotes already made keep theirs).
   for (const k of changed.filter((x) => MARGIN_KEYS.includes(x))) await repriceProducts(k.replace('margin_', ''));
-  const LABEL = { booking_approval: 'booking approval', company_name: 'brand name', legal_name: 'legal name', gstin: 'GSTIN', address: 'address', phone: 'support phone', whatsapp: 'WhatsApp number', email: 'support email', gst_enabled: 'GST on/off', tax_rate: 'GST rate', tcs_rate: 'TCS rate', bank_details: 'bank details', sac_code: 'SAC code', tier_silver_pct: 'Silver discount', tier_gold_pct: 'Gold discount', tier_all: 'offer for every agent', tier_all_label: 'offer name', tier_all_from: 'offer start', tier_all_to: 'offer end' };
   const nice = (k) => (MARGIN_KEYS.includes(k)
     ? `${(KINDS[k.replace('margin_', '')] || {}).plural || k} margin ${effective(k)}% → ${str(req.body[k])}%`
-    : LABEL[k] || k);
+    : SETTING_LABELS[k] || k);
   if (changed.length) await audit(req.user, 'settings.updated', { entity: 'settings', summary: changed.map(nice).join(', '), link: '/admin/settings' });
   req.flash('success', 'Settings saved.');
   res.redirect('/admin/settings');

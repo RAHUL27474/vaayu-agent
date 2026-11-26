@@ -4,12 +4,16 @@
 <div class="page-head">
   <div><h1>Activity log</h1><p>Everything that changes on VaayuTrip: inventory entered by the backend team, agents' packages, quotes and bookings, and admin decisions.</p></div>
 </div>
+<% if (Number(pulse.week)) { %>
 <div class="log-pulse">
-  <div><b><%= pulse.today %></b><span>events today</span></div>
-  <div><b><%= pulse.week %></b><span>in the last 7 days</span></div>
-  <div><b><%= pulse.bookings %></b><span>booking actions this week</span></div>
-  <div><b><%= pulse.people %></b><span>people active this week</span></div>
+  <div class="<%= Number(pulse.today) ? '' : 'is-zero' %>"><b><%= pulse.today %></b><span>changes today</span></div>
+  <div><b><%= pulse.week %></b><span>changes in the last 7 days</span></div>
+  <div class="<%= Number(pulse.bookings) ? '' : 'is-zero' %>"><b><%= pulse.bookings %></b><span>booking changes this week</span></div>
+  <div><b><%= pulse.people %></b><span><%= Number(pulse.people) === 1 ? 'person' : 'people' %> made changes this week</span></div>
 </div>
+<% } else { %>
+<p class="log-quiet"><%- icon('activity') %><span><b>Quiet week.</b> Nothing has changed in the last 7 days<% if (entries.length && !f.area && !f.role && !f.user && !f.agency && !f.from && !f.to) { %>; the latest change is below, from <%= new Date(String(entries[0].created_at).replace(' ', 'T') + 'Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %><% } %>.</span></p>
+<% } %>
 <% if (busy.length) { %>
 <nav class="chips filter-chips log-areas" aria-label="Areas">
   <a class="<%= !f.area ? 'on' : '' %>" href="<%= qs({ area: '', page: '' }) %>">All areas</a>
