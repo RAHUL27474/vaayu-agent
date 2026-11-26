@@ -7,6 +7,7 @@
     phone: ['Support phone', ''],
     whatsapp: ['WhatsApp number', 'The green WhatsApp button and "Chat on WhatsApp" links open a chat with this number. Empty = 96676 72467.'],
     email: ['Support email', ''],
+    booking_approval: ['Bookings need operations approval', 'When on, agents send each quote as a booking request; your backend team confirms availability (Backend → Booking requests) and only then can the agent pay.'],
     gst_enabled: ['Charge GST', 'When off, no GST is added to quotes, bookings or invoices. Invoices already issued keep theirs.'],
     tax_rate: ['GST rate (%)', 'Used when GST is switched on. Tour operator services: 5%.'],
     tcs_rate: ['TCS on overseas tour packages (%)', 'Collected on customer invoices for international packages. Confirm the current rate with your CA.'],
@@ -30,11 +31,14 @@
   <% keys.filter(k => labels[k]).forEach(k => { %>
     <% if (k === 'tier_silver_pct') { %><h3 id="tiers" style="margin:28px 0 4px;padding-top:18px;border-top:1px solid var(--line)">Silver / Gold prices &amp; offers</h3><p class="muted" style="font-size:13px;margin:0 0 14px">Set how much cheaper Silver and Gold are, and optionally give every agent Silver or Gold for a period. To put particular agents on Silver or Gold, use <a href="/admin/tiers">Silver / Gold</a>.</p><% } %>
     <div class="field">
-      <% if (k === 'gst_enabled') { %>
+      <% if (k === 'booking_approval') { %>
+      <input type="hidden" name="booking_approval" value="0">
+      <label class="check"><input type="checkbox" name="booking_approval" value="1" <%= values.booking_approval !== '0' ? 'checked' : '' %>> <b>Bookings need operations approval before payment</b></label>
+      <% } else if (k === 'gst_enabled') { %>
       <input type="hidden" name="gst_enabled" value="0">
       <label class="check"><input type="checkbox" name="gst_enabled" value="1" <%= values.gst_enabled === '1' ? 'checked' : '' %>> <b>Charge GST</b></label>
       <% } else { %><label for="<%= k %>"><%= labels[k][0] %></label><% } %>
-      <% if (k === 'gst_enabled') { %>
+      <% if (k === 'gst_enabled' || k === 'booking_approval') { %>
       <% } else if (k === 'tier_all') { %><select id="tier_all" name="tier_all"><% [['none', 'No offer'], ['silver', 'Silver prices for everyone'], ['gold', 'Gold prices for everyone']].forEach(([v, l]) => { %><option value="<%= v %>" <%= (values.tier_all || 'none') === v ? 'selected' : '' %>><%= l %></option><% }) %></select>
       <% } else if (k === 'tier_all_from' || k === 'tier_all_to') { %><input id="<%= k %>" type="date" name="<%= k %>" value="<%= values[k] || '' %>">
       <% } else if (k === 'bank_details') { %><textarea id="<%= k %>" name="<%= k %>" rows="4"><%= values[k] || '' %></textarea><% } else { %>

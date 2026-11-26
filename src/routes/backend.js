@@ -23,7 +23,9 @@ router.param('id', idParam);
 router.param('itemId', idParam);
 router.use(requireBackend);
 router.use(async (req, res, next) => {
-  res.locals.newEnquiries = (await one("SELECT COUNT(*)::int AS n FROM enquiries WHERE status = 'new'")).n;
+  const c = await one("SELECT (SELECT COUNT(*)::int FROM enquiries WHERE status = 'new') AS enq, (SELECT COUNT(*)::int FROM quotes WHERE approval_status = 'requested') AS req");
+  res.locals.newEnquiries = c.enq;
+  res.locals.pendingRequests = c.req;
   res.locals.kindsNav = KINDS;
   res.locals.listOf = listOf;
   res.locals.navKind = KINDS[req.query.kind] ? req.query.kind : '';
@@ -97,6 +99,49 @@ const formData = (p) => ({
 });
 // Cities already in the inventory, so typing one fills in its country.
 const cityList = () => all('SELECT city, MIN(country) AS country FROM products GROUP BY city ORDER BY city');
+
+// ---------- booking requests (approve before the agent pays) ----------
+router.get('/booking-requests', h(async (req, res) => {
+  const show = ['requested', 'approved', 'rejected'].includes(req.query.show) ? req.query.show : 'requested';
+  const rows = await all(
+    `SELECT q.id, q.code, q.title, q.travel_date, q.adults, q.children, q.approval_status, q.approval_net, q.approval_requested_at, q.approval_decided_at, q.approval_until,
+       a.name AS agency, u.name AS requested_by, d.name AS decided_by
+     FROM quotes q JOIN agencies a ON a.id = q.agency_id LEFT JOIN users u ON u.id = q.approval_requested_by LEFT JOIN users d ON d.id = q.approval_decided_by
+     WHERE q.approval_status = ? ORDER BY ${show === 'requested' ? 'q.approval_requested_at ASC' : 'q.approval_decided_at DESC'} LIMIT 200`, show,
+  );
+  const counts = Object.fromEntries((await all("SELECT approval_status AS s, COUNT(*)::int AS n FROM quotes WHERE approval_status IS NOT NULL GROUP BY approval_status")).map((r) => [r.s, r.n]));
+  res.page('backend/booking-requests', { title: 'Booking requests', rows, counts, show });
+}));
+
+router.get('/booking-requests/:id', h(async (req, res, next) => {
+  const full = await svc.getQuote(num(req.params.id));
+  if (!full || !full.quote.approval_status) return next();
+  const q = full.quote;
+  const agency = await one('SELECT id, name, phone, email, city FROM agencies WHERE id = ?', q.agency_id);
+  const people = await all('SELECT id, name FROM users WHERE id IN (?, ?)', q.approval_requested_by || 0, q.approval_decided_by || 0);
+  const nameOf = (id) => (people.find((p) => p.id === id) || {}).name;
+  const booking = await one('SELECT id, code FROM bookings WHERE quote_id = ? ORDER BY id DESC', q.id);
+  res.page('backend/booking-request', { title: `Booking request: ${q.title}`, ...full, reqAgency: agency, nameOf, booking, netChanged: Math.abs((q.approval_net || 0) - full.priced.net) > 0.009 });
+}));
+
+router.post('/booking-requests/:id/decide', h(async (req, res, next) => {
+  const full = await svc.getQuote(num(req.params.id));
+  if (!full || !full.quote.approval_status) return next();
+  const q = full.quote;
+  if (['booked', 'cancelled'].includes(q.status)) throw new svc.AppError('This quote is already booked or cancelled.');
+  const approve = req.body.decision === 'approve';
+  const note = String(req.body.note || '').trim().slice(0, 800) || null;
+  if (!approve && !note) throw new svc.AppError('Tell the agent why: write a short reason before rejecting.');
+  const hours = [12, 24, 48, 72].includes(Number(req.body.hours)) ? Number(req.body.hours) : 24;
+  await run(`UPDATE quotes SET approval_status = ?, approval_net = ?, approval_decided_at = datetime('now'), approval_decided_by = ?, approval_note = ?,
+    approval_until = ${approve ? `datetime('now', '+${hours} hours')` : 'NULL'} WHERE id = ?`, approve ? 'approved' : 'rejected', full.priced.net, req.user.id, note, q.id);
+  await notify(q.agency_id, approve ? 'Booking request approved' : 'Booking request not approved',
+    approve ? `${q.title}: confirmed by VaayuTrip operations. Pay within ${hours} hours to book it.${note ? ` Note: ${note}` : ''}` : `${q.title}: ${note}`,
+    `/agent/quotes/${q.id}`);
+  await audit(req.user, approve ? 'booking.request_approved' : 'booking.request_rejected', { entity: 'quote', id: q.id, agencyId: q.agency_id, summary: `${q.title} (${q.code})${note ? `: ${note}` : ''}`, link: `/backend/booking-requests/${q.id}` });
+  req.flash('success', approve ? 'Approved. The agent has been notified and can pay now.' : 'Rejected. The agent has been told why.');
+  res.redirect('/backend/booking-requests');
+}));
 
 // ---------- website enquiries ----------
 const ENQ_STATUSES = ['new', 'contacted', 'converted', 'closed'];

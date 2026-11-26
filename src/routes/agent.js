@@ -536,10 +536,11 @@ router.get('/quotes/:id', h(async (req, res) => {
     }
   }
   const netPayable = withTax(full.priced.net - (coupon ? coupon.discount : 0), settings);
+  const approval = svc.approvalState(full, settings);
   const couponTry = req.session.couponTry && req.session.couponTry.quote === full.quote.id ? req.session.couponTry : null;
   if (req.session.couponTry) req.session.couponTry = null;
   res.page('agent/quote', {
-    coupon, couponTry,
+    coupon, couponTry, approval,
     kinds: KINDS, kindMarkups, agencyRates: kindMarkups(req.agency),
     title: full.quote.title, ...full, invoices, booking, customerTotal, netPayable, phonepeOn: phonepe.enabled(),
     customers: await customersOf(req.agency.id), branded: agencyHasBranding(req.agency),
@@ -674,6 +675,34 @@ router.post('/quotes/:id/send', h(async (req, res) => {
   if (!items.length) throw new svc.AppError('Add items before sharing the quote.');
   if (quote.status === 'draft') await run("UPDATE quotes SET status = 'sent', updated_at = datetime('now') WHERE id = ?", quote.id);
   req.flash('success', 'Quote marked as sent.');
+  res.redirect(`/agent/quotes/${quote.id}`);
+}));
+
+// Booking request: VaayuTrip operations confirm availability before the agent pays.
+router.post('/quotes/:id/request-booking', requireActiveAgency, h(async (req, res) => {
+  const { quote } = await ownQuote(req);
+  const { full } = await svc.bookable(req.agency.id, quote.id, { skipApproval: true });
+  if (quote.approval_status === 'requested') { req.flash('success', 'Already sent. VaayuTrip operations will reply shortly.'); return res.redirect(`/agent/quotes/${quote.id}`); }
+  const note = String(req.body.note || '').trim().slice(0, 500) || null;
+  await run(`UPDATE quotes SET approval_status = 'requested', approval_net = ?, approval_requested_at = datetime('now'), approval_requested_by = ?, approval_request_note = ?,
+    approval_decided_at = NULL, approval_decided_by = NULL, approval_note = NULL, approval_until = NULL WHERE id = ?`, full.priced.net, req.user.id, note, quote.id);
+  const summary = `${req.agency.name}: ${quote.title} (${quote.code}), net ₹${full.priced.net.toLocaleString('en-IN')}${quote.travel_date ? `, travel ${quote.travel_date}` : ''}`;
+  await notify(null, 'New booking request', summary, `/backend/booking-requests/${quote.id}`);
+  const team = (await all("SELECT email FROM users WHERE role = 'backend' AND is_active = 1")).map((u) => u.email);
+  const mailer = require('../mailer');
+  if (team.length && mailer.enabled()) mailer.send({ to: team, subject: `Booking request: ${quote.title}`, text: summary, button: { href: `${mailer.siteUrl()}/backend/booking-requests/${quote.id}`, label: 'Review request' } }).catch(() => false);
+  await audit(req.user, 'booking.requested', { entity: 'quote', id: quote.id, summary, link: `/backend/booking-requests/${quote.id}` });
+  req.flash('success', 'Booking request sent to VaayuTrip operations. You will be notified when it is approved, then you can pay.');
+  res.redirect(`/agent/quotes/${quote.id}`);
+}));
+
+router.post('/quotes/:id/withdraw-request', h(async (req, res) => {
+  const { quote } = await ownQuote(req);
+  if (quote.approval_status === 'requested') {
+    await run('UPDATE quotes SET approval_status = NULL WHERE id = ?', quote.id);
+    await audit(req.user, 'booking.request_withdrawn', { entity: 'quote', id: quote.id, summary: quote.title });
+  }
+  req.flash('success', 'Booking request withdrawn.');
   res.redirect(`/agent/quotes/${quote.id}`);
 }));
 

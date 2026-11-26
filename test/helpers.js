@@ -22,12 +22,14 @@ function check(name, ok, extra = '') {
 
 const cookieOf = (r) => (r.headers.getSetCookie() || []).map((c) => c.split(';')[0]).join('; ');
 
-/** Starts the server; resolves with a client bound to it once start-up (schema + demo data) is done. */
-function start() {
+/** Starts the server; resolves with a client bound to it once start-up (schema + demo data) is done.
+ *  Booking approval is switched off unless { bookingApproval: true } (most suites book quotes directly). */
+function start({ bookingApproval = false } = {}) {
   return new Promise((resolve) => {
     const server = app.listen(0, async () => {
       const B = `http://localhost:${server.address().port}`;
       await fetch(`${B}/`); // waits for start-up
+      await require(path.join(ROOT, 'src/db')).setSetting('booking_approval', bookingApproval ? '1' : '0');
       const client = {
         B,
         server,

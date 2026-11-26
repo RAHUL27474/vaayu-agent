@@ -270,7 +270,7 @@ async function seedBookingHistory(svc, agency) {
     const net = (await svc.getQuote(quoteId, agency.id)).priced.net;
     const utr = `UTR${String(7700000000 + quoteId * 7919).slice(0, 10)}`;
     await svc.moveWallet(agency.id, 'topup', round2(net * (1 + taxRate(await getSettings()) / 100)), utr, 'Bank transfer');
-    const bookingId = await svc.bookQuote(agency.id, quoteId);
+    const bookingId = await svc.bookQuote(agency.id, quoteId, { skipApproval: true });
     const when = `datetime('now', '-${h.monthsAgo} months', '-${3 + h.monthsAgo * 2} days')`;
     const b = await one('SELECT code FROM bookings WHERE id = ?', bookingId);
     await run(`UPDATE bookings SET created_at = ${when} WHERE id = ?`, bookingId);

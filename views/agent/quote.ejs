@@ -18,6 +18,14 @@
     <% if (['draft', 'sent'].includes(quote.status)) { %><form method="post" action="/agent/quotes/<%= quote.id %>/accepted"><button class="btn">Customer accepted</button></form><% } %>
     <% if (!locked) { %>
 <% const cantBook = agency.status !== 'active' || !items.length || profileGaps.length; %>
+      <% if (!approval.valid) { %>
+        <% if (approval.status === 'requested') { %>
+          <form method="post" action="/agent/quotes/<%= quote.id %>/withdraw-request" data-confirm="Withdraw this booking request?"><button class="btn">Withdraw request</button></form>
+          <span class="btn btn-accent is-waiting" aria-disabled="true"><%- icon('clock') %>Waiting for VaayuTrip approval</span>
+        <% } else { %>
+          <a class="btn btn-accent<%= cantBook ? ' disabled' : '' %>" href="#request-booking" <%- cantBook ? 'aria-disabled="true"' : '' %>><%- icon('clipboard') %><%= approval.status ? 'Send booking request again' : 'Send booking request' %></a>
+        <% } %>
+      <% } else { %>
       <% if (phonepeOn) { %>
       <form method="post" action="/agent/quotes/<%= quote.id %>/pay-online" data-confirm="Pay <%= inr(netPayable.total) %> <%= netPayable.tax ? '(net + GST) ' : '' %>online by UPI, card or net banking? The booking is confirmed as soon as the payment goes through.">
         <button class="btn" <%= cantBook ? 'disabled' : '' %> title="UPI, debit / credit card or net banking, through PhonePe"><%- icon('card') %>Pay online · UPI / card</button>
@@ -26,12 +34,35 @@
       <form method="post" action="/agent/quotes/<%= quote.id %>/book" data-confirm="Book now? <%= inr(netPayable.total) %> <%= netPayable.tax ? '(net + GST) ' : '' %>will be paid to VaayuTrip from your wallet/credit.">
         <button class="btn btn-accent" <%= cantBook ? 'disabled' : '' %> <%- profileGaps.length ? `title="Complete your company profile first"` : '' %>>Book from <%= agency.credit_limit > 0 ? "wallet / credit" : "wallet" %> · <%= inr(netPayable.total) %></button>
       </form>
+      <% } %>
     <% } else if (booking) { %>
       <a class="btn btn-primary" href="/agent/bookings/<%= booking.id %>">View booking <%= booking.code %></a>
     <% } %>
   </div>
 </div>
 
+<% if (approval.needed && !locked) { const untilTxt = approval.until ? new Date(String(approval.until).replace(' ', 'T') + 'Z').toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : ''; %>
+  <% if (approval.valid) { %>
+    <div class="alert success appr"><%- icon('checkCircle') %><span><b>Approved by VaayuTrip operations.</b> Pay by <%= untilTxt %> to book it at this price.<%= approval.note ? ` Note: ${approval.note}` : '' %></span></div>
+  <% } else if (approval.status === 'requested') { %>
+    <div class="alert info appr"><%- icon('clock') %><span><b>Booking request sent.</b> VaayuTrip operations are confirming availability. You will get a notification when it is approved; you can pay then.</span></div>
+  <% } else { %>
+    <section class="card appr-card" id="request-booking">
+      <% if (approval.status === 'rejected') { %><div class="alert error"><b>Not approved:</b> <%= approval.note %></div>
+      <% } else if (approval.changed) { %><div class="alert warn">This quote changed after it was approved. Send it again for a fresh approval.</div>
+      <% } else if (approval.expired) { %><div class="alert warn">The approval expired on <%= untilTxt %>. Send the request again.</div><% } %>
+      <form method="post" action="/agent/quotes/<%= quote.id %>/request-booking" class="appr-form">
+        <div>
+          <h3>Ready to book? Send a booking request</h3>
+          <p class="muted">VaayuTrip operations confirm availability and rates for <%= inr(netPayable.total) %><%= netPayable.tax ? ' (net + GST)' : '' %>. Once approved, you pay by wallet<%= phonepeOn ? ', credit or online' : ' or credit' %> and the booking is confirmed.</p>
+          <label for="req-note" class="sr-only">Note for operations</label>
+          <textarea id="req-note" name="note" rows="2" maxlength="500" placeholder="Anything operations should know (optional): room preference, flight timing…"></textarea>
+        </div>
+        <button class="btn btn-accent btn-lg" <%= agency.status !== 'active' || !items.length || profileGaps.length ? 'disabled' : '' %>><%- icon('clipboard') %>Send booking request</button>
+      </form>
+    </section>
+  <% } %>
+<% } %>
 <% if (typeof payingOnline !== 'undefined' && payingOnline && !locked) { %><div class="alert info">PhonePe is still confirming your online payment for this quote. The booking will be made automatically once it goes through; please don't pay again.</div><% } %>
 <% if (profileGaps.length && !locked) { %><div class="alert warn">You can't book yet: complete your company profile first (missing: <%= profileGaps.join(', ') %>). <a href="/agent/settings">Go to Company &amp; branding</a></div><% } %>
 <div class="split">

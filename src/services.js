@@ -250,8 +250,30 @@ async function couponFor(agencyId, full, raw) {
   return { offer, code: c, discount: round2(Math.min(discount, base)), base };
 }
 
+/**
+ * Operations approval of a quote before payment (switch off with the booking_approval setting = '0').
+ * Valid only while approved, within its hold time, and for the same VaayuTrip net it was approved at.
+ */
+function approvalState(full, settings) {
+  const q = full.quote;
+  const needed = settings.booking_approval !== '0';
+  const until = q.approval_until ? Date.parse(String(q.approval_until).replace(' ', 'T') + 'Z') : 0;
+  const changed = q.approval_status === 'approved' && Math.abs((q.approval_net || 0) - full.priced.net) > 0.009;
+  const expired = q.approval_status === 'approved' && until <= Date.now();
+  const valid = !needed || (q.approval_status === 'approved' && !changed && !expired);
+  return { needed, status: q.approval_status || null, valid, changed, expired, until: q.approval_until, note: q.approval_note };
+}
+function assertApproved(full, settings) {
+  const a = approvalState(full, settings);
+  if (a.valid) return;
+  if (a.status === 'requested') throw new AppError('VaayuTrip operations are still confirming this booking. You can pay once they approve it.');
+  if (a.changed) throw new AppError('This quote changed after VaayuTrip approved it. Send the booking request again.');
+  if (a.expired) throw new AppError('The approval for this quote has expired. Send the booking request again.');
+  throw new AppError('Send this quote to VaayuTrip operations as a booking request first; you can pay once they approve it.');
+}
+
 /** Can this quote be booked right now (funds aside)? Returns { agency, full, payable }; throws an AppError if not. */
-async function bookable(agencyId, quoteId) {
+async function bookable(agencyId, quoteId, { skipApproval = false } = {}) {
   const agency = await one('SELECT * FROM agencies WHERE id = ?', agencyId);
   if (agency.status !== 'active') throw new AppError('Your account must be approved before you can book');
   const gaps = profileGaps(agency);
@@ -261,6 +283,7 @@ async function bookable(agencyId, quoteId) {
   if (['booked', 'cancelled'].includes(full.quote.status)) throw new AppError('This quote is already booked');
   if (!full.items.some((i) => i.supplier === 'vaayu')) throw new AppError('Nothing on this quote is supplied by VaayuTrip');
   if (full.quote.package_id) await assertSeats(full.quote.package_id, full.quote.travel_date, full.quote.adults + full.quote.children);
+  if (!skipApproval) assertApproved(full, await getSettings());
   const discount = full.quote.coupon_code ? (await couponFor(agencyId, full, full.quote.coupon_code)).discount : 0;
   const payable = round2((full.priced.net - discount) * (1 + taxRate(await getSettings()) / 100));
   return { agency, full, payable, discount };
@@ -270,7 +293,7 @@ async function bookable(agencyId, quoteId) {
  * Books a quote: pays VaayuTrip the net amount from the wallet first, then the credit line.
  * online: rupees just paid online for this booking (already added to the wallet); such a booking never uses credit.
  */
-async function bookQuote(agencyId, quoteId, { online = 0 } = {}) {
+async function bookQuote(agencyId, quoteId, { online = 0, skipApproval = false } = {}) {
   return await tx(async () => {
     // Row locks: a second booking for this agency (or of this quote) waits until this one has paid.
     const agency = await one('SELECT * FROM agencies WHERE id = ? FOR UPDATE', agencyId);
@@ -284,6 +307,7 @@ async function bookQuote(agencyId, quoteId, { online = 0 } = {}) {
     if (!full.items.some((i) => i.supplier === 'vaayu')) throw new AppError('Nothing on this quote is supplied by VaayuTrip');
 
     const settings = await getSettings();
+    if (!skipApproval) assertApproved(full, settings); // demo data (seed) books without the operations step
     // An offer code on the quote is checked again here: it may have expired or been used up since it was applied.
     const coupon = full.quote.coupon_code ? await couponFor(agencyId, full, full.quote.coupon_code) : null;
     const discount = coupon ? coupon.discount : 0;
@@ -377,7 +401,7 @@ async function voucherFor(booking) {
 
 module.exports = {
   departuresOf, assertSeats,
-  bookable, couponFor,
+  bookable, couponFor, approvalState,
   creditStatus, repayCredit, creditReminders, tripReminders,
   voucherFor,
   AppError, getQuote, createQuote, createQuoteFromPackage, addProductToQuote, addQuoteItem, moveWallet, issueInvoice,

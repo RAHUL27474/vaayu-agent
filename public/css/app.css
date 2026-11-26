@@ -2412,3 +2412,17 @@ html body.app .dash-hero .svc-tab:has(input:focus-visible) { outline: 2px solid 
 .enq-msg-h { margin: 18px 0 6px; font-size: 14px; }
 .enq-msg { margin: 0; padding: 12px 14px; border-radius: 6px; background: var(--line-2); white-space: pre-wrap; }
 .enq-hist { margin: 0; padding-left: 18px; font-size: 12.5px; }
+/* Booking request on the quote page */
+.appr { display: flex; align-items: flex-start; gap: 10px; }
+.appr .i { width: 18px; height: 18px; flex: none; margin-top: 2px; }
+.appr-card { border-left: 3px solid var(--accent); }
+.appr-card .alert { margin-bottom: 14px; }
+.appr-form { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+.appr-form > div { flex: 1 1 420px; }
+.appr-form h3 { margin: 0 0 4px; }
+.appr-form p { margin: 0 0 10px; font-size: 13.5px; }
+.appr-form textarea { min-height: 60px; }
+.btn.is-waiting { pointer-events: none; opacity: .85; }
+.btn.disabled { pointer-events: none; opacity: .5; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.req-net { font-weight: 700; }

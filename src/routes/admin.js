@@ -22,7 +22,8 @@ router.param('itemId', idParam);
 router.use(requireAdmin);
 // Menu badges, in one round trip.
 router.use(async (req, res, next) => {
-  const c = await one("SELECT (SELECT COUNT(*) FROM topup_requests WHERE status = 'pending') AS topups, (SELECT COUNT(*) FROM tickets WHERE status = 'open') AS tickets, (SELECT COUNT(*)::int FROM enquiries WHERE status = 'new') AS enquiries");
+  const c = await one("SELECT (SELECT COUNT(*) FROM topup_requests WHERE status = 'pending') AS topups, (SELECT COUNT(*) FROM tickets WHERE status = 'open') AS tickets, (SELECT COUNT(*)::int FROM enquiries WHERE status = 'new') AS enquiries, (SELECT COUNT(*)::int FROM quotes WHERE approval_status = 'requested') AS requests");
+  res.locals.pendingRequests = c.requests;
   res.locals.newEnquiries = c.enquiries;
   res.locals.pendingTopups = c.topups;
   res.locals.openTickets = c.tickets;
@@ -677,7 +678,7 @@ router.post('/tickets/:id/reply', h(async (req, res, next) => {
 }));
 
 const MARGIN_KEYS = Object.keys(KINDS).map((k) => `margin_${k}`);
-const SETTING_KEYS = ['company_name', 'legal_name', 'gstin', 'address', 'phone', 'whatsapp', 'email', 'gst_enabled', 'tax_rate', 'tcs_rate', 'bank_details', 'sac_code', 'tier_silver_pct', 'tier_gold_pct', 'tier_all', 'tier_all_label', 'tier_all_from', 'tier_all_to', ...MARGIN_KEYS];
+const SETTING_KEYS = ['booking_approval', 'company_name', 'legal_name', 'gstin', 'address', 'phone', 'whatsapp', 'email', 'gst_enabled', 'tax_rate', 'tcs_rate', 'bank_details', 'sac_code', 'tier_silver_pct', 'tier_gold_pct', 'tier_all', 'tier_all_label', 'tier_all_from', 'tier_all_to', ...MARGIN_KEYS];
 
 router.get('/settings', async (req, res) => {
   const values = await getSettings();
@@ -691,6 +692,7 @@ router.post('/settings', h(async (req, res) => {
   for (const k of ['tier_silver_pct', 'tier_gold_pct']) if (req.body[k] !== undefined && req.body[k] !== '' && !(parseFloat(req.body[k]) >= 0 && parseFloat(req.body[k]) <= 50)) throw new svc.AppError('Tier discounts must be between 0 and 50%.');
   // The form sends a hidden 0 and, when ticked, a 1.
   if (req.body.gst_enabled !== undefined) req.body.gst_enabled = [].concat(req.body.gst_enabled).includes('1') ? '1' : '0';
+  if (req.body.booking_approval !== undefined) req.body.booking_approval = [].concat(req.body.booking_approval).includes('1') ? '1' : '0';
   for (const k of MARGIN_KEYS) {
     if (req.body[k] === undefined) continue;
     const v = parseFloat(req.body[k]);

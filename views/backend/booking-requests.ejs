@@ -1,0 +1,26 @@
+<% const when = (t) => t ? new Date(String(t).replace(' ', 'T') + 'Z').toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '—'; %>
+<div class="page-head">
+  <div><h1>Booking requests</h1><p>Agents send a quote here before paying. Check availability and rates with suppliers, then approve or reject. Agents can pay only after approval.</p></div>
+</div>
+<nav class="chips filter-chips enq-tabs" aria-label="Filter requests">
+  <% [['requested', 'Waiting'], ['approved', 'Approved'], ['rejected', 'Rejected']].forEach(([k, l]) => { %><a class="<%= show === k ? 'on' : '' %>" href="/backend/booking-requests<%= k === 'requested' ? '' : '?show=' + k %>"><%= l %> <small><%= counts[k] || 0 %></small></a><% }) %>
+</nav>
+<div class="card flush">
+  <% if (!rows.length) { %>
+    <div class="empty"><span class="big"><%- icon('clipboard') %></span><strong><%= show === 'requested' ? 'Nothing waiting' : 'None yet' %></strong><p>When an agent sends a quote for booking, it appears here.</p></div>
+  <% } else { %>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Sent</th><th>Agency</th><th>Trip</th><th>Travel</th><th class="num">VaayuTrip net</th><th><%= show === 'requested' ? '' : 'Decided' %></th></tr></thead>
+    <% rows.forEach(r => { %>
+      <tr class="click<%= show === 'requested' ? ' enq-new' : '' %>" data-href="/backend/booking-requests/<%= r.id %>">
+        <td class="nowrap"><%= when(r.approval_requested_at) %></td>
+        <td><b><%= r.agency %></b><br><small class="muted"><%= r.requested_by || '' %></small></td>
+        <td><a href="/backend/booking-requests/<%= r.id %>"><%= r.title %></a><br><small class="muted"><%= r.code %> · <%= r.adults %> adult<%= r.adults === 1 ? '' : 's' %><%= r.children ? `, ${r.children} child${r.children === 1 ? '' : 'ren'}` : '' %></small></td>
+        <td class="nowrap"><%= r.travel_date ? fmtDate(r.travel_date) : '—' %></td>
+        <td class="num nowrap"><%= inr(r.approval_net || 0) %></td>
+        <td class="nowrap"><% if (show === 'requested') { %><span class="badge pending">Review</span><% } else { %><%= when(r.approval_decided_at) %><br><small class="muted"><%= r.decided_by || '' %></small><% } %></td>
+      </tr>
+    <% }) %>
+  </table></div>
+  <% } %>
+</div>
