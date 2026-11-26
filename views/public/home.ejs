@@ -37,26 +37,53 @@
       <% }) %>
     </div>
     <div class="v-wrap v-hero-grid">
-      <div class="v-hero-copy">
-        <p class="v-kicker">For travel agencies</p>
-        <h1 id="home-title">Book travel<br>at agent rates.</h1>
-        <p class="v-lead">Find hotels, airfares and experiences. Set your markup and sell under your agency’s name.</p>
-        <div class="v-ctas">
-          <% if (user) { %>
-            <a class="v-btn v-btn-primary" href="<%= home %>">Open your portal</a>
-          <% } else { %>
-            <a class="v-btn v-btn-primary" href="/signup">Join VaayuTrip</a>
-            <a class="v-btn v-btn-outline-light" href="/login">Log in</a>
+      <div class="v-hero-main">
+        <div class="v-hero-copy">
+          <p class="v-kicker">For travel agencies</p>
+          <h1 id="home-title">Book travel<br>at agent rates.</h1>
+          <p class="v-lead">Find hotels, airfares and experiences. Set your markup and sell under your agency’s name.</p>
+          <div class="v-ctas">
+            <% if (user) { %>
+              <a class="v-btn v-btn-primary" href="<%= home %>">Open your portal</a>
+            <% } else { %>
+              <a class="v-btn v-btn-primary" href="/signup">Join VaayuTrip</a>
+              <a class="v-btn v-btn-outline-light" href="#destinations">Explore destinations</a>
+            <% } %>
+          </div>
+        </div>
+        <div class="v-hero-location">
+          <p class="v-hero-cap"><%- icon('mapPin') %><span data-hero-line aria-live="polite"><%= HERO[0].line %></span></p>
+          <div class="v-hero-choices" role="group" aria-label="Destination photos">
+            <button type="button" data-photo-step="-1" aria-label="Previous destination photo"><%- icon('chevron') %></button>
+            <button type="button" data-photo-step="1" aria-label="Next destination photo"><%- icon('chevron') %></button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="v-login" aria-labelledby="hero-login-h">
+        <% if (user) { const ag = typeof agency !== 'undefined' && agency ? agency : null; %>
+          <p class="v-login-kicker">Welcome back</p>
+          <h2 id="hero-login-h"><%= user.name.replace(/\s*\(.*\)/, '') %></h2>
+          <p class="v-login-sub"><%= ag ? ag.name : user.role === 'admin' ? 'VaayuTrip admin' : user.role === 'backend' ? 'VaayuTrip backend team' : 'Partner' %></p>
+          <% if (ag && ag.status === 'active') { %>
+            <dl class="v-login-money">
+              <div><dt>Wallet</dt><dd><%= inr(ag.wallet_balance) %></dd></div>
+              <div><dt>Credit available</dt><dd><%= inr(Math.max(0, (ag.credit_limit || 0) - (ag.credit_used || 0))) %></dd></div>
+            </dl>
           <% } %>
-        </div>
-      </div>
-      <div class="v-hero-location">
-        <p class="v-hero-cap"><%- icon('mapPin') %><span data-hero-line aria-live="polite"><%= HERO[0].line %></span></p>
-        <div class="v-hero-choices" role="group" aria-label="Destination photos">
-          <button type="button" data-photo-step="-1" aria-label="Previous destination photo"><%- icon('chevron') %></button>
-          <button type="button" data-photo-step="1" aria-label="Next destination photo"><%- icon('chevron') %></button>
-        </div>
-      </div>
+          <a class="v-btn v-btn-primary v-login-go" href="<%= home %>">Open your portal<%- icon('arrowRight') %></a>
+        <% } else { %>
+          <h2 id="hero-login-h">Partner login</h2>
+          <p class="v-login-sub">For travel agents and the VaayuTrip team.</p>
+          <form method="post" action="/login">
+            <div class="v-field"><label for="h-email">Email</label><input id="h-email" type="email" name="email" autocomplete="username" required placeholder="you@agency.com"></div>
+            <div class="v-field"><label for="h-pass">Password</label><input id="h-pass" type="password" name="password" autocomplete="current-password" required placeholder="Your password"></div>
+            <button class="v-btn v-btn-primary v-login-go" type="submit">Log in</button>
+            <a class="v-login-forgot" href="/forgot-password">Forgot password?</a>
+          </form>
+          <p class="v-login-foot">New to VaayuTrip? <a href="/signup">Create a free partner account</a></p>
+        <% } %>
+      </aside>
     </div>
   </div>
 
