@@ -6,6 +6,14 @@ document.addEventListener('click', (e) => {
   if (row && !e.target.closest('a, button, input, select, form')) window.location = row.dataset.href;
 });
 
+// Keyboard: a clickable row without its own link can be reached with Tab and opened with Enter.
+document.querySelectorAll('tr[data-href]').forEach((row) => {
+  if (row.querySelector('a[href]')) return;
+  row.tabIndex = 0;
+  row.setAttribute('role', 'link');
+  row.addEventListener('keydown', (e) => { if (e.key === 'Enter') window.location = row.dataset.href; });
+});
+
 // Copy-to-clipboard buttons: <button data-copy="text">
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-copy]');
@@ -154,7 +162,10 @@ const setNav = (open, trigger) => {
   drawerBackground.forEach((region) => { region.inert = open; });
   if (open) {
     drawerTrigger = trigger;
-    document.querySelector('.tp-drawer-head [data-nav-close]')?.focus();
+    // The drawer is still becoming visible this frame; focus it on the next one (and again once it has slid in).
+    const close = document.querySelector('.tp-drawer-head [data-nav-close]');
+    requestAnimationFrame(() => requestAnimationFrame(() => close?.focus()));
+    setTimeout(() => { if (document.body.classList.contains('nav-open') && !document.querySelector('.tp-nav').contains(document.activeElement)) close?.focus(); }, 260);
   } else {
     drawerTrigger?.focus();
     drawerTrigger = undefined;

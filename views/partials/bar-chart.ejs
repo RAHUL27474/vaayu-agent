@@ -16,9 +16,9 @@
   <div class="chart-top">
     <div class="chart-sum"><b><%= format(total) %></b><span>in <%= n %> months<% if (change !== null) { %> · <em class="<%= change >= 0 ? 'up' : 'down' %>"><%= change >= 0 ? '▲' : '▼' %> <%= Math.abs(change) %>%</em> vs last month<% } %></span></div>
     <div class="chart-tools" role="group" aria-label="Chart type">
-      <button type="button" data-view-btn="columns" aria-pressed="true" title="Columns"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14V8M6 14V4M10 14V7M14 14V2"/></svg></button>
-      <button type="button" data-view-btn="line" aria-pressed="false" title="Line"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 12l4-5 4 3 6-7"/></svg></button>
-      <button type="button" data-view-btn="growth" aria-pressed="false" title="Running total"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14h12M3 12l3-3 3 1 4-6M10 4h3v3"/></svg></button>
+      <button type="button" data-view-btn="columns" aria-pressed="true" title="Columns" aria-label="Show as columns"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14V8M6 14V4M10 14V7M14 14V2"/></svg></button>
+      <button type="button" data-view-btn="line" aria-pressed="false" title="Line" aria-label="Show as line"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 12l4-5 4 3 6-7"/></svg></button>
+      <button type="button" data-view-btn="growth" aria-pressed="false" title="Running total" aria-label="Show as running total"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14h12M3 12l3-3 3 1 4-6M10 4h3v3"/></svg></button>
     </div>
   </div>
   <div class="chart-view" data-view-of="columns">

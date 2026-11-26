@@ -88,7 +88,7 @@ body.public .site-nav .links .btn:hover { background: var(--navy-3); border-colo
 
 /* ---------- Shared section parts ---------- */
 .v-sec { padding: 112px 0; }
-.v-sec + .v-sec:not(.v-sand):not(.v-calc-sec) { padding-top: 0; }
+.v-sec + .v-sec:not(.v-sand):not(.v-calc-sec):not(.v-enquiry) { padding-top: 0; }
 .v-sand { background: var(--sand-2); }
 .v-head { max-width: 720px; margin-bottom: 48px; }
 .v-head h2, .v-sec h2 { font-size: clamp(30px, 3.4vw, 44px); line-height: 1.12; margin: 0 0 14px; }
@@ -554,3 +554,17 @@ body.public .v-enq-form input:focus, body.public .v-enq-form select:focus, body.
 @media (max-width: 600px) { .v-enquiry { padding: 72px 0; } .v-enq-form { padding: 22px 18px; } .v-enq-row, .v-enq-row.three { grid-template-columns: 1fr; } }
 /* R9 home search selects: full-height touch area on phones */
 @media (max-width: 760px) { .v-search-f { min-height: 56px; } body.public .v-search-f select { min-height: 32px; padding: 6px 0; } }
+/* R35 the shared .btn-primary keeps white text on the public pages too (404 / message pages) */
+body.public a.btn.btn-primary, body.public .btn.btn-primary { color: #fff !important; }
+/* R37 portal showcase: the browser frame stays inside the page (no clipped edge on 1280–1600px screens) */
+.v-browser { margin-right: 0; }
+.v-portal-grid { grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr); gap: 56px; }
+/* R38 feature showcase: less empty space above the invoice sample */
+.v-feature-row { margin-top: 80px; }
+.v-feature-media { padding: 40px 40px; }
+/* R39 calculator: the three results share the height evenly; no empty navy band above the earnings */
+.v-calc-out > div { flex: 1 1 0; display: flex; flex-direction: column; justify-content: center; }
+.v-profit { margin-top: 0; }
+/* R40 the navy enquiry band keeps its own top padding (the "adjacent sections" rule removed it) */
+.v-sec.v-enquiry { padding-top: 104px; }
+@media (max-width: 600px) { .v-sec.v-enquiry { padding-top: 72px; } }

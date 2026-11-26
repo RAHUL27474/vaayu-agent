@@ -13,9 +13,9 @@
   <div class="chart-top">
     <div class="chart-sum"><b><%= format(total) %></b><span><%= rows.length %> <%= rows.length === 1 ? 'item' : 'items' %></span></div>
     <div class="chart-tools" role="group" aria-label="Chart type">
-      <button type="button" data-view-btn="bars" aria-pressed="true" title="Bars"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 8h8M2 13h5"/></svg></button>
-      <button type="button" data-view-btn="donut" aria-pressed="false" title="Donut"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5V8l4 3.5"/></svg></button>
-      <button type="button" data-view-btn="tiles" aria-pressed="false" title="Share boxes"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M9 2v12M9 8h5M2 10h7"/></svg></button>
+      <button type="button" data-view-btn="bars" aria-pressed="true" title="Bars" aria-label="Show as bars"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M2 8h8M2 13h5"/></svg></button>
+      <button type="button" data-view-btn="donut" aria-pressed="false" title="Donut" aria-label="Show as donut"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5V8l4 3.5"/></svg></button>
+      <button type="button" data-view-btn="tiles" aria-pressed="false" title="Share boxes" aria-label="Show as share boxes"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="1.5"/><path d="M9 2v12M9 8h5M2 10h7"/></svg></button>
     </div>
   </div>
   <div class="chart-view" data-view-of="bars">

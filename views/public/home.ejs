@@ -297,24 +297,24 @@
       <input type="hidden" name="page" value="/">
       <div class="v-enq-hp" aria-hidden="true"><label>Website <input name="website" tabindex="-1" autocomplete="off"></label></div>
       <fieldset class="v-enq-topic"><legend>I'm enquiring about</legend>
-        <label><input type="radio" name="topic" value="partner" checked><span>Becoming a partner</span></label>
-        <label><input type="radio" name="topic" value="trip"><span>A trip or group quote</span></label>
-        <label><input type="radio" name="topic" value="other"><span>Something else</span></label>
+        <label><input type="radio" name="topic" value="partner" <%= !enq.topic || enq.topic === 'partner' ? 'checked' : '' %>><span>Becoming a partner</span></label>
+        <label><input type="radio" name="topic" value="trip" <%= enq.topic === 'trip' ? 'checked' : '' %>><span>A trip or group quote</span></label>
+        <label><input type="radio" name="topic" value="other" <%= enq.topic === 'other' ? 'checked' : '' %>><span>Something else</span></label>
       </fieldset>
       <div class="v-enq-row">
-        <div class="v-field"><label for="enq-name">Your name <span class="req">*</span></label><input id="enq-name" name="name" required maxlength="80" autocomplete="name"></div>
-        <div class="v-field"><label for="enq-phone">Phone / WhatsApp <span class="req">*</span></label><input id="enq-phone" name="phone" type="tel" required maxlength="20" autocomplete="tel" placeholder="+91 98100 00000"></div>
+        <div class="v-field"><label for="enq-name">Your name <span class="req">*</span></label><input id="enq-name" name="name" required maxlength="80" autocomplete="name" value="<%= enq.name || '' %>"></div>
+        <div class="v-field"><label for="enq-phone">Phone / WhatsApp <span class="req">*</span></label><input id="enq-phone" name="phone" type="tel" required maxlength="20" value="<%= enq.phone || '' %>" <%- enq.phone ? 'aria-invalid="true"' : '' %> autocomplete="tel" placeholder="+91 98100 00000"></div>
       </div>
       <div class="v-enq-row">
-        <div class="v-field"><label for="enq-email">Email</label><input id="enq-email" name="email" type="email" maxlength="120" autocomplete="email"></div>
-        <div class="v-field"><label for="enq-company">Agency name</label><input id="enq-company" name="company" maxlength="120" autocomplete="organization"></div>
+        <div class="v-field"><label for="enq-email">Email</label><input id="enq-email" name="email" type="email" maxlength="120" autocomplete="email" value="<%= enq.email || '' %>"></div>
+        <div class="v-field"><label for="enq-company">Agency name</label><input id="enq-company" name="company" maxlength="120" autocomplete="organization" value="<%= enq.company || '' %>"></div>
       </div>
       <div class="v-enq-row three">
-        <div class="v-field"><label for="enq-city">Your city</label><input id="enq-city" name="city" maxlength="80" autocomplete="address-level2"></div>
-        <div class="v-field"><label for="enq-dest">Destination</label><select id="enq-dest" name="destination"><option value="">Any</option><% order.forEach(n => { %><option><%= n %></option><% }) %></select></div>
-        <div class="v-field"><label for="enq-pax">Travellers</label><input id="enq-pax" name="pax" type="number" min="1" max="999" inputmode="numeric"></div>
+        <div class="v-field"><label for="enq-city">Your city</label><input id="enq-city" name="city" maxlength="80" autocomplete="address-level2" value="<%= enq.city || '' %>"></div>
+        <div class="v-field"><label for="enq-dest">Destination</label><select id="enq-dest" name="destination"><option value="">Any</option><% order.forEach(n => { %><option <%= enq.destination === n ? 'selected' : '' %>><%= n %></option><% }) %></select></div>
+        <div class="v-field"><label for="enq-pax">Travellers</label><input id="enq-pax" name="pax" type="number" min="1" max="999" inputmode="numeric" value="<%= enq.pax || '' %>"></div>
       </div>
-      <div class="v-field"><label for="enq-msg">Message</label><textarea id="enq-msg" name="message" maxlength="1500" rows="3" placeholder="e.g. We sell 20 Dubai trips a month and want better hotel rates"></textarea></div>
+      <div class="v-field"><label for="enq-msg">Message</label><textarea id="enq-msg" name="message" maxlength="1500" rows="3" placeholder="e.g. We sell 20 Dubai trips a month and want better hotel rates"><%= enq.message || '' %></textarea></div>
       <button class="v-btn v-btn-primary v-enq-send" type="submit">Send enquiry</button>
       <p class="v-enq-fine">We use these details only to reply to you.</p>
     </form>

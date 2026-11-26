@@ -2485,3 +2485,5 @@ html body.app .dash-hero .svc-tab:has(input:focus-visible) { outline: 2px solid 
 .filter-bar input:not([type=checkbox]), .filter-bar select, .filter-bar .btn { min-height: 40px; }
 /* R28 dark theme: selected chips with enough contrast */
 html[data-theme="dark"] body.app a.chip.on { background: #1f5f7a; border-color: #1f5f7a; color: #fff; }
+/* R34 keyboard-reachable table rows show where focus is */
+tr[data-href]:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }

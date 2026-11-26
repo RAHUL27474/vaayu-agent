@@ -41,7 +41,9 @@ router.get('/', h(async (req, res) => {
   }
   // The first hero photo starts downloading with the stylesheet (it is the largest thing on the first screen).
   const heroImage = req.app.locals.pic('/img/destinations/bali-kelingking-hero.jpg');
-  res.page('public/home', { title: 'B2B travel platform for agents', activities, stats, destinations, cityShots, cityThumbs, heroImage }, 'public');
+  const enq = req.session.enqDraft || {};
+  if (req.session.enqDraft) req.session.enqDraft = null;
+  res.page('public/home', { title: 'B2B travel platform for agents', activities, stats, destinations, cityShots, cityThumbs, heroImage, enq }, 'public');
 }));
 
 // Generated cover card for packages and hotels without an uploaded photo.
@@ -361,7 +363,13 @@ router.get('/signup', (req, res) => {
 const ENQ_TOPICS = { partner: 'Become a partner agency', trip: 'Quote for a trip or group', other: 'Something else' };
 router.post('/enquiry', h(async (req, res) => {
   const b = req.body || {};
-  const back = (msg, type = 'error') => { req.flash(type, msg); return res.redirect(303, '/#enquiry'); };
+  const back = (msg, type = 'error') => {
+    req.flash(type, msg);
+    // Keep what they typed when something needs fixing (not after a successful send).
+    if (type === 'error') req.session.enqDraft = Object.fromEntries(['topic', 'name', 'phone', 'email', 'company', 'city', 'destination', 'pax', 'message'].map((k) => [k, String(b[k] ?? '').slice(0, k === 'message' ? 1500 : 120)]));
+    else req.session.enqDraft = null;
+    return res.redirect(303, '/#enquiry');
+  };
   if (b.website) return back('Thank you. Our team will call you shortly.', 'success'); // filled only by bots
   const clean = (v, n) => String(v ?? '').trim().replace(/\s+/g, ' ').slice(0, n);
   const name = clean(b.name, 80);
