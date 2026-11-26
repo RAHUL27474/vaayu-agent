@@ -460,3 +460,10 @@ body.public .card { border-radius: 6px; box-shadow: none; }
 /* Scrim above the photo, text above the scrim (both used z-index:-1, so the photo covered the scrim) */
 .v-city::before, .v-dest::before { z-index: 0; }
 .v-city span, .v-dest-body { z-index: 1; }
+
+/* Hero slideshow: a slow cross-fade with a gentle zoom while each photo is on screen */
+.v-hero-slide { transition: opacity 1s ease; }
+@media (prefers-reduced-motion: no-preference) {
+  .v-hero-slide { transform: scale(1.04); transition: opacity 1s ease, transform 7s ease-out; }
+  .v-hero-slide.on { transform: scale(1); }
+}

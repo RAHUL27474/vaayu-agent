@@ -342,22 +342,44 @@ if (hero) {
   const choices = hero.querySelectorAll('[data-photo-step]');
   const line = hero.querySelector('[data-hero-line]');
   const destSel = hero.querySelector('[data-hero-dest]');
+  const STEP_MS = 6000; // a new destination photo every 6 seconds
   let selected = 0;
-  const show = async (index) => {
+  let destChosen = false; // once the visitor picks a destination in the search, the slideshow leaves it alone
+  const load = (slide) => { if (slide && !slide.getAttribute('src')) slide.src = slide.dataset.src; };
+  const show = async (index, { auto = false } = {}) => {
     if (index < 0) return;
     selected = index;
     const slide = slides[index];
-    destSel.value = slide.dataset.dest;
-    if (!slide.getAttribute('src')) slide.src = slide.dataset.src;
+    if (!auto || !destChosen) destSel.value = slide.dataset.dest;
+    load(slide);
     try { await slide.decode(); } catch { return; }
     if (selected !== index) return;
     slides.forEach((image, i) => image.classList.toggle('on', i === index));
     line.textContent = slide.dataset.line;
+    load(slides[(index + 1) % slides.length]); // fetch the next photo early so the change is seamless
   };
+
+  // Autoplay: pauses while the pointer is on the hero, while someone is using the search, and in hidden tabs;
+  // never runs for visitors who asked for reduced motion.
+  let timer = null;
+  let hovering = false;
+  const busy = () => hovering || hero.contains(document.activeElement) && document.activeElement.matches('select, input, textarea');
+  const tick = () => { if (!document.hidden && !busy()) show((selected + 1) % slides.length, { auto: true }); };
+  const start = () => { clearInterval(timer); if (!calmMotion && slides.length > 1) timer = setInterval(tick, STEP_MS); };
+  hero.addEventListener('pointerenter', () => { hovering = true; });
+  hero.addEventListener('pointerleave', () => { hovering = false; });
+
   choices.forEach((button) => button.addEventListener('click', () => {
     show((selected + Number(button.dataset.photoStep) + slides.length) % slides.length);
+    start(); // a manual step restarts the countdown
   }));
-  destSel.addEventListener('change', () => show(slides.findIndex((slide) => slide.dataset.dest === destSel.value)));
+  destSel.addEventListener('change', () => {
+    destChosen = true;
+    show(slides.findIndex((slide) => slide.dataset.dest === destSel.value));
+    start();
+  });
+  load(slides[1]);
+  start();
 }
 
 const io = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
