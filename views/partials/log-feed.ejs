@@ -1,0 +1,47 @@
+<%# Activity log as a day-by-day timeline. Expects: entries (audit_log rows with user_name, agency_name). %>
+<%
+  const AREA = {
+    booking: ['clipboard', 'green', 'Booking'], quote: ['file', 'blue', 'Quote'], product: ['layers', 'teal', 'Inventory'],
+    package: ['briefcase', 'teal', 'Package'], agency: ['building', 'violet', 'Agency'], topup: ['topup', 'amber', 'Top-up'],
+    wallet: ['wallet', 'amber', 'Wallet'], user: ['user', 'slate', 'User'], offer: ['tag', 'pink', 'Offer'],
+    settings: ['settings', 'slate', 'Settings'], ticket: ['message', 'blue', 'Support'], enquiry: ['inbox', 'violet', 'Enquiry'],
+  };
+  const roleName = { admin: 'Admin', backend: 'Backend team', agent: 'Agent', system: 'System' };
+  const verb = (a) => a.split('.').slice(1).join(' ').replace(/_/g, ' ');
+  const initials = (n) => (n || 'System').replace(/\(.*\)/, '').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  const hue = (n) => { let h = 0; for (const ch of String(n || '')) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
+  const ist = (t) => new Date(String(t).replace(' ', 'T') + 'Z');
+  const dayKey = (t) => ist(t).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const yKey = new Date(Date.now() - 864e5).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const dayLabel = (k) => (k === todayKey ? 'Today' : k === yKey ? 'Yesterday' : new Date(k + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }));
+  const time = (t) => ist(t).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+  const days = [];
+  for (const l of entries) { const k = dayKey(l.created_at); if (!days.length || days[days.length - 1].k !== k) days.push({ k, items: [] }); days[days.length - 1].items.push(l); }
+%>
+<% if (!entries.length) { %><div class="empty"><span class="big"><%- icon('activity') %></span><strong>Nothing here yet</strong><p>Try a wider date range or clear the filters.</p></div><% } else { %>
+<div class="feed">
+  <% days.forEach(d => { %>
+    <section class="feed-day">
+      <h2 class="feed-date"><span><%= dayLabel(d.k) %></span><small><%= d.items.length %> <%= d.items.length === 1 ? 'event' : 'events' %></small></h2>
+      <ol class="feed-list">
+        <% d.items.forEach(l => { const a = AREA[l.action.split('.')[0]] || ['activity', 'slate', l.action.split('.')[0]]; %>
+          <li class="feed-item feed-<%= a[1] %>">
+            <span class="feed-ico" aria-hidden="true"><%- icon(a[0]) %></span>
+            <div class="feed-body">
+              <p class="feed-line">
+                <span class="feed-av" style="--h:<%= hue(l.user_name) %>" aria-hidden="true"><%= initials(l.user_name) %></span>
+                <b><%= l.user_name || 'System' %></b>
+                <span class="feed-role"><%= roleName[l.role] || l.role %><%= l.role === 'agent' && l.agency_name ? ` · ${l.agency_name}` : '' %></span>
+                <span class="feed-verb"><span class="feed-tag"><%= a[2] %></span> <%= verb(l.action) %></span>
+              </p>
+              <% if (l.summary) { %><p class="feed-sum"><% if (l.link) { %><a href="<%= l.link %>"><%= l.summary %></a><% } else { %><%= l.summary %><% } %></p><% } %>
+            </div>
+            <time class="feed-time" datetime="<%= ist(l.created_at).toISOString() %>"><%= time(l.created_at) %></time>
+          </li>
+        <% }) %>
+      </ol>
+    </section>
+  <% }) %>
+</div>
+<% } %>

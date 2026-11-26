@@ -357,8 +357,12 @@ router.get('/log', h(async (req, res) => {
   const rows = await all(`${LOG_SQL} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY l.id DESC LIMIT 101 OFFSET ?`, ...params, (page - 1) * 100);
   const users = await all("SELECT id, name, role FROM users WHERE role IN ('admin', 'backend') ORDER BY role, name");
   const agencies = await all('SELECT id, name FROM agencies ORDER BY name');
+  // Headline numbers and the busiest areas this week (logins left out).
+  const pulse = await one("SELECT COUNT(*) FILTER (WHERE sqldate(created_at) = sqldate('now')) AS today, COUNT(*) FILTER (WHERE created_at > datetime('now', '-7 days')) AS week, COUNT(DISTINCT user_id) FILTER (WHERE created_at > datetime('now', '-7 days')) AS people, COUNT(*) FILTER (WHERE action LIKE 'booking.%' AND created_at > datetime('now', '-7 days')) AS bookings FROM audit_log WHERE action != 'user.login'");
+  const busy = await all("SELECT split_part(action, '.', 1) AS area, COUNT(*)::int AS n FROM audit_log WHERE action != 'user.login' AND created_at > datetime('now', '-30 days') GROUP BY 1 ORDER BY n DESC LIMIT 8");
+  const people = await all("SELECT u.id, u.name, l.role, MAX(a.name) AS agency, COUNT(*)::int AS n FROM audit_log l JOIN users u ON u.id = l.user_id LEFT JOIN agencies a ON a.id = l.agency_id WHERE l.action != 'user.login' AND l.created_at > datetime('now', '-30 days') GROUP BY u.id, u.name, l.role ORDER BY n DESC LIMIT 6");
   res.page('admin/log', {
-    title: 'Activity log', entries: rows.slice(0, 100), more: rows.length > 100, page, f, users, agencies, areas: LOG_AREAS, roles: LOG_ROLES,
+    title: 'Activity log', entries: rows.slice(0, 100), more: rows.length > 100, page, f, users, agencies, areas: LOG_AREAS, roles: LOG_ROLES, pulse, busy, people,
   });
 }));
 
@@ -699,11 +703,23 @@ router.post('/settings', h(async (req, res) => {
     if (!(v >= 0 && v <= 100)) throw new svc.AppError('Margins must be between 0 and 100%.');
     req.body[k] = String(v);
   }
-  const changed = SETTING_KEYS.filter((k) => req.body[k] !== undefined && str(req.body[k]) !== (before[k] ?? ''));
+  // What each setting is in effect before saving (defaults included), so untouched fields don't count as changes.
+  const effective = (k) => {
+    if (MARGIN_KEYS.includes(k)) return String(marginPct(k.replace('margin_', ''), before));
+    if (k === 'booking_approval') return before[k] ?? '1';
+    if (k === 'tier_all') return before[k] || 'none';
+    return before[k] ?? '';
+  };
+  const same = (x, y) => (x !== '' && y !== '' && !Number.isNaN(Number(x)) && !Number.isNaN(Number(y)) ? Number(x) === Number(y) : x === y);
+  const changed = SETTING_KEYS.filter((k) => req.body[k] !== undefined && !same(str(req.body[k]), effective(k)));
   for (const k of SETTING_KEYS) if (req.body[k] !== undefined) await setSetting(k, str(req.body[k]));
   // New margins apply to agents' prices right away (quotes already made keep theirs).
   for (const k of changed.filter((x) => MARGIN_KEYS.includes(x))) await repriceProducts(k.replace('margin_', ''));
-  if (changed.length) await audit(req.user, 'settings.updated', { entity: 'settings', summary: changed.join(', '), link: '/admin/settings' });
+  const LABEL = { booking_approval: 'booking approval', company_name: 'brand name', legal_name: 'legal name', gstin: 'GSTIN', address: 'address', phone: 'support phone', whatsapp: 'WhatsApp number', email: 'support email', gst_enabled: 'GST on/off', tax_rate: 'GST rate', tcs_rate: 'TCS rate', bank_details: 'bank details', sac_code: 'SAC code', tier_silver_pct: 'Silver discount', tier_gold_pct: 'Gold discount', tier_all: 'offer for every agent', tier_all_label: 'offer name', tier_all_from: 'offer start', tier_all_to: 'offer end' };
+  const nice = (k) => (MARGIN_KEYS.includes(k)
+    ? `${(KINDS[k.replace('margin_', '')] || {}).plural || k} margin ${effective(k)}% → ${str(req.body[k])}%`
+    : LABEL[k] || k);
+  if (changed.length) await audit(req.user, 'settings.updated', { entity: 'settings', summary: changed.map(nice).join(', '), link: '/admin/settings' });
   req.flash('success', 'Settings saved.');
   res.redirect('/admin/settings');
 }));

@@ -4,6 +4,20 @@
 <div class="page-head">
   <div><h1>Activity log</h1><p>Everything that changes on VaayuTrip: inventory entered by the backend team, agents' packages, quotes and bookings, and admin decisions.</p></div>
 </div>
+<div class="log-pulse">
+  <div><b><%= pulse.today %></b><span>events today</span></div>
+  <div><b><%= pulse.week %></b><span>in the last 7 days</span></div>
+  <div><b><%= pulse.bookings %></b><span>booking actions this week</span></div>
+  <div><b><%= pulse.people %></b><span>people active this week</span></div>
+</div>
+<% if (busy.length) { %>
+<nav class="chips filter-chips log-areas" aria-label="Areas">
+  <a class="<%= !f.area ? 'on' : '' %>" href="<%= qs({ area: '', page: '' }) %>">All areas</a>
+  <% busy.forEach(b => { if (!areas[b.area]) return; %><a class="<%= f.area === b.area ? 'on' : '' %>" href="<%= qs({ area: b.area, page: '' }) %>"><%= areas[b.area] %> <small><%= b.n %></small></a><% }) %>
+</nav>
+<% } %>
+<details class="log-more" <%= f.role || f.user || f.agency || f.from || f.to || f.logins ? 'open' : '' %>>
+  <summary class="btn btn-sm"><%- icon('search') %>More filters</summary>
 <form class="card log-filter" method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:14px 16px">
   <div><label for="l-role">Who</label><select id="l-role" name="role"><option value="">Everyone</option><% roles.forEach(r => { %><option value="<%= r %>" <%= r === f.role ? 'selected' : '' %>><%= { backend: 'Backend team', agent: 'Agents', admin: 'Admins' }[r] %></option><% }) %></select></div>
   <div><label for="l-area">Area</label><select id="l-area" name="area"><option value="">All areas</option><% Object.entries(areas).forEach(([k, v]) => { %><option value="<%= k %>" <%= k === f.area ? 'selected' : '' %>><%= v %></option><% }) %></select></div>
@@ -15,12 +29,38 @@
   <button class="btn btn-primary">Filter</button>
   <a class="btn btn-ghost" href="/admin/log">Clear</a>
 </form>
-<div class="card flush">
-  <%- include('../partials/log-table', { entries }) %>
+</details>
+<div class="log-layout">
+<div class="card log-card">
+  <%- include('../partials/log-feed', { entries }) %>
   <% if (page > 1 || more) { %>
     <div style="display:flex;justify-content:space-between;padding:12px 16px">
       <% if (page > 1) { %><a class="btn btn-sm" href="<%= qs({ page: page - 1 }) %>"><%- icon('arrowLeft') %>Newer</a><% } else { %><span></span><% } %>
       <% if (more) { %><a class="btn btn-sm" href="<%= qs({ page: page + 1 }) %>">Older →</a><% } %>
     </div>
   <% } %>
+</div>
+<aside class="log-side">
+  <div class="card">
+    <h2 class="h3">Most active, 30 days</h2>
+    <% if (!people.length) { %><p class="muted" style="font-size:13px;margin:0">No activity yet.</p><% } %>
+    <ol class="log-people">
+      <% const top = Math.max(1, ...people.map(p => p.n)); people.forEach(p => { let h = 0; for (const ch of p.name) h = (h * 31 + ch.charCodeAt(0)) % 360; %>
+        <li><a href="<%= p.role === 'agent' ? qs({ agency: '', user: '', page: '' }) : qs({ user: p.id, page: '' }) %>">
+          <span class="feed-av" style="--h:<%= h %>"><%= p.name.replace(/[(].*[)]/, '').trim().split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() %></span>
+          <span class="lp-name"><b><%= p.name %></b><small><%= { admin: 'Admin', backend: 'Backend team', agent: p.agency || 'Agent' }[p.role] || p.role %></small></span>
+          <span class="lp-n"><%= p.n %></span>
+        </a><i class="lp-bar" style="width:<%= Math.round(p.n / top * 100) %>%"></i></li>
+      <% }) %>
+    </ol>
+  </div>
+  <% if (busy.length) { const topA = Math.max(1, ...busy.map(b => b.n)); %>
+  <div class="card">
+    <h2 class="h3">By area, 30 days</h2>
+    <ul class="log-areas-bars">
+      <% busy.forEach(b => { if (!areas[b.area]) return; %><li><a href="<%= qs({ area: b.area, page: '' }) %>"><span><%= areas[b.area] %></span><b><%= b.n %></b></a><i style="width:<%= Math.round(b.n / topA * 100) %>%"></i></li><% }) %>
+    </ul>
+  </div>
+  <% } %>
+</aside>
 </div>
