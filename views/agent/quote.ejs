@@ -42,6 +42,23 @@
   </div>
 </div>
 
+<%
+  // Where this quote is on its way to a booking: each step done, waiting, blocked, skipped or still ahead.
+  const booked = quote.status === 'booked';
+  const doneFlags = [true, booked || ['sent', 'accepted'].includes(quote.status), booked || quote.status === 'accepted', booked || (approval.status === 'approved' && approval.valid), booked];
+  const last = doneFlags.lastIndexOf(true);
+  const blocked = approval.status === 'rejected' || approval.changed || approval.expired;
+  const at = booked ? 4 : approval.status ? 3 : last; // the furthest step reached, done or not
+  const stepState = (i) => i === 3 && !booked && blocked ? 'stuck' : i === 3 && !booked && approval.status === 'requested' ? 'wait' : doneFlags[i] ? 'done' : i < at ? 'skip' : i === at + 1 || (i === at && i === 3) ? 'next' : '';
+  const steps = [['Draft', 'file'], ['Sent to customer', 'message'], ['Customer accepted', 'checkCircle'], [approval.needed ? 'Ops approval' : 'Ready to pay', 'badgeCheck'], ['Booked', 'clipboard']];
+%>
+<% if (quote.status !== 'cancelled') { %>
+<ol class="q-steps" aria-label="Quote progress">
+  <% steps.forEach(([label, ic], i) => { const st = stepState(i); %>
+    <li class="<%= st %>"<%- st === 'next' || st === 'wait' || st === 'stuck' ? ' aria-current="step"' : '' %>><span class="qs-dot"><%- icon(st === 'done' ? 'check' : ic) %></span><span class="qs-label"><%= label %><% if (st === 'wait') { %><small>waiting for VaayuTrip</small><% } else if (st === 'stuck') { %><small><%= approval.status === 'rejected' ? 'not approved' : approval.expired ? 'approval expired' : 'changed after approval' %></small><% } else if (st === 'skip') { %><small>skipped</small><% } %></span></li>
+  <% }) %>
+</ol>
+<% } %>
 <% if (approval.needed && !locked) { const untilTxt = approval.until ? new Date(String(approval.until).replace(' ', 'T') + 'Z').toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : ''; %>
   <% if (approval.valid) { %>
     <div class="alert success appr"><%- icon('checkCircle') %><span><b>Approved by VaayuTrip operations.</b> Pay by <%= untilTxt %> to book it at this price.<%= approval.note ? ` Note: ${approval.note}` : '' %></span></div>
@@ -80,7 +97,7 @@
                 <td>
                   <b><%= l.title %></b>
                   <% if (l.description) { %><br><small><%= l.description %></small><% } %>
-                  <br><span class="badge <%= l.supplier === 'agent' ? 'info' : '' %>" style="margin-top:4px"><%= l.supplier === 'agent' ? 'Your service' : l.type %></span>
+                  <br><span class="badge <%= l.supplier === 'agent' ? 'info' : 'k-' + l.type %>" style="margin-top:4px"><%= l.supplier === 'agent' ? 'Your service' : l.type %></span>
                 </td>
                 <td class="num"><% if (l.supplier === 'agent') { %><%= l.cost ? inr(l.cost) : '—' %><% if (l.cost) { %><br><small class="muted">your cost</small><% } %><% } else { %><%= inr(l.unitNet) %><% } %></td>
                 <td class="num">

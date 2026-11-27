@@ -2311,7 +2311,7 @@ body.app .tp-item:focus-visible { outline-offset: -2px; }
   .bottom-nav { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 4px; }
   .bottom-nav a.on { background: var(--brand-50); }
 }
-html[data-theme="dark"] body.app :is(.tp-logo, .tp-drawer-head) img { filter: none; background: #fff; border-radius: 5px; padding: 3px 5px; box-sizing: content-box; }
+html[data-theme="dark"] body.app :is(.tp-logo, .tp-drawer-head) img { filter: none; background: #fff; border-radius: 5px; padding: 3px 5px; margin: -3px -5px; box-sizing: content-box; }
 
 /* Agent dashboard */
 .agent-overview { margin-bottom: 20px; }
@@ -2804,3 +2804,51 @@ html[data-theme="dark"] body.app .heat-4 a, html[data-theme="dark"] body.app i.h
 html[data-theme="dark"] body.app .funnel-steps li { --fc: #7cc4f0; --fb: #12283a; } html[data-theme="dark"] body.app .funnel-steps .fs-1 { --fc: #c4a9f5; --fb: #251c3a; }
 html[data-theme="dark"] body.app .funnel-steps .fs-2 { --fc: #f2b84b; --fb: #2e2210; } html[data-theme="dark"] body.app .funnel-steps .fs-3 { --fc: #8fd46a; --fb: #1b2e14; }
 html body.public .auth .form { background: radial-gradient(circle at 1px 1px, rgba(0, 100, 159, .16) 1.2px, transparent 0) 0 0 / 22px 22px, linear-gradient(180deg, #f3f7fb, #fbfdff); }
+
+/* ===== Design refresh 3: quote progress, service colours, agency marks, inventory rows ===== */
+/* Service colours, shared by quote lines and inventory type tags */
+.k-flight { --kc: #0b6aa8; --kb: #e3f1fa; } .k-hotel { --kc: #6d3fc0; --kb: #efe8fb; } .k-activity { --kc: #b3245f; --kb: #fbe6ee; }
+.k-transfer { --kc: #a15c00; --kb: #fdf0d9; } .k-visa { --kc: #0f766e; --kb: #ddf3f0; } .k-insurance { --kc: #2f7d0a; --kb: #e8f5dd; }
+html[data-theme="dark"] body.app .k-flight { --kc: #7cc4f0; --kb: #12283a; } html[data-theme="dark"] body.app .k-hotel { --kc: #c4a9f5; --kb: #251c3a; }
+html[data-theme="dark"] body.app .k-activity { --kc: #f3a0c0; --kb: #351a26; } html[data-theme="dark"] body.app .k-transfer { --kc: #f2b84b; --kb: #2e2210; }
+html[data-theme="dark"] body.app .k-visa { --kc: #6fd3c7; --kb: #10302d; } html[data-theme="dark"] body.app .k-insurance { --kc: #8fd46a; --kb: #1b2e14; }
+body.app .badge[class*="k-"] { background: var(--kb); color: var(--kc); border-color: color-mix(in srgb, var(--kc) 25%, transparent); }
+body.app .kind-tag[class*="k-"] { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 99px; background: var(--kb); color: var(--kc); font-weight: 600; font-size: 13px; }
+body.app .kind-tag[class*="k-"] .i { color: currentColor; }
+
+/* Quote progress */
+.q-steps { display: flex; gap: 0; margin: 4px 0 20px; padding: 14px 18px; list-style: none; background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-xs); overflow-x: auto; }
+.q-steps li { position: relative; display: flex; align-items: center; gap: 10px; flex: 1 1 0; min-width: 150px; color: var(--muted); font-size: 13.5px; font-weight: 600; }
+.q-steps li + li::before { content: ''; flex: 0 0 24px; height: 2px; margin-right: 4px; border-radius: 2px; background: var(--line); }
+.q-steps li.done + li::before, .q-steps li.skip + li::before { background: linear-gradient(90deg, var(--ok), color-mix(in srgb, var(--ok) 40%, var(--line))); }
+.qs-dot { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--line-2); color: var(--muted); border: 2px solid transparent; }
+.qs-dot .i { width: 15px; height: 15px; }
+.qs-label { display: grid; line-height: 1.25; } .qs-label small { font-size: 11.5px; font-weight: 500; }
+.q-steps li.done { color: var(--ink); } .q-steps li.done .qs-dot { background: var(--ok); color: #fff; }
+.q-steps li.skip { color: var(--muted); } .q-steps li.skip .qs-dot { background: transparent; border: 2px dashed var(--line); }
+.q-steps li.next { color: var(--brand-700); } .q-steps li.next .qs-dot { background: var(--brand-50); color: var(--brand); border-color: var(--brand); }
+.q-steps li.wait { color: #a15c00; } .q-steps li.wait .qs-dot { background: #fdf0d9; color: #a15c00; border-color: #f2b84b; animation: qs-pulse 1.8s ease-in-out infinite; }
+.q-steps li.stuck { color: var(--bad); } .q-steps li.stuck .qs-dot { background: var(--bad-50); color: var(--bad); border-color: var(--bad-line); }
+@keyframes qs-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(242, 184, 75, .55); } 50% { box-shadow: 0 0 0 6px rgba(242, 184, 75, 0); } }
+@media (prefers-reduced-motion: reduce) { .q-steps li.wait .qs-dot { animation: none; } }
+html[data-theme="dark"] body.app .q-steps li.wait { color: #f2b84b; } html[data-theme="dark"] body.app .q-steps li.wait .qs-dot { background: #2e2210; color: #f2b84b; }
+html[data-theme="dark"] body.app .q-steps li.next { color: #9ad4f5; }
+
+/* Agency marks in the admin agents list */
+.ag-id { display: inline-flex; align-items: center; gap: 12px; }
+.ag-mark { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; object-fit: contain; font-size: 14px; font-weight: 800; color: #fff; background: var(--ac, var(--brand)); box-shadow: 0 6px 14px -8px var(--ac, var(--brand)); }
+img.ag-mark { background: #fff; border: 1px solid var(--line); padding: 4px; box-shadow: none; }
+.meter.sm { height: 4px; margin: 6px 0 0 auto; max-width: 140px; }
+.meter.sm i { background: linear-gradient(90deg, #6d3fc0, #b08ae8); }
+
+/* Inventory rows: VaayuTrip's margin under the agents' price */
+.margin-pill { display: inline-block; margin-top: 3px; padding: 0 7px; border-radius: 99px; font-size: 11.5px; font-weight: 700; color: var(--ok); background: var(--ok-50); }
+@media (max-width: 640px) {
+  .q-steps { padding: 12px 14px; overflow: visible; }
+  .q-steps li { min-width: 0; flex: 0 0 auto; }
+  .q-steps li + li::before { flex-basis: 14px; }
+  .q-steps li .qs-label { display: none; }
+  .q-steps li:is(.next, .wait, .stuck) { flex: 1 1 auto; }
+  .q-steps li:is(.next, .wait, .stuck) .qs-label { display: grid; }
+  .q-steps:not(:has(li:is(.next, .wait, .stuck))) li:last-child .qs-label { display: grid; }
+}

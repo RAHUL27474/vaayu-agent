@@ -20,11 +20,13 @@
     <thead><tr><th>Item</th><% if (!f.kind) { %><th>Type</th><% } %><th>Price basis</th><th class="num">Cost</th><th class="num">Agents pay</th><th>Status</th><th>Last updated</th><th class="num">Bookings</th></tr></thead>
     <% products.forEach(p => { %>
       <tr class="click" data-href="/backend/products/<%= p.id %>">
-        <td><b><%= p.title %></b><br><small><%= p.line %></small></td>
-        <% if (!f.kind) { %><td><span class="kind-tag"><%- icon(kinds[p.kind].icon) %><%= kinds[p.kind].label %></span></td><% } %>
+        <% const ph = p.image_url || cover({ city: p.city }, 640); const thumb = ph.startsWith('/img/') ? pic(ph).small : ph.startsWith('/cover/') ? null : ph; %>
+        <td><span class="bk-trip"><% if (thumb) { %><img src="<%= thumb %>" alt="" loading="lazy"><% } else { %><span class="bk-ph"><%- icon(kinds[p.kind].icon) %></span><% } %><span><b><%= p.title %></b><br><small><%= p.line %></small></span></span></td>
+        <% if (!f.kind) { %><td><span class="kind-tag k-<%= p.kind %>"><%- icon(kinds[p.kind].icon) %><%= kinds[p.kind].label %></span></td><% } %>
         <td><%= p.price_basis === 'per_group' ? `Per group of ${p.group_size}` : basisLabels[p.price_basis] %></td>
         <td class="num nowrap"><%= inr(p.cost_adult ?? p.net_adult) %><% if (p.price_basis === 'per_person' && p.cost_child != null) { %><br><small class="muted">child <%= inr(p.cost_child) %></small><% } %></td>
-        <td class="num nowrap"><b><%= inr(p.net_adult) %></b><% if (p.price_basis === 'per_person' && p.net_child != null) { %><br><small class="muted">child <%= inr(p.net_child) %></small><% } %></td>
+        <% const cost = p.cost_adult ?? p.net_adult; const mPct = cost > 0 ? Math.round((p.net_adult - cost) / cost * 1000) / 10 : 0; %>
+        <td class="num nowrap"><b><%= inr(p.net_adult) %></b><% if (p.price_basis === 'per_person' && p.net_child != null) { %><br><small class="muted">child <%= inr(p.net_child) %></small><% } %><% if (mPct > 0) { %><br><small class="margin-pill">+<%= mPct %>% margin</small><% } %></td>
         <td><span class="badge <%= p.status %>"><%= p.status %></span></td>
         <td><small><%= (p.updated_by_name || 'System').replace(/ \(.*\)$/, '') %><br><span class="muted"><%= fmtDate(p.updated_at) %></span></small></td>
         <td class="num"><%= p.bookings %></td>

@@ -140,12 +140,19 @@ router.get('/', h(async (req, res) => {
 router.get('/agents', h(async (req, res) => {
   const status = ['pending', 'active', 'suspended'].includes(req.query.status) ? req.query.status : '';
   const p = paging(req);
-  const { rows: agents, pager } = pageOf(await all(
-    `SELECT a.*, (SELECT COUNT(*) FROM bookings b WHERE b.agency_id = a.id AND b.status != 'cancelled') AS bookings,
-       (SELECT u.name FROM users u WHERE u.agency_id = a.id ORDER BY u.id LIMIT 1) AS contact
-     FROM agencies a ${status ? 'WHERE a.status = ?' : ''} ORDER BY a.id DESC ${p.sql}`, ...(status ? [status] : []), ...p.params,
-  ), p);
-  res.page('admin/agents', { title: 'Agents', agents: agents.map((a) => ({ ...a, missing: missingKyc(a) })), pager, status });
+  const [rows, countRows] = await Promise.all([
+    all(
+      `SELECT a.*, (SELECT COUNT(*) FROM bookings b WHERE b.agency_id = a.id AND b.status != 'cancelled') AS bookings,
+         (SELECT u.name FROM users u WHERE u.agency_id = a.id ORDER BY u.id LIMIT 1) AS contact
+       FROM agencies a ${status ? 'WHERE a.status = ?' : ''} ORDER BY a.id DESC ${p.sql}`, ...(status ? [status] : []), ...p.params,
+    ),
+    all('SELECT status, COUNT(*) AS n FROM agencies GROUP BY status'),
+  ]);
+  const { rows: agents, pager } = pageOf(rows, p);
+  // Agencies per status, for the tab counts.
+  const counts = Object.fromEntries(countRows.map((r) => [r.status, r.n]));
+  counts[''] = countRows.reduce((t, r) => t + Number(r.n), 0);
+  res.page('admin/agents', { title: 'Agents', agents: agents.map((a) => ({ ...a, missing: missingKyc(a) })), pager, status, counts });
 }));
 
 router.get('/agents/:id', h(async (req, res, next) => {

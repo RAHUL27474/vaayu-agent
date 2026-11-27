@@ -1,7 +1,7 @@
 <div class="page-head"><div><h1>Agents</h1><p>Approve partners, manage KYC, credit, wallets and Silver/Gold tiers.</p></div><div class="actions"><a class="btn" href="/admin/tiers">Silver / Gold agents</a></div></div>
 <div class="tabs">
   <% [['', 'All'], ['pending', 'Pending'], ['active', 'Active'], ['suspended', 'Suspended']].forEach(([s, label]) => { %>
-    <a href="/admin/agents<%= s ? '?status=' + s : '' %>" class="<%= status === s ? 'active' : '' %>"><%= label %></a>
+    <a href="/admin/agents<%= s ? '?status=' + s : '' %>" class="<%= status === s ? 'active' : '' %>"><%= label %> <small class="<%= s === 'pending' && counts[s] ? 'count-due' : 'muted' %>"><%= counts[s] || 0 %></small></a>
   <% }) %>
 </div>
 <div class="card flush">
@@ -10,12 +10,12 @@
     <thead><tr><th>Agency</th><th>Contact</th><th>Status</th><th>KYC</th><th class="num">Wallet</th><th class="num">Credit</th><th class="num">Bookings</th></tr></thead>
     <% agents.forEach(a => { %>
       <tr class="click" data-href="/admin/agents/<%= a.id %>">
-        <td><b><%= a.name %></b><br><small><%= a.city || '' %> · joined <%= fmtDate(a.created_at) %></small></td>
+        <td><span class="ag-id"><% if (a.logo_path) { %><img class="ag-mark" src="<%= a.logo_path %>" alt=""><% } else { %><span class="ag-mark" style="--ac:<%= /^#[0-9a-f]{6}$/i.test(a.brand_color || '') ? a.brand_color : '#0e7490' %>"><%= a.name.split(' ').filter((w) => /^[A-Za-z0-9]/.test(w)).map((w) => w[0]).slice(0, 2).join('').toUpperCase() %></span><% } %><span><b><%= a.name %></b><br><small><%= a.city || '' %> · joined <%= fmtDate(a.created_at) %></small></span></span></td>
         <td><%= a.contact || '' %><br><small><%= a.email || '' %></small></td>
         <td><span class="badge <%= a.status %>"><%= a.status %></span></td>
         <td><span class="badge <%= a.kyc_status %>"><%= a.kyc_status %></span><br><small><%= a.missing.length ? `Missing ${a.missing.length} item${a.missing.length === 1 ? "" : "s"}` : "Documents complete" %></small></td>
         <td class="num"><%= inr(a.wallet_balance) %></td>
-        <td class="num"><% if (a.credit_limit > 0) { %><%= inr(a.credit_used) %> <small class="muted">of <%= inr(a.credit_limit) %></small><% } else { %><span class="muted">No credit line</span><% } %></td>
+        <td class="num"><% if (a.credit_limit > 0) { %><%= inr(a.credit_used) %> <small class="muted">of <%= inr(a.credit_limit) %></small><div class="meter sm" role="img" aria-label="<%= Math.round(a.credit_used / a.credit_limit * 100) %>% of credit used"><i style="width:<%= Math.min(100, Math.round(a.credit_used / a.credit_limit * 100)) %>%"></i></div><% } else { %><span class="muted">No credit line</span><% } %></td>
         <td class="num"><%= a.bookings %></td>
       </tr>
     <% }) %>
