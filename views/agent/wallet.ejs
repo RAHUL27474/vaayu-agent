@@ -1,9 +1,10 @@
 <div class="page-head"><div><h1>Wallet &amp; credit</h1><p>Bookings are paid from your wallet first, then your credit line.</p></div>
   <div class="actions"><a class="btn" href="/agent/wallet/statement"><%- icon('file') %>Account statement</a></div></div>
-<div class="grid grid-3" style="margin-bottom:20px">
-  <div class="stat"><div class="label">Wallet balance</div><div class="value"><%= inr(agency.wallet_balance, { decimals: agency.wallet_balance % 1 ? 2 : 0 }) %></div><div class="sub">ready for your next booking</div></div>
-  <div class="stat"><div class="label">Credit used</div><div class="value"><%= inr(agency.credit_used, { decimals: agency.credit_used % 1 ? 2 : 0 }) %></div><div class="sub"><%= agency.credit_limit > 0 ? "of " + inr(agency.credit_limit) + " limit" : "no credit line yet" %><% if (credit.dueOn) { %> · <span class="<%= credit.overdue ? 'bad' : credit.daysLeft <= 3 ? 'warn-text' : '' %>"><%= credit.overdue ? 'overdue since' : 'due' %> <%= fmtDate(credit.dueOn) %></span><% } %></div></div>
-  <div class="stat"><div class="label">Available to book</div><div class="value"><%= inr(agency.wallet_balance + agency.credit_limit - agency.credit_used) %></div><div class="sub">wallet + unused credit</div></div>
+<div class="grid grid-3 tone-cards" style="margin-bottom:20px">
+  <div class="stat tone-blue"><span class="stat-ico"><%- icon('wallet') %></span><div class="label">Wallet balance</div><div class="value"><%= inr(agency.wallet_balance, { decimals: agency.wallet_balance % 1 ? 2 : 0 }) %></div><div class="sub">ready for your next booking</div></div>
+  <% const usedPct = agency.credit_limit > 0 ? Math.min(100, Math.round(agency.credit_used / agency.credit_limit * 100)) : 0; %>
+  <div class="stat tone-violet"><span class="stat-ico"><%- icon('card') %></span><div class="label">Credit used</div><div class="value"><%= inr(agency.credit_used, { decimals: agency.credit_used % 1 ? 2 : 0 }) %></div><div class="sub"><%= agency.credit_limit > 0 ? "of " + inr(agency.credit_limit) + " limit" : "no credit line yet" %><% if (credit.dueOn) { %> · <span class="<%= credit.overdue ? 'bad' : credit.daysLeft <= 3 ? 'warn-text' : '' %>"><%= credit.overdue ? 'overdue since' : 'due' %> <%= fmtDate(credit.dueOn) %></span><% } %></div><% if (agency.credit_limit > 0) { %><div class="meter" role="img" aria-label="<%= usedPct %>% of the credit line used"><i style="width:<%= usedPct %>%"></i></div><% } %></div>
+  <div class="stat tone-green"><span class="stat-ico"><%- icon('checkCircle') %></span><div class="label">Available to book</div><div class="value"><%= inr(agency.wallet_balance + agency.credit_limit - agency.credit_used) %></div><div class="sub">wallet + unused credit</div></div>
 </div>
 <% if (credit.dueOn) { %>
   <form class="card credit-due <%= credit.overdue ? 'overdue' : '' %>" method="post" action="/agent/wallet/repay" data-confirm="Repay credit from your wallet?">
@@ -25,7 +26,7 @@
     <div class="table-wrap"><table class="table" style="margin-top:10px">
       <thead><tr><th>Date</th><th>Details</th><th class="num">Amount</th><th class="num">Balance</th></tr></thead>
       <% txns.forEach(t => { %>
-        <tr><td class="nowrap"><%= fmtDate(t.created_at) %></td><td><span class="badge as-is"><%= ({ topup: 'Top-up', booking: 'Booking', refund: 'Refund', adjustment: 'Adjustment', credit_repay: 'Credit repaid' })[t.type] || t.type %></span> <%= t.note || '' %><br><small><%= t.ref || '' %></small></td>
+        <tr><td class="nowrap"><span class="tx-dir <%= t.amount < 0 ? 'out' : 'in' %>" aria-hidden="true"><%= t.amount < 0 ? '↑' : '↓' %></span><%= fmtDate(t.created_at) %></td><td><span class="badge as-is"><%= ({ topup: 'Top-up', booking: 'Booking', refund: 'Refund', adjustment: 'Adjustment', credit_repay: 'Credit repaid' })[t.type] || t.type %></span> <%= t.note || '' %><br><small><%= t.ref || '' %></small></td>
         <td class="num nowrap" style="color:<%= t.amount < 0 ? 'var(--bad)' : 'var(--ok)' %>"><%= t.amount < 0 ? '−' : '+' %><%= inr(Math.abs(t.amount), { decimals: 2 }) %></td><td class="num nowrap"><%= inr(t.balance_after, { decimals: 2 }) %></td></tr>
       <% }) %>
     </table></div>

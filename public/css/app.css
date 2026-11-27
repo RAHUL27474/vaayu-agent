@@ -2745,3 +2745,62 @@ html[data-theme="dark"] body.app .dash-metrics .dash-metric:nth-child(2) { --tc:
 html[data-theme="dark"] body.app .dash-metrics .dash-metric:nth-child(3) { --tc: #f2b84b; --tb: #2e2210; }
 html[data-theme="dark"] body.app .dash-metrics .dash-metric:nth-child(4) { --tc: #8fd46a; --tb: #1b2e14; }
 html[data-theme="dark"] body.app .heat-4 a, html[data-theme="dark"] body.app i.heat-4 { color: #04121e; }
+
+/* ===== Design refresh 2: bookings trip cards, wallet meter, login card, leads funnel ===== */
+/* Next departures */
+.trip-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 0 0 18px; }
+.trip-card { position: relative; display: flex; align-items: flex-end; gap: 14px; min-height: 150px; padding: 16px; border-radius: 16px; overflow: hidden; color: #fff; text-decoration: none; isolation: isolate;
+  background: linear-gradient(135deg, #0e3a5f, #0b5d86); box-shadow: 0 14px 30px -20px rgba(11, 36, 64, .7); transition: transform .18s ease, box-shadow .18s ease; }
+.trip-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; transition: transform .5s ease; }
+.trip-card::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(4, 18, 32, .05) 20%, rgba(4, 18, 32, .82)); }
+.trip-card:hover { color: #fff; text-decoration: none; transform: translateY(-3px); box-shadow: 0 20px 36px -20px rgba(11, 36, 64, .8); }
+.trip-card:hover img { transform: scale(1.05); }
+.tc-when { flex: none; display: grid; place-items: center; align-content: center; width: 62px; height: 62px; border-radius: 14px; background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .3); backdrop-filter: blur(8px); text-align: center; line-height: 1; }
+.tc-when b { font-size: 22px; font-weight: 800; } .tc-when small { font-size: 11px; margin-top: 3px; color: #d8e8f4; letter-spacing: .04em; text-transform: uppercase; }
+.tc-body { display: grid; gap: 2px; min-width: 0; }
+.tc-body small { font-size: 12px; color: #cfe3f1; font-weight: 600; letter-spacing: .02em; }
+.tc-body b { font-size: 17px; line-height: 1.25; text-shadow: 0 1px 8px rgba(0, 0, 0, .35); }
+.tc-body > span { font-size: 13px; color: #e6f1f8; }
+@media (max-width: 900px) { .trip-strip { grid-template-columns: minmax(0, 1fr); } .trip-card { min-height: 120px; } }
+.bk-trip { display: inline-flex; align-items: center; gap: 12px; }
+.bk-trip img, .bk-ph { flex: none; width: 44px; height: 44px; border-radius: 10px; object-fit: cover; }
+.bk-ph { display: grid; place-items: center; background: var(--brand-50); color: var(--brand); } .bk-ph .i { width: 18px; height: 18px; }
+
+/* Wallet: credit meter and money in/out marks */
+.meter { height: 6px; margin-top: 10px; border-radius: 99px; background: var(--line-2); overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--tc, var(--brand)), color-mix(in srgb, var(--tc, var(--brand)) 60%, #fff)); }
+.tx-dir { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 10px; border-radius: 50%; font-size: 13px; font-weight: 800; vertical-align: middle; }
+.tx-dir.in { background: var(--ok-50); color: var(--ok); } .tx-dir.out { background: var(--bad-50); color: var(--bad); }
+
+/* Login: the form sits on a card over a soft dotted background; live figures on the photo side */
+.auth .form { background: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--brand) 14%, transparent) 1px, transparent 0) 0 0 / 22px 22px, linear-gradient(180deg, var(--bg), var(--card)); }
+.auth .form > .auth-card { max-width: 430px; padding: 34px 34px 28px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 24px 50px -30px rgba(11, 36, 64, .45); }
+.auth-safe { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0 0; font-size: 12.5px; color: var(--muted); }
+.auth-safe .i { width: 14px; height: 14px; color: var(--ok); }
+.auth-reach { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 32px 0 0; max-width: 470px; }
+.auth-reach > div { padding: 14px 16px; border-radius: 14px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .18); backdrop-filter: blur(8px); }
+.auth-reach dt { font-size: 26px; font-weight: 800; color: #fff; line-height: 1.1; }
+.auth-reach dd { margin: 4px 0 0; font-size: 12.5px; color: #d4edfb; line-height: 1.3; }
+@media (max-width: 640px) { .auth .form > .auth-card { padding: 24px 18px; border-radius: 14px; } }
+
+/* Leads funnel */
+.funnel { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; margin: 0 0 16px; }
+.funnel-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 0; padding: 0; list-style: none; }
+.funnel-steps li { --fc: #0b6aa8; --fb: #e3f1fa; position: relative; }
+.funnel-steps .fs-1 { --fc: #6d3fc0; --fb: #efe8fb; } .funnel-steps .fs-2 { --fc: #a15c00; --fb: #fdf0d9; } .funnel-steps .fs-3 { --fc: #2f7d0a; --fb: #e8f5dd; }
+.funnel-steps a { display: flex; align-items: center; gap: 12px; height: 100%; padding: 14px 22px 14px 28px; background: var(--card); border: 1px solid var(--line); color: var(--ink); text-decoration: none;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%, 16px 50%); transition: background .15s; }
+.funnel-steps li:first-child a { clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%); border-radius: 12px 0 0 12px; padding-left: 18px; }
+.funnel-steps li:last-child a { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 16px 50%); border-radius: 0 12px 12px 0; }
+.funnel-steps li + li { margin-left: -8px; }
+.funnel-steps a:hover, .funnel-steps li.on a { background: var(--fb); text-decoration: none; color: var(--ink); }
+.fs-ico { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--fb); color: var(--fc); } .fs-ico .i { width: 17px; height: 17px; }
+.funnel-steps li.on .fs-ico, .funnel-steps a:hover .fs-ico { background: var(--card); }
+.funnel-steps b { display: block; font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; } .funnel-steps small { color: var(--ink-3); font-size: 12.5px; font-weight: 600; }
+.funnel-sum { display: grid; align-content: center; padding: 12px 18px; border-radius: 12px; background: linear-gradient(135deg, #0e3a5f, #0b5d86); color: #fff; }
+.funnel-sum b { font-size: 26px; line-height: 1.1; } .funnel-sum small { color: #d8e8f4; font-size: 12.5px; } .funnel-sum span { margin-top: 6px; font-size: 12px; color: #a9d3ef; }
+@media (max-width: 900px) { .funnel { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .funnel-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .funnel-steps li + li { margin-left: 0; } .funnel-steps a, .funnel-steps li:first-child a, .funnel-steps li:last-child a { clip-path: none; border-radius: 12px; padding: 12px 14px; } }
+html[data-theme="dark"] body.app .funnel-steps li { --fc: #7cc4f0; --fb: #12283a; } html[data-theme="dark"] body.app .funnel-steps .fs-1 { --fc: #c4a9f5; --fb: #251c3a; }
+html[data-theme="dark"] body.app .funnel-steps .fs-2 { --fc: #f2b84b; --fb: #2e2210; } html[data-theme="dark"] body.app .funnel-steps .fs-3 { --fc: #8fd46a; --fb: #1b2e14; }
+html body.public .auth .form { background: radial-gradient(circle at 1px 1px, rgba(0, 100, 159, .16) 1.2px, transparent 0) 0 0 / 22px 22px, linear-gradient(180deg, #f3f7fb, #fbfdff); }

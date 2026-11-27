@@ -1,4 +1,20 @@
 <div class="page-head"><div><h1>Leads</h1><p>Enquiries you add yourself, and those from your website when VaayuTrip builds one for you.</p></div></div>
+<%
+  const total = statuses.reduce((t, k) => t + Number(counts[k] || 0), 0);
+  const closed = Number(counts.won || 0) + Number(counts.lost || 0);
+  const winRate = closed ? Math.round(Number(counts.won || 0) / closed * 100) : null;
+  const stages = [['new', 'New', 'target'], ['contacted', 'Contacted', 'phone'], ['quoted', 'Quoted', 'file'], ['won', 'Won', 'checkCircle']];
+%>
+<% if (total) { %>
+<section class="funnel" aria-label="Leads by stage">
+  <ol class="funnel-steps">
+    <% stages.forEach(([k, label, ic], i) => { %>
+      <li class="fs-<%= i %><%= status === k ? ' on' : '' %>"><a href="/agent/leads?status=<%= k %>"><span class="fs-ico"><%- icon(ic) %></span><span><b><%= counts[k] || 0 %></b><small><%= label %></small></span></a></li>
+    <% }) %>
+  </ol>
+  <div class="funnel-sum"><b><%= winRate === null ? '—' : winRate + '%' %></b><small><%= winRate === null ? 'win rate once leads close' : `won of ${closed} closed lead${closed === 1 ? '' : 's'}` %></small><span><%= total %> lead<%= total === 1 ? '' : 's' %> · <%= counts.lost || 0 %> lost</span></div>
+</section>
+<% } %>
 <div class="tabs">
   <a href="/agent/leads" class="<%= !status && !due ? 'active' : '' %>">All</a>
   <a href="/agent/leads?due=1" class="<%= due ? 'active' : '' %>">Follow-ups due <small class="<%= dueCount ? 'count-due' : 'muted' %>"><%= dueCount %></small></a>

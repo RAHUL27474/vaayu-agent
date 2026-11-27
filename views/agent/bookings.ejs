@@ -1,11 +1,23 @@
 <div class="page-head"><div><h1>Bookings</h1><p>Confirmed trips, cancellations and refunds.</p></div></div>
+<% const daysTo = (d) => Math.round((Date.parse(d + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 864e5); %>
+<% if (upcoming.length) { %>
+<section class="trip-strip" aria-label="Next departures">
+  <% upcoming.forEach(b => { const d = daysTo(b.travel_date); const who = b.customer_name || (b.title.split(' — ')[1] || ''); %>
+    <a class="trip-card" href="/agent/bookings/<%= b.id %>">
+      <% if (b.photo) { %><img src="<%= cover({ image_url: b.photo }, 640) %>" alt="" loading="lazy"><% } %>
+      <span class="tc-when"><b><%= d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : d %></b><% if (d > 1) { %><small>days</small><% } %></span>
+      <span class="tc-body"><small><%= fmtDate(b.travel_date) %><%= b.place ? ` · ${b.place}` : '' %></small><b><%= b.title.split(' — ')[0] %></b><% if (who) { %><span><%= who %></span><% } %></span>
+    </a>
+  <% }) %>
+</section>
+<% } %>
 <div class="card flush">
   <% if (!bookings.length) { %><div class="empty"><span class="big"><%- icon('clipboard') %></span><b>No bookings yet</b><p>When you book a quote, the trip, payments and invoices appear here.</p><div class="empty-actions"><a class="btn btn-primary btn-sm" href="/agent/quotes"><%- icon('file') %>Go to your quotes</a></div></div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Booking</th><th>Customer</th><th>Travel</th><th>Status</th><th class="num">Paid to VaayuTrip</th><th class="num">Sold for</th><th class="num">Earning</th></tr></thead>
     <% bookings.forEach(b => { %>
       <tr class="click" data-href="/agent/bookings/<%= b.id %>">
-        <td><b><%= b.title.split(" — ")[0] %></b><br><small class="nowrap"><%= b.code %></small></td>
+        <td><span class="bk-trip"><% if (b.photo) { %><img src="<%= b.photo.startsWith("/img/") ? pic(b.photo).small : b.photo %>" alt="" loading="lazy"><% } else { %><span class="bk-ph"><%- icon('mapPin') %></span><% } %><span><b><%= b.title.split(" — ")[0] %></b><br><small class="nowrap"><%= b.code %><%= b.place ? ` · ${b.place}` : '' %></small></span></span></td>
         <td><% const cn = b.customer_name || (b.title.split(' — ')[1] || ''); if (cn) { %><span class="cust"><span class="av sm" style="--h:<%= [...cn].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7) %>"><%= cn.split(/[\s&]+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() %></span><%= cn %></span><% } else { %>—<% } %></td>
         <td class="nowrap"><%= fmtDate(b.travel_date) || '—' %><% const dd = b.travel_date && b.status === 'confirmed' ? Math.round((Date.parse(b.travel_date + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 864e5) : null; if (dd !== null && dd >= 0) { %><br><small class="<%= dd <= 7 ? 'soon-txt' : 'muted' %>"><%= dd === 0 ? 'travelling today' : dd === 1 ? 'tomorrow' : 'in ' + dd + ' days' %></small><% } else if (dd !== null && dd < 0) { %><br><small class="muted">travelled</small><% } %></td>
         <td><span class="badge <%= b.status %>"><%= b.status.replace('_', ' ') %></span></td>

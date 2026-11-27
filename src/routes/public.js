@@ -88,10 +88,13 @@ router.get('/cover/:name.svg', (req, res) => {
 
 // ---------- auth ----------
 
-router.get('/login', (req, res) => {
+router.get('/login', h(async (req, res) => {
   if (req.user) return res.redirect(homeFor(req.user.role));
-  res.page('public/login', { title: 'Log in', next: req.query.next || '', email: String(req.query.email || '').slice(0, 120), mode: req.query.mode === 'otp' && mailer.enabled() ? 'otp' : 'password', otpOn: mailer.enabled() }, 'public');
-});
+  // Live figures for the photo side (shared with the home page's cache, so usually no queries).
+  const d = await homeData().catch(() => null);
+  const reach = d && { items: d.kindRows.reduce((t, r) => t + Number(r.n), 0), destinations: Object.keys(DESTINATIONS).length, cities: d.cities };
+  res.page('public/login', { title: 'Log in', reach, next: req.query.next || '', email: String(req.query.email || '').slice(0, 120), mode: req.query.mode === 'otp' && mailer.enabled() ? 'otp' : 'password', otpOn: mailer.enabled() }, 'public');
+}));
 
 // "Chrome on Windows · 1.2.3.4", recorded with each login so people can spot one that wasn't them.
 function loginPlace(req) {

@@ -9,9 +9,16 @@
         <li>Ready-made VaayuTrip packages to sell</li>
       </ul>
     </div>
+    <% if (typeof reach !== 'undefined' && reach) { %>
+    <dl class="auth-reach">
+      <div><dt><%= reach.items %></dt><dd>services live at net rates</dd></div>
+      <div><dt><%= reach.destinations %></dt><dd>destinations</dd></div>
+      <div><dt><%= reach.cities %></dt><dd>cities covered</dd></div>
+    </dl>
+    <% } %>
   </div>
   <div class="form">
-    <div>
+    <div class="auth-card">
       <% flash.forEach(f => { %><div class="alert <%= f.type %>" role="<%= f.type === 'error' ? 'alert' : 'status' %>" style="margin-bottom:18px"><%= f.message %></div><% }) %>
       <h1>Log in</h1>
       <p class="muted">Agents and VaayuTrip team members.</p>
@@ -34,6 +41,7 @@
         <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" value="<%= email %>" required autofocus autocomplete="username"></div>
         <div class="field"><label for="password">Password</label><input id="password" type="password" name="password" required autocomplete="current-password"></div>
         <button class="btn btn-primary btn-lg" style="width:100%">Log in</button>
+        <p class="auth-safe"><%- icon('lock') %>Secure login. Your session ends after 7 days.</p>
       </form>
       <p style="margin:12px 0 0;text-align:right;font-size:14px"><a href="/forgot-password">Forgot password?</a></p>
       <% } %>

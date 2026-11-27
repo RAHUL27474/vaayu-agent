@@ -4,6 +4,7 @@ const express = require('express');
 const multer = require('multer');
 const { one, all, run, tx, getSettings, notify, audit, UPLOADS_DIR, DATA_DIR } = require('../db');
 const { num, code, round2, uniqueSlug, fmtDate } = require('../util');
+const { destinationPhoto, cityPhoto } = require('../destination-photos');
 const { requireAgent, requireActiveAgency, limitPendingAgency, limitStaffRole, staffCan, STAFF_ROLES, h, idParam, MAX_AMOUNT } = require('../auth');
 const { hashPassword } = require('../util');
 const svc = require('../services');
@@ -775,13 +776,21 @@ router.post('/quotes/:id/delete', h(async (req, res) => {
 
 // ---------- bookings ----------
 
+// Where a booking goes: its package's destination, else the first VaayuTrip service's city and photo.
+const BOOKING_PLACE = `p.destination AS pkg_dest, (SELECT pr.image_url FROM quote_items i JOIN products pr ON pr.id = i.product_id WHERE i.quote_id = b.quote_id ORDER BY i.sort, i.id LIMIT 1) AS item_image,
+  (SELECT pr.city FROM quote_items i JOIN products pr ON pr.id = i.product_id WHERE i.quote_id = b.quote_id ORDER BY i.sort, i.id LIMIT 1) AS item_city`;
+const BOOKING_JOINS = 'LEFT JOIN customers c ON c.id = b.customer_id LEFT JOIN quotes q ON q.id = b.quote_id LEFT JOIN packages p ON p.id = q.package_id';
+const withPlace = (b) => ({ ...b, place: b.pkg_dest || b.item_city || '', photo: b.item_image || destinationPhoto(b.pkg_dest) || cityPhoto(b.item_city) || null });
+
 router.get('/bookings', h(async (req, res) => {
   const p = paging(req);
-  const { rows: bookings, pager } = pageOf(await all(
-    `SELECT b.*, c.name AS customer_name FROM bookings b LEFT JOIN customers c ON c.id = b.customer_id WHERE b.agency_id = ? ORDER BY b.id DESC ${p.sql}`,
-    req.agency.id, ...p.params,
-  ), p);
-  res.page('agent/bookings', { title: 'Bookings', bookings, pager });
+  const [rows, upcoming] = await Promise.all([
+    all(`SELECT b.*, c.name AS customer_name, ${BOOKING_PLACE} FROM bookings b ${BOOKING_JOINS} WHERE b.agency_id = ? ORDER BY b.id DESC ${p.sql}`, req.agency.id, ...p.params),
+    p.page === 1 ? all(`SELECT b.*, c.name AS customer_name, ${BOOKING_PLACE} FROM bookings b ${BOOKING_JOINS}
+      WHERE b.agency_id = ? AND b.status = 'confirmed' AND b.travel_date >= ? ORDER BY b.travel_date LIMIT 3`, req.agency.id, indiaToday()) : [],
+  ]);
+  const { rows: bookings, pager } = pageOf(rows, p);
+  res.page('agent/bookings', { title: 'Bookings', bookings: bookings.map(withPlace), upcoming: upcoming.map(withPlace), pager });
 }));
 
 router.get('/bookings/:id', h(async (req, res, next) => {
