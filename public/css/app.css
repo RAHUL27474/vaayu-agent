@@ -2671,3 +2671,77 @@ html[data-theme="dark"] body.app .logt-day th { background: rgba(255,255,255,.03
   .logt-what { grid-column: 1 / -1; }
   .logt-sum { grid-column: 1 / -1; }
 }
+
+/* ===== Design refresh: dashboard headers, toned KPI cards, livelier charts, coverage heatmap ===== */
+/* Console header (admin and backend dashboards) */
+.console-hero { position: relative; overflow: hidden; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 18px 28px; margin: 4px 0 22px; padding: 30px 32px 28px; border-radius: 18px; color: #fff;
+  background: radial-gradient(120% 140% at 100% 0%, rgba(56, 178, 238, .35), transparent 55%), radial-gradient(90% 120% at 0% 100%, rgba(122, 199, 66, .22), transparent 60%), linear-gradient(135deg, #0b2440 0%, #0e3a5f 55%, #0b5d86 100%);
+  box-shadow: 0 18px 40px -22px rgba(11, 36, 64, .65); }
+.console-hero .ch-art { position: absolute; right: -20px; top: 0; width: min(62%, 640px); height: 100%; pointer-events: none; opacity: .55; }
+.ch-route { fill: none; stroke: rgba(255, 255, 255, .45); stroke-width: 1.6; stroke-dasharray: 2 7; stroke-linecap: round; }
+.ch-route-2 { stroke: rgba(143, 209, 79, .55); }
+.ch-dot { fill: #8fd14f; } .ch-plane path { fill: #fff; }
+.ch-text { position: relative; min-width: 0; flex: 1 1 460px; }
+.ch-kicker { margin: 0 0 6px; font-size: 12.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: #a9d3ef; }
+body.app .console-hero h1 { margin: 0; color: #fff; font-size: 30px; letter-spacing: -.02em; }
+.ch-line { margin: 6px 0 0; color: #d8e8f4; font-size: 15px; max-width: 68ch; }
+.ch-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.ch-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 8px; border-radius: 999px; font-size: 13.5px; font-weight: 500; color: #fff; text-decoration: none; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .18); backdrop-filter: blur(6px); transition: background .15s, transform .15s; }
+a.ch-chip:hover { background: rgba(255, 255, 255, .18); color: #fff; text-decoration: none; transform: translateY(-1px); }
+.ch-chip b { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; font-size: 12.5px; background: #fff; color: #0b2440; }
+.ch-chip .i { width: 14px; height: 14px; opacity: .8; }
+.ch-warn b { background: #ffc857; color: #3b2600; }
+.ch-ok { padding-left: 10px; } .ch-ok .i { color: #8fd14f; opacity: 1; width: 16px; height: 16px; }
+.ch-actions { position: relative; display: flex; flex-wrap: wrap; gap: 10px; }
+.console-hero .btn-glass { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .28); color: #fff; }
+.console-hero .btn-glass:hover { background: rgba(255, 255, 255, .22); color: #fff; }
+.console-hero .btn-accent { box-shadow: 0 8px 20px -8px rgba(122, 199, 66, .7); }
+@media (max-width: 640px) { .console-hero { padding: 22px 18px 20px; border-radius: 14px; } body.app .console-hero h1 { font-size: 24px; } .console-hero .ch-art { width: 100%; opacity: .3; } .ch-actions { width: 100%; } .ch-actions .btn { flex: 1 1 auto; justify-content: center; } }
+
+/* Toned KPI cards: icon tile, accent line, gentle lift on links */
+.tone-cards .stat { --tc: var(--brand); --tb: var(--brand-50); padding: 18px 20px 16px; }
+.tone-cards .stat.tone-green { --tc: #2f7d0a; --tb: #e8f5dd; } .tone-cards .stat.tone-blue { --tc: #0b6aa8; --tb: #e3f1fa; } .tone-cards .stat.tone-teal { --tc: #0f766e; --tb: #ddf3f0; }
+.tone-cards .stat.tone-violet { --tc: #6d3fc0; --tb: #efe8fb; } .tone-cards .stat.tone-amber { --tc: #a15c00; --tb: #fdf0d9; } .tone-cards .stat.tone-pink { --tc: #b3245f; --tb: #fbe6ee; }
+body.app .tone-cards .stat::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: linear-gradient(90deg, var(--tc), color-mix(in srgb, var(--tc) 25%, transparent)); }
+.tone-cards .stat-ico { float: right; display: grid; place-items: center; width: 38px; height: 38px; margin: -2px -4px 0 10px; border-radius: 11px; background: var(--tb); color: var(--tc); }
+.tone-cards .stat-ico .i { width: 19px; height: 19px; }
+.tone-cards .stat .value { color: var(--ink); }
+.tone-cards a.stat { transition: transform .15s ease, box-shadow .15s ease, border-color .15s; }
+.tone-cards a.stat:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--tc) 35%, var(--line)); box-shadow: 0 12px 24px -16px color-mix(in srgb, var(--tc) 60%, transparent); }
+html[data-theme="dark"] body.app .tone-cards .stat.tone-green { --tc: #8fd46a; --tb: #1b2e14; } html[data-theme="dark"] body.app .tone-cards .stat.tone-blue { --tc: #7cc4f0; --tb: #12283a; }
+html[data-theme="dark"] body.app .tone-cards .stat.tone-teal { --tc: #6fd3c7; --tb: #10302d; } html[data-theme="dark"] body.app .tone-cards .stat.tone-violet { --tc: #c4a9f5; --tb: #251c3a; }
+html[data-theme="dark"] body.app .tone-cards .stat.tone-amber { --tc: #f2b84b; --tb: #2e2210; } html[data-theme="dark"] body.app .tone-cards .stat.tone-pink { --tc: #f3a0c0; --tb: #351a26; }
+
+/* Column charts: gradient bars with rounded tops; the current month stands out */
+body.app .bar-fill { background: linear-gradient(180deg, #38b2ee 0%, var(--brand) 100%); border-radius: 7px 7px 3px 3px; }
+body.app .bar-col:last-child .bar-fill { background: linear-gradient(180deg, #a6dc6e 0%, #3c8f0b 100%); box-shadow: 0 6px 16px -8px rgba(60, 143, 11, .8); }
+body.app .bar-col:hover .bar-fill { filter: brightness(1.08) saturate(1.1); }
+body.app .bar-col:last-child .bar-val, body.app .bar-col:last-child .bar-label { color: var(--ink); font-weight: 700; }
+
+/* Coverage heatmap (backend dashboard) */
+.cov-table td.heat { padding: 6px 8px; }
+.cov-table td.heat a { display: inline-block; min-width: 58px; text-align: center; padding: 7px 12px; border-radius: 8px; font-weight: 600; text-decoration: none; font-variant-numeric: tabular-nums; }
+.heat-1 a, i.heat-1 { background: color-mix(in srgb, var(--brand) 9%, transparent); color: var(--brand-700); }
+.heat-2 a, i.heat-2 { background: color-mix(in srgb, var(--brand) 18%, transparent); color: var(--brand-700); }
+.heat-3 a, i.heat-3 { background: color-mix(in srgb, var(--brand) 30%, transparent); color: var(--brand-700); }
+.heat-4 a, i.heat-4 { background: var(--brand); color: #fff; }
+.heat-0 a, i.heat-0 { background: var(--bad-50); color: var(--bad); outline: 1px dashed var(--bad-line); outline-offset: -1px; }
+.cov-table td.heat a:hover { filter: brightness(.96); text-decoration: underline; }
+.heat-key { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.heat-key i.heat { display: inline-block; width: 14px; height: 14px; border-radius: 4px; }
+html[data-theme="dark"] body.app .heat-1 a, html[data-theme="dark"] body.app .heat-2 a { color: #b9e0f7; }
+html[data-theme="dark"] body.app .heat-3 a { color: #e8f4fc; }
+/* Six inventory cards: one row on wide screens, three by two on laptops */
+@media (min-width: 1500px) { .grid-3.tone-cards { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+/* Agent dashboard money cards in the same toned style */
+.dash-metrics .dash-metric { --tc: #0b6aa8; --tb: #e3f1fa; position: relative; overflow: hidden; }
+.dash-metrics .dash-metric:nth-child(2) { --tc: #6d3fc0; --tb: #efe8fb; }
+.dash-metrics .dash-metric:nth-child(3) { --tc: #a15c00; --tb: #fdf0d9; }
+.dash-metrics .dash-metric:nth-child(4) { --tc: #2f7d0a; --tb: #e8f5dd; }
+.dash-metrics .dash-metric::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: linear-gradient(90deg, var(--tc), color-mix(in srgb, var(--tc) 25%, transparent)); }
+body.app .dash-metrics .dash-metric dt > span { background: var(--tb); color: var(--tc); }
+html[data-theme="dark"] body.app .dash-metrics .dash-metric { --tc: #7cc4f0; --tb: #12283a; }
+html[data-theme="dark"] body.app .dash-metrics .dash-metric:nth-child(2) { --tc: #c4a9f5; --tb: #251c3a; }
+html[data-theme="dark"] body.app .dash-metrics .dash-metric:nth-child(3) { --tc: #f2b84b; --tb: #2e2210; }
+html[data-theme="dark"] body.app .dash-metrics .dash-metric:nth-child(4) { --tc: #8fd46a; --tb: #1b2e14; }
+html[data-theme="dark"] body.app .heat-4 a, html[data-theme="dark"] body.app i.heat-4 { color: #04121e; }

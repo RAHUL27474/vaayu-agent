@@ -1,0 +1,27 @@
+<%#
+  Dashboard header for the admin console and the backend portal: greeting, date, what needs doing, main actions.
+  Locals: kicker, title, line, actions [{ href, label, icon, primary }], chips [{ href, label, n, tone: 'warn' | 'ok' | 'info' }], clear (text when no chips)
+%>
+<section class="console-hero">
+  <svg class="ch-art" viewBox="0 0 600 220" aria-hidden="true" focusable="false">
+    <path class="ch-route" d="M30 190 C 160 40, 330 30, 470 110 S 590 150, 600 60"/>
+    <path class="ch-route ch-route-2" d="M120 220 C 230 120, 380 150, 520 40"/>
+    <circle class="ch-dot" cx="30" cy="190" r="5"/><circle class="ch-dot" cx="470" cy="110" r="5"/><circle class="ch-dot" cx="520" cy="40" r="4"/>
+    <g class="ch-plane" transform="translate(330 52) rotate(18)"><path d="M0 0l22 6-22 6 5-6z"/></g>
+  </svg>
+  <div class="ch-text">
+    <p class="ch-kicker"><%= kicker %> · <%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %></p>
+    <h1><%= title %></h1>
+    <% if (line) { %><p class="ch-line"><%= line %></p><% } %>
+    <div class="ch-chips">
+      <% if (chips.length) { chips.forEach(c => { %>
+        <a class="ch-chip ch-<%= c.tone || 'info' %>" href="<%= c.href %>"><b><%= c.n %></b><%= c.label %><%- icon('arrowRight') %></a>
+      <% }) } else { %>
+        <span class="ch-chip ch-ok"><%- icon('checkCircle') %><%= clear %></span>
+      <% } %>
+    </div>
+  </div>
+  <div class="ch-actions">
+    <% actions.forEach(a => { %><a class="btn <%= a.primary ? 'btn-accent' : 'btn-glass' %>" href="<%= a.href %>"><% if (a.icon) { %><%- icon(a.icon) %><% } %><%= a.label %></a><% }) %>
+  </div>
+</section>

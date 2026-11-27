@@ -1,26 +1,25 @@
-<div class="page-head">
-<% const hr = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' })); const todo = (stats.pendingAgents || 0) + (stats.cancelRequests || 0) + (pendingTopups || 0) + (stats.websiteRequests || 0); %>
-  <div><h1>Dashboard</h1><p><%= new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %> · <%= todo ? todo + (todo === 1 ? ' item needs' : ' items need') + ' attention' : 'Nothing pending' %></p></div>
-  <div class="actions"><a class="btn" href="/admin/agents?status=pending">Review agents</a><a class="btn" href="/admin/log">Activity log</a><a class="btn btn-primary" href="/backend">Inventory</a></div>
-</div>
+<%
+  const hr = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }));
+  const hello = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
+  const todo = [
+    stats.pendingAgents && { href: '/admin/agents?status=pending', n: stats.pendingAgents, label: stats.pendingAgents === 1 ? 'agent to approve' : 'agents to approve', tone: 'warn' },
+    stats.cancelRequests && { href: '/admin/bookings?status=cancel_requested', n: stats.cancelRequests, label: stats.cancelRequests === 1 ? 'cancellation request' : 'cancellation requests', tone: 'warn' },
+    pendingTopups && { href: '/admin/topups', n: pendingTopups, label: pendingTopups === 1 ? 'top-up to verify' : 'top-ups to verify', tone: 'warn' },
+    stats.websiteRequests && { href: '/admin/agents', n: stats.websiteRequests, label: stats.websiteRequests === 1 ? 'website request' : 'website requests', tone: 'info' },
+  ].filter(Boolean);
+%>
+<%- include('../partials/console-hero', {
+  kicker: 'Admin console', title: /^vaayutrip$/i.test(user.name.split(' ')[0]) ? hello : `${hello}, ${user.name.split(' ')[0]}`,
+  line: `${plural(stats.bookings, 'booking')} and ${inr(stats.revenue)} net this month, from ${plural(stats.agents, 'active agency', 'active agencies')}.`,
+  chips: todo, clear: 'Nothing waiting for you',
+  actions: [{ href: '/admin/log', label: 'Activity log', icon: 'activity' }, { href: '/backend', label: 'Inventory', icon: 'layers', primary: true }],
+}) %>
 
-<% if (stats.pendingAgents || stats.cancelRequests || pendingTopups || stats.websiteRequests) { %>
-  <div class="alert warn">
-    Needs attention:
-    <%- [
-      stats.pendingAgents && `<a href="/admin/agents?status=pending">${plural(stats.pendingAgents, 'agent')} awaiting approval</a>`,
-      stats.cancelRequests && `<a href="/admin/bookings?status=cancel_requested">${plural(stats.cancelRequests, 'cancellation request')}</a>`,
-      pendingTopups && `<a href="/admin/topups">${plural(pendingTopups, 'wallet top-up')} to verify</a>`,
-      stats.websiteRequests && `<a href="/admin/agents">${plural(stats.websiteRequests, 'website request')} to call back</a>`,
-    ].filter(Boolean).join(' · ') %>
-  </div>
-<% } %>
-
-<div class="grid grid-4" style="margin-bottom:20px">
-  <div class="stat"><div class="label">Revenue this month (net)</div><div class="value"><%= inr(stats.revenue) %></div><div class="sub"><%= plural(stats.bookings, 'booking') %></div></div>
-  <div class="stat"><div class="label">Active agents</div><div class="value"><%= stats.agents %></div><div class="sub"><%= stats.pendingAgents %> pending</div></div>
-  <a class="stat" href="/backend" style="color:inherit;text-decoration:none"><div class="label">Live inventory</div><div class="value"><%= stats.products %></div><div class="sub"><%= plural(stats.drafts, 'draft') %> · <%= plural(stats.agentPackages, 'package') %> built by agents</div></a>
-  <div class="stat"><div class="label">Agent wallets / credit out</div><div class="value"><%= inr(stats.walletFloat) %></div><div class="sub"><%= inr(stats.creditOut) %> credit used</div></div>
+<div class="grid grid-4 tone-cards" style="margin-bottom:20px">
+  <div class="stat tone-green"><span class="stat-ico"><%- icon('chart') %></span><div class="label">Revenue this month (net)</div><div class="value"><%= inr(stats.revenue) %></div><div class="sub"><%= plural(stats.bookings, 'booking') %></div></div>
+  <a class="stat tone-violet" href="/admin/agents" style="color:inherit;text-decoration:none"><span class="stat-ico"><%- icon('building') %></span><div class="label">Active agents</div><div class="value"><%= stats.agents %></div><div class="sub"><%= stats.pendingAgents %> pending</div></a>
+  <a class="stat tone-teal" href="/backend" style="color:inherit;text-decoration:none"><span class="stat-ico"><%- icon('layers') %></span><div class="label">Live inventory</div><div class="value"><%= stats.products %></div><div class="sub"><%= plural(stats.drafts, 'draft') %> · <%= plural(stats.agentPackages, 'package') %> built by agents</div></a>
+  <a class="stat tone-amber" href="/admin/ledger" style="color:inherit;text-decoration:none"><span class="stat-ico"><%- icon('wallet') %></span><div class="label">Agent wallets / credit out</div><div class="value"><%= inr(stats.walletFloat) %></div><div class="sub"><%= inr(stats.creditOut) %> credit used</div></a>
 </div>
 
 <%
@@ -28,11 +27,11 @@
 %>
 <div class="biz">
   <div class="card-head" style="padding:0 0 12px"><h2 style="margin:0;font-size:18px">Business, last 12 months</h2></div>
-  <div class="grid grid-4" style="margin-bottom:16px">
-    <div class="stat"><div class="label">This month's revenue</div><div class="value"><%= inr(biz.cur.revenue) %></div><div class="sub"><% if (biz.change !== null) { %><span class="<%= biz.change >= 0 ? 'up' : 'down' %>"><%= biz.change >= 0 ? '▲' : '▼' %> <%= Math.abs(biz.change) %>%</span> vs <%= biz.prev.label %><% } else { %>no bookings last month<% } %></div></div>
-    <div class="stat"><div class="label">12-month revenue</div><div class="value"><%= short(biz.yearRevenue) %></div><div class="sub">Est. margin <%= short(biz.yearMargin) %></div></div>
-    <div class="stat"><div class="label">Average booking</div><div class="value"><%= inr(biz.avgBooking) %></div><div class="sub">net to VaayuTrip</div></div>
-    <div class="stat"><div class="label">Cancellation rate</div><div class="value"><%= biz.cancelRate %>%</div><div class="sub">of bookings in 12 months</div></div>
+  <div class="grid grid-4 tone-cards" style="margin-bottom:16px">
+    <div class="stat tone-blue"><span class="stat-ico"><%- icon('sparkles') %></span><div class="label">This month's revenue</div><div class="value"><%= inr(biz.cur.revenue) %></div><div class="sub"><% if (biz.change !== null) { %><span class="<%= biz.change >= 0 ? 'up' : 'down' %>"><%= biz.change >= 0 ? '▲' : '▼' %> <%= Math.abs(biz.change) %>%</span> vs <%= biz.prev.label %><% } else { %>no bookings last month<% } %></div></div>
+    <div class="stat tone-green"><span class="stat-ico"><%- icon('chart') %></span><div class="label">12-month revenue</div><div class="value"><%= short(biz.yearRevenue) %></div><div class="sub">Est. margin <%= short(biz.yearMargin) %></div></div>
+    <div class="stat tone-violet"><span class="stat-ico"><%- icon('receipt') %></span><div class="label">Average booking</div><div class="value"><%= inr(biz.avgBooking) %></div><div class="sub">net to VaayuTrip</div></div>
+    <div class="stat tone-pink"><span class="stat-ico"><%- icon('percent') %></span><div class="label">Cancellation rate</div><div class="value"><%= biz.cancelRate %>%</div><div class="sub">of bookings in 12 months</div></div>
   </div>
   <div class="grid grid-2">
     <div class="card"><h2 class="h3">Revenue by month</h2><%- include('../partials/bar-chart', { id: 'revenue', bars: biz.months.map(m => ({ label: m.label, value: Math.round(m.revenue), note: plural(m.bookings || 0, 'booking') })), format: short }) %></div>
