@@ -12,20 +12,37 @@ const payments = require('../payments');
 
 const router = express.Router();
 
+// The home page's figures are the same for every visitor: kept for a few minutes instead of 5 queries per visit.
+const HOME_TTL_MS = 5 * 60 * 1000;
+let homeCache = null;
+async function homeData() {
+  if (homeCache && homeCache.until > Date.now()) return homeCache.value;
+  const [activities, kindRows, agents, cities, cityRows] = await Promise.all([
+    all("SELECT * FROM products WHERE status = 'published' AND kind = 'activity' ORDER BY RANDOM() LIMIT 5"),
+    all("SELECT kind, COUNT(*) AS n FROM products WHERE status = 'published' GROUP BY kind"),
+    one("SELECT COUNT(*) AS n FROM agencies WHERE status = 'active'"),
+    one("SELECT COUNT(DISTINCT city) AS n FROM products WHERE status = 'published'"),
+    all("SELECT city, country, COUNT(*) AS n FROM products WHERE status = 'published' GROUP BY city, country"),
+  ]);
+  const value = { activities, kindRows, agents: agents.n, cities: cities.n, cityRows };
+  homeCache = { value, until: Date.now() + HOME_TTL_MS };
+  return value;
+}
+
 router.get('/', h(async (req, res) => {
-  const activities = await all("SELECT * FROM products WHERE status = 'published' AND kind = 'activity' ORDER BY RANDOM() LIMIT 5");
-  const counts = Object.fromEntries((await all("SELECT kind, COUNT(*) AS n FROM products WHERE status = 'published' GROUP BY kind")).map((r) => [r.kind, r.n]));
+  const { activities, kindRows, agents, cities, cityRows } = await homeData();
+  const counts = Object.fromEntries(kindRows.map((r) => [r.kind, r.n]));
   const stats = {
-    agents: (await one("SELECT COUNT(*) AS n FROM agencies WHERE status = 'active'")).n,
+    agents,
     hotels: counts.hotel || 0,
     activities: counts.activity || 0,
     flights: counts.flight || 0,
-    cities: (await one("SELECT COUNT(DISTINCT city) AS n FROM products WHERE status = 'published'")).n,
+    cities,
   };
   // Cities and live items per destination for the destinations grid.
   const byDest = Object.fromEntries(Object.keys(DESTINATIONS).map((d) => [d, { name: d, cities: new Set(), items: 0 }]));
   const perCity = new Map();
-  for (const r of await all("SELECT city, country, COUNT(*) AS n FROM products WHERE status = 'published' GROUP BY city, country")) {
+  for (const r of cityRows) {
     const d = byDest[destinationOf(r.country)];
     if (d) { d.cities.add(r.city); d.items += r.n; perCity.set(r.city, (perCity.get(r.city) || 0) + r.n); }
   }

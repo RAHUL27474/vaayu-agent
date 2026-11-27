@@ -13,8 +13,10 @@ async function getQuote(quoteId, agencyId) {
     ? await one('SELECT * FROM quotes WHERE id = ? AND agency_id = ?', quoteId, agencyId)
     : await one('SELECT * FROM quotes WHERE id = ?', quoteId);
   if (!quote) return null;
-  const items = await all('SELECT * FROM quote_items WHERE quote_id = ? ORDER BY sort, id', quote.id);
-  const customer = quote.customer_id ? await one('SELECT * FROM customers WHERE id = ?', quote.customer_id) : null;
+  const [items, customer] = await Promise.all([
+    all('SELECT * FROM quote_items WHERE quote_id = ? ORDER BY sort, id', quote.id),
+    quote.customer_id ? one('SELECT * FROM customers WHERE id = ?', quote.customer_id) : null,
+  ]);
   return { quote, items, customer, priced: priceQuote(quote, items) };
 }
 
@@ -69,6 +71,20 @@ async function departuresOf(packageId, { upcoming = true } = {}) {
        WHERE q.package_id = d.package_id AND b.travel_date = d.depart_on AND b.status != 'cancelled'), 0) AS booked
      FROM package_departures d WHERE d.package_id = ? ${upcoming ? "AND d.depart_on >= sqldate('now')" : ''} ORDER BY d.depart_on`, packageId,
   )).map((d) => ({ ...d, left: Math.max(0, d.seats - d.booked) }));
+}
+
+/** Upcoming departures of several packages in one query: Map of package id → departures (as departuresOf). */
+async function departuresOfMany(packageIds) {
+  const ids = [...new Set(packageIds.map(Number).filter(Number.isInteger))];
+  const out = new Map(ids.map((id) => [id, []]));
+  if (!ids.length) return out;
+  const rows = await all(
+    `SELECT d.*, COALESCE((SELECT SUM(q.adults + q.children) FROM bookings b JOIN quotes q ON q.id = b.quote_id
+       WHERE q.package_id = d.package_id AND b.travel_date = d.depart_on AND b.status != 'cancelled'), 0) AS booked
+     FROM package_departures d WHERE d.package_id IN (${ids.map(() => '?').join(', ')}) AND d.depart_on >= sqldate('now') ORDER BY d.depart_on`, ...ids,
+  );
+  for (const d of rows) out.get(d.package_id).push({ ...d, left: Math.max(0, d.seats - d.booked) });
+  return out;
 }
 
 /** Throws unless a package with fixed departures has the seats on that date (packages without departures: any date). */
@@ -400,7 +416,7 @@ async function voucherFor(booking) {
 }
 
 module.exports = {
-  departuresOf, assertSeats,
+  departuresOf, departuresOfMany, assertSeats,
   bookable, couponFor, approvalState,
   creditStatus, repayCredit, creditReminders, tripReminders,
   voucherFor,

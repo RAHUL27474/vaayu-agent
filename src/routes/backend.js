@@ -11,7 +11,7 @@ const { requireBackend, h, idParam } = require('../auth');
 const svc = require('../services');
 const {
   KINDS, DESTINATIONS, PRODUCT_COUNTRIES, ALL_DESTINATIONS, BASIS_LABELS, MEAL_PLANS, productFromForm, publishProblems, parseProductDetails, describe, seasonsFromForm, listOf,
-  priceForAgents, marginPct,
+  priceForAgents, marginPct, productMap,
 } = require('../products');
 const { withCover, coverFrom } = require('../photos');
 const { readXlsx, XlsxError } = require('../xlsx');
@@ -49,21 +49,24 @@ async function insertProduct(entered, user) {
 // ---------- dashboard ----------
 
 router.get('/', h(async (req, res) => {
-  const counts = await all("SELECT kind, COUNT(*) FILTER (WHERE status = 'published') AS live, COUNT(*) FILTER (WHERE status = 'draft') AS drafts FROM products GROUP BY kind");
+  const [counts, byCountry, recent, draftRows] = await Promise.all([
+    all("SELECT kind, COUNT(*) FILTER (WHERE status = 'published') AS live, COUNT(*) FILTER (WHERE status = 'draft') AS drafts FROM products GROUP BY kind"),
+    all("SELECT country, kind, COUNT(*) AS n FROM products WHERE status = 'published' GROUP BY country, kind"),
+    all(
+      `SELECT p.id, p.kind, p.title, p.city, p.status, p.updated_at, u.name AS updated_by_name FROM products p
+       LEFT JOIN users u ON u.id = p.updated_by ORDER BY p.updated_at DESC, p.id DESC LIMIT 10`,
+    ),
+    all("SELECT * FROM products WHERE status = 'draft' ORDER BY updated_at DESC LIMIT 50"),
+  ]);
   const byKind = Object.fromEntries(counts.map((c) => [c.kind, c]));
   // Live products per destination and kind, so the team can see gaps in coverage.
   const coverage = Object.fromEntries(Object.keys(DESTINATIONS).map((d) => [d, {}]));
-  for (const r of await all("SELECT country, kind, COUNT(*) AS n FROM products WHERE status = 'published' GROUP BY country, kind")) {
+  for (const r of byCountry) {
     // Plans for all destinations (insurance) count everywhere.
     const dests = r.country === ALL_DESTINATIONS ? Object.keys(DESTINATIONS) : Object.keys(DESTINATIONS).filter((d) => DESTINATIONS[d].includes(r.country));
     for (const dest of dests) coverage[dest][r.kind] = (coverage[dest][r.kind] || 0) + r.n;
   }
-  const recent = await all(
-    `SELECT p.id, p.kind, p.title, p.city, p.status, p.updated_at, u.name AS updated_by_name FROM products p
-     LEFT JOIN users u ON u.id = p.updated_by ORDER BY p.updated_at DESC, p.id DESC LIMIT 10`,
-  );
-  const drafts = (await all("SELECT * FROM products WHERE status = 'draft' ORDER BY updated_at DESC LIMIT 50"))
-    .map((p) => ({ ...p, problems: publishProblems(p) }));
+  const drafts = draftRows.map((p) => ({ ...p, problems: publishProblems(p) }));
   res.page('backend/dashboard', { title: 'Backend dashboard', byKind, coverage, recent, drafts, kinds: KINDS, destinations: Object.keys(DESTINATIONS) });
 }));
 
@@ -156,12 +159,16 @@ router.get('/enquiries', h(async (req, res) => {
   if (status) { where.push('e.status = ?'); params.push(status); } else if (!q) where.push("e.status IN ('new', 'contacted')");
   if (q) { where.push('(e.name ILIKE ? OR e.phone ILIKE ? OR e.email ILIKE ? OR e.company ILIKE ? OR e.city ILIKE ?)'); params.push(...Array(5).fill(`%${q}%`)); }
   if (mine) { where.push('e.assigned_to = ?'); params.push(req.user.id); }
-  const rows = await all(
-    `SELECT e.*, u.name AS assignee FROM enquiries e LEFT JOIN users u ON u.id = e.assigned_to
-     ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY (e.status = 'new') DESC, e.created_at DESC LIMIT 200`, ...params,
-  );
-  const counts = Object.fromEntries((await all('SELECT status, COUNT(*)::int AS n FROM enquiries GROUP BY status')).map((r) => [r.status, r.n]));
-  const due = (await one("SELECT COUNT(*)::int AS n FROM enquiries WHERE status IN ('new', 'contacted') AND follow_up_on IS NOT NULL AND follow_up_on <= sqldate('now')")).n;
+  const [rows, countRows, dueRow] = await Promise.all([
+    all(
+      `SELECT e.*, u.name AS assignee FROM enquiries e LEFT JOIN users u ON u.id = e.assigned_to
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY (e.status = 'new') DESC, e.created_at DESC LIMIT 200`, ...params,
+    ),
+    all('SELECT status, COUNT(*)::int AS n FROM enquiries GROUP BY status'),
+    one("SELECT COUNT(*)::int AS n FROM enquiries WHERE status IN ('new', 'contacted') AND follow_up_on IS NOT NULL AND follow_up_on <= sqldate('now')"),
+  ]);
+  const counts = Object.fromEntries(countRows.map((r) => [r.status, r.n]));
+  const due = dueRow.n;
   res.page('backend/enquiries', { title: 'Enquiries', rows, counts, due, status, q, mine, statuses: ENQ_STATUSES, topics: ENQ_TOPIC_LABEL });
 }));
 
@@ -434,9 +441,11 @@ router.get('/packages', h(async (req, res) => {
   const rows = await all(`SELECT p.*, (SELECT COUNT(*) FROM quotes q WHERE q.package_id = p.id) AS quotes, (SELECT COUNT(*) FROM packages c WHERE c.copied_from = p.id) AS copies,
     (SELECT COUNT(*) FROM package_departures d WHERE d.package_id = p.id AND d.depart_on >= sqldate('now')) AS departures
     FROM packages p WHERE p.agency_id IS NULL ORDER BY p.updated_at DESC`);
-  const packages = await Promise.all(rows.map(async (p) => {
-    const d = pkgs.parseDetails(p.details);
-    return { ...p, price: await pkgs.fromPrice(pkgBuilder.NET_ONLY, p, d), services: d.items.length, problems: pkgs.publishProblems(p, d) };
+  const details = rows.map((p) => pkgs.parseDetails(p.details));
+  const products = await productMap(details.flatMap(pkgs.itemIds)); // one query for every package's services
+  const packages = await Promise.all(rows.map(async (p, i) => {
+    const d = details[i];
+    return { ...p, price: await pkgs.fromPrice(pkgBuilder.NET_ONLY, p, d, products), services: d.items.length, problems: pkgs.publishProblems(p, d) };
   }));
   res.page('backend/packages', { title: 'VaayuTrip packages', packages });
 }));

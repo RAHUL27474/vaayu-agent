@@ -1,6 +1,6 @@
 <div class="page-head">
   <div><h1>Quotes</h1><p>Build, share and convert quotes into bookings.</p></div>
-  <details class="more">
+  <% if (!(user && user.agency_role === 'accounts')) { %><details class="more">
     <summary class="btn btn-primary" style="list-style:none"><%- icon('plus') %>New blank quote</summary>
     <form class="card" method="post" action="/agent/quotes" style="position:absolute;right:28px;z-index:4;width:320px;margin-top:8px">
       <div class="field"><label for="nq-title">Title</label><input id="nq-title" name="title" placeholder="e.g. Manali family trip" required></div>
@@ -8,7 +8,7 @@
       <div class="field"><label for="nq-date">Travel date</label><input id="nq-date" type="date" min="<%= today %>" name="travel_date"></div>
       <button class="btn btn-primary">Create</button>
     </form>
-  </details>
+  </details><% } %>
 </div>
 <div class="tabs">
   <% [['', 'All'], ['draft', 'Draft'], ['sent', 'Sent'], ['accepted', 'Accepted'], ['booked', 'Booked'], ['cancelled', 'Cancelled']].forEach(([s, label]) => { %>

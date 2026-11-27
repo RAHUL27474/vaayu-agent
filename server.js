@@ -151,30 +151,28 @@ app.use(async (req, res, next) => {
   res.locals.user = null;
   res.locals.agency = null;
   if (req.session.userId) {
-    const user = await one('SELECT id, role, agency_id, agency_role, name, email, email_verified, RIGHT(password_hash, 12) AS pw_tag FROM users WHERE id = ? AND is_active = 1', req.session.userId);
+    // One round trip for the user, their agency and the unread count (each query is a network hop to Supabase).
+    const user = await one(
+      `SELECT u.id, u.role, u.agency_id, u.agency_role, u.name, u.email, u.email_verified, RIGHT(u.password_hash, 12) AS pw_tag, to_jsonb(a) AS agency_row,
+         (SELECT COUNT(*) FROM notifications n WHERE n.is_read = 0 AND (CASE WHEN u.role = 'admin' THEN n.agency_id IS NULL ELSE n.agency_id = u.agency_id END)) AS unread
+       FROM users u LEFT JOIN agencies a ON a.id = u.agency_id WHERE u.id = ? AND u.is_active = 1`,
+      req.session.userId,
+    );
     // Logged in before the password last changed: log out (sessions from before this check get the tag now).
     if (user && req.session.pw && req.session.pw !== user.pw_tag) {
       req.session.userId = null;
       req.flash('warn', 'Your password was changed. Please log in again.');
     } else if (user) {
       req.session.pw = user.pw_tag;
-      delete user.pw_tag;
+      const agency = typeof user.agency_row === 'string' ? JSON.parse(user.agency_row) : user.agency_row;
+      res.locals.unread = Number(user.unread) || 0;
+      delete user.pw_tag; delete user.agency_row; delete user.unread;
       req.user = user;
       res.locals.user = user;
-      const [agency, unread] = await Promise.all([
-        user.agency_id ? one('SELECT * FROM agencies WHERE id = ?', user.agency_id) : null,
-        one(
-          user.role === 'admin'
-            ? 'SELECT COUNT(*) AS n FROM notifications WHERE agency_id IS NULL AND is_read = 0'
-            : 'SELECT COUNT(*) AS n FROM notifications WHERE agency_id = ? AND is_read = 0',
-          ...(user.role === 'admin' ? [] : [user.agency_id]),
-        ),
-      ]);
       if (agency) {
         req.agency = agency;
         res.locals.agency = agency;
       }
-      res.locals.unread = unread.n;
     } else {
       req.session.userId = null;
     }

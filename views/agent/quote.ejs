@@ -5,6 +5,7 @@
   const byKind = kindMarkups(quote);
   const kindLabel = Object.keys(byKind).length ? Object.entries(byKind).map(([k, r]) => `${kinds[k].plural.toLowerCase()} ${r.type === 'flat' ? inr(r.value) : r.value + '%'}`).join(', ') + `, others ${markupLabel}` : '';
 %>
+<% const viewOnly = Boolean(user && user.agency_role === 'accounts'); const editLocked = locked || viewOnly; %>
 <a href="/agent/quotes"><%- icon('arrowLeft') %>All quotes</a>
 <div class="page-head" style="margin-top:10px">
   <div>
@@ -13,9 +14,9 @@
   </div>
   <div class="actions">
     <a class="btn btn-primary" href="/agent/quotes/<%= quote.id %>/pdf" target="_blank"><%- icon('download') %>Quote PDF</a>
-    <form method="post" action="/agent/quotes/<%= quote.id %>/duplicate"><button class="btn" title="Make a new draft with the same services">Duplicate</button></form>
+    <% if (!viewOnly) { %><form method="post" action="/agent/quotes/<%= quote.id %>/duplicate"><button class="btn" title="Make a new draft with the same services">Duplicate</button></form>
     <% if (quote.status === 'draft') { %><form method="post" action="/agent/quotes/<%= quote.id %>/send"><button class="btn">Mark as sent</button></form><% } %>
-    <% if (['draft', 'sent'].includes(quote.status)) { %><form method="post" action="/agent/quotes/<%= quote.id %>/accepted"><button class="btn">Customer accepted</button></form><% } %>
+    <% if (['draft', 'sent'].includes(quote.status)) { %><form method="post" action="/agent/quotes/<%= quote.id %>/accepted"><button class="btn">Customer accepted</button></form><% } %><% } %>
     <% if (!locked) { %>
 <% const cantBook = agency.status !== 'active' || !items.length || profileGaps.length; %>
       <% if (!approval.valid) { %>
@@ -83,23 +84,23 @@
                 </td>
                 <td class="num"><% if (l.supplier === 'agent') { %><%= l.cost ? inr(l.cost) : '—' %><% if (l.cost) { %><br><small class="muted">your cost</small><% } %><% } else { %><%= inr(l.unitNet) %><% } %></td>
                 <td class="num">
-                  <% if (locked) { %><%= inr(l.unitSell) %><% } else { %>
+                  <% if (editLocked) { %><%= inr(l.unitSell) %><% } else { %>
                   <input type="number" step="1" min="<%= l.supplier === 'agent' ? 0 : l.unitNet %>" name="sell_<%= l.id %>" aria-label="Price per unit for <%= l.title %>" value="<%= l.overridden || l.supplier === 'agent' ? l.unitSell : '' %>" placeholder="<%= Math.round(l.unitSell) %>" style="text-align:right">
                   <% } %>
                 </td>
-                <td class="num"><% if (locked) { %><%= l.qty %><% } else { %><input type="number" min="1" name="qty_<%= l.id %>" aria-label="Quantity for <%= l.title %>" value="<%= l.qty %>" style="text-align:right"><% } %></td>
+                <td class="num"><% if (editLocked) { %><%= l.qty %><% } else { %><input type="number" min="1" name="qty_<%= l.id %>" aria-label="Quantity for <%= l.title %>" value="<%= l.qty %>" style="text-align:right"><% } %></td>
                 <td class="num"><b><%= inr(l.lineSell) %></b></td>
                 <td class="num profit"><%= inr(l.commission) %></td>
-                <td class="num"><% if (!locked) { %><button class="btn btn-ghost btn-sm btn-danger" formnovalidate formaction="/agent/quotes/<%= quote.id %>/items/<%= l.id %>/delete" data-confirm="Remove &quot;<%= l.title %>&quot; from this quote?" title="Remove" aria-label="Remove">✕</button><% } %></td>
+                <td class="num"><% if (!editLocked) { %><button class="btn btn-ghost btn-sm btn-danger" formnovalidate formaction="/agent/quotes/<%= quote.id %>/items/<%= l.id %>/delete" data-confirm="Remove &quot;<%= l.title %>&quot; from this quote?" title="Remove" aria-label="Remove">✕</button><% } %></td>
               </tr>
             <% }) %>
           </tbody>
         </table>
       </div>
-      <% if (!locked && priced.lines.length) { %><div style="padding:12px 20px;border-top:1px solid var(--line-2);text-align:right"><button class="btn btn-primary">Update prices</button></div><% } %>
+      <% if (!editLocked && priced.lines.length) { %><div style="padding:12px 20px;border-top:1px solid var(--line-2);text-align:right"><button class="btn btn-primary">Update prices</button></div><% } %>
     </form>
 
-    <% if (!locked) { %>
+    <% if (!editLocked) { %>
       <div class="grid grid-2">
         <form class="card" method="post" action="/agent/quotes/<%= quote.id %>/items/custom">
           <h2 class="h3">Add your own service</h2>
@@ -212,6 +213,7 @@
       <% } %>
     </div>
 
+    <% if (!viewOnly) { %>
     <form class="card" method="post" action="/agent/quotes/<%= quote.id %>">
       <h2 class="h3">Quote details</h2>
       <div class="field"><label for="title">Title</label><input id="title" name="title" value="<%= quote.title %>"></div>
@@ -253,8 +255,9 @@
       <div class="field"><label for="notes">Notes for customer</label><textarea id="notes" name="notes" placeholder="Validity, cancellation policy, special requests…"><%= quote.notes || '' %></textarea></div>
       <button class="btn btn-primary" style="width:100%">Save details</button>
     </form>
+    <% } %>
 
-    <% if (quote.status !== 'booked') { %>
+    <% if (quote.status !== 'booked' && !viewOnly) { %>
       <form method="post" action="/agent/quotes/<%= quote.id %>/delete" data-confirm="Delete this quote?"><button class="btn btn-danger btn-sm">Delete quote</button></form>
     <% } %>
   </div>

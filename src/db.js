@@ -668,14 +668,20 @@ ready.catch(() => {});
 
 // ---------- query helpers ----------
 
-// Query counter for tests and diagnostics (per process).
-const stats = { queries: 0 };
+// Query counter for tests and diagnostics (per process). A "wave" starts when a query begins with none running:
+// queries that run side by side share one wave, so waves approximate the round trips a page waits for.
+const stats = { queries: 0, waves: 0, inflight: 0 };
 
 async function query(sql, params = []) {
   stats.queries++;
-  await whenReady();
-  const target = txContext.getStore() || driver;
-  return target.query(toPg(sql), params);
+  if (stats.inflight++ === 0) stats.waves++;
+  try {
+    await whenReady();
+    const target = txContext.getStore() || driver;
+    return await target.query(toPg(sql), params);
+  } finally {
+    stats.inflight--;
+  }
 }
 
 // Tables without an id column: their INSERTs don't ask for one back.

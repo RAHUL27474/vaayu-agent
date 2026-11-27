@@ -107,7 +107,7 @@ router.get('/', h(async (req, res) => {
       (SELECT COALESCE(SUM(credit_used), 0) FROM agencies) AS "creditOut",
       (SELECT COUNT(*) FROM bookings WHERE status = 'cancel_requested') AS "cancelRequests",
       (SELECT COUNT(*) FROM agencies WHERE website_status = 'requested') AS "websiteRequests"`, month, month);
-  const [stats, bookings, pending, topAgents, topProducts, recentLog, quietAgents] = await Promise.all([
+  const [stats, bookings, pending, topAgents, topProducts, recentLog, quietAgents, biz] = await Promise.all([
     statsQuery,
     all('SELECT b.*, a.name AS agency_name FROM bookings b JOIN agencies a ON a.id = b.agency_id ORDER BY b.id DESC LIMIT 8'),
     all("SELECT * FROM agencies WHERE status = 'pending' ORDER BY id DESC LIMIT 5"),
@@ -130,8 +130,9 @@ router.get('/', h(async (req, res) => {
       GROUP BY a.id, a.name, a.city, a.phone
       HAVING MAX(b.created_at) IS NULL OR MAX(b.created_at) < datetime('now', '-60 days')
       ORDER BY MAX(b.created_at) NULLS FIRST LIMIT 6`),
+    businessFigures(),
   ]);
-  res.page('admin/dashboard', { title: 'Admin dashboard', stats, bookings, pending, topAgents, quietAgents, topProducts, recentLog, kinds: KINDS, biz: await businessFigures() });
+  res.page('admin/dashboard', { title: 'Admin dashboard', stats, bookings, pending, topAgents, quietAgents, topProducts, recentLog, kinds: KINDS, biz });
 }));
 
 // ---------- agents ----------
@@ -150,10 +151,12 @@ router.get('/agents', h(async (req, res) => {
 router.get('/agents/:id', h(async (req, res, next) => {
   const agent = await one('SELECT * FROM agencies WHERE id = ?', num(req.params.id));
   if (!agent) return next();
-  const users = await all('SELECT id, name, email, phone, email_verified, created_at FROM users WHERE agency_id = ?', agent.id);
-  const bookings = await all('SELECT * FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 20', agent.id);
-  const txns = await all('SELECT * FROM wallet_txns WHERE agency_id = ? ORDER BY id DESC LIMIT 20', agent.id);
-  const totals = await one("SELECT COUNT(*) AS n, COALESCE(SUM(total_net), 0) AS revenue, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS commission FROM bookings WHERE agency_id = ? AND status != 'cancelled'", agent.id);
+  const [users, bookings, txns, totals] = await Promise.all([
+    all('SELECT id, name, email, phone, email_verified, created_at FROM users WHERE agency_id = ?', agent.id),
+    all('SELECT * FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 20', agent.id),
+    all('SELECT * FROM wallet_txns WHERE agency_id = ? ORDER BY id DESC LIMIT 20', agent.id),
+    one("SELECT COUNT(*) AS n, COALESCE(SUM(total_net), 0) AS revenue, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS commission FROM bookings WHERE agency_id = ? AND status != 'cancelled'", agent.id),
+  ]);
   res.page('admin/agent', { title: agent.name, agent, users, bookings, txns, totals, missing: missingKyc(agent) });
 }));
 
@@ -363,13 +366,15 @@ router.get('/log', h(async (req, res) => {
   if (f.to) { where.push('sqldate(l.created_at) <= ?'); params.push(f.to); }
   if (!f.logins && f.area !== 'user') where.push("l.action != 'user.login'");
   const page = Math.max(1, Math.round(num(req.query.page, 1)));
-  const rows = await all(`${LOG_SQL} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY l.id DESC LIMIT 101 OFFSET ?`, ...params, (page - 1) * 100);
-  const users = await all("SELECT id, name, role FROM users WHERE role IN ('admin', 'backend') ORDER BY role, name");
-  const agencies = await all('SELECT id, name FROM agencies ORDER BY name');
-  // Headline numbers and the busiest areas this week (logins left out).
-  const pulse = await one("SELECT COUNT(*) FILTER (WHERE sqldate(created_at) = sqldate('now')) AS today, COUNT(*) FILTER (WHERE created_at > datetime('now', '-7 days')) AS week, COUNT(DISTINCT user_id) FILTER (WHERE created_at > datetime('now', '-7 days')) AS people, COUNT(*) FILTER (WHERE action LIKE 'booking.%' AND created_at > datetime('now', '-7 days')) AS bookings FROM audit_log WHERE action != 'user.login'");
-  const busy = await all("SELECT split_part(action, '.', 1) AS area, COUNT(*)::int AS n FROM audit_log WHERE action != 'user.login' AND created_at > datetime('now', '-30 days') GROUP BY 1 ORDER BY n DESC LIMIT 8");
-  const people = await all("SELECT u.id, u.name, l.role, MAX(a.name) AS agency, COUNT(*)::int AS n FROM audit_log l JOIN users u ON u.id = l.user_id LEFT JOIN agencies a ON a.id = l.agency_id WHERE l.action != 'user.login' AND l.created_at > datetime('now', '-30 days') GROUP BY u.id, u.name, l.role ORDER BY n DESC LIMIT 6");
+  const [rows, users, agencies, pulse, busy, people] = await Promise.all([
+    all(`${LOG_SQL} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY l.id DESC LIMIT 101 OFFSET ?`, ...params, (page - 1) * 100),
+    all("SELECT id, name, role FROM users WHERE role IN ('admin', 'backend') ORDER BY role, name"),
+    all('SELECT id, name FROM agencies ORDER BY name'),
+    // Headline numbers and the busiest areas this week (logins left out).
+    one("SELECT COUNT(*) FILTER (WHERE sqldate(created_at) = sqldate('now')) AS today, COUNT(*) FILTER (WHERE created_at > datetime('now', '-7 days')) AS week, COUNT(DISTINCT user_id) FILTER (WHERE created_at > datetime('now', '-7 days')) AS people, COUNT(*) FILTER (WHERE action LIKE 'booking.%' AND created_at > datetime('now', '-7 days')) AS bookings FROM audit_log WHERE action != 'user.login'"),
+    all("SELECT split_part(action, '.', 1) AS area, COUNT(*)::int AS n FROM audit_log WHERE action != 'user.login' AND created_at > datetime('now', '-30 days') GROUP BY 1 ORDER BY n DESC LIMIT 8"),
+    all("SELECT u.id, u.name, l.role, MAX(a.name) AS agency, COUNT(*)::int AS n FROM audit_log l JOIN users u ON u.id = l.user_id LEFT JOIN agencies a ON a.id = l.agency_id WHERE l.action != 'user.login' AND l.created_at > datetime('now', '-30 days') GROUP BY u.id, u.name, l.role ORDER BY n DESC LIMIT 6"),
+  ]);
   res.page('admin/log', {
     title: 'Activity log', entries: rows.slice(0, 100).map((l) => (l.action === 'settings.updated' ? { ...l, summary: niceSettingKeys(l.summary) } : l)), more: rows.length > 100, page, f, users, agencies, areas: LOG_AREAS, roles: LOG_ROLES, pulse, busy, people,
   });
@@ -448,8 +453,10 @@ router.get('/bookings', h(async (req, res) => {
 router.get('/bookings/:id', h(async (req, res, next) => {
   const booking = await one('SELECT b.*, a.name AS agency_name FROM bookings b JOIN agencies a ON a.id = b.agency_id WHERE b.id = ?', num(req.params.id));
   if (!booking) return next();
-  const full = booking.quote_id ? await svc.getQuote(booking.quote_id) : null;
-  const invoices = await all('SELECT * FROM invoices WHERE booking_id = ? OR (quote_id = ? AND quote_id IS NOT NULL) ORDER BY id DESC', booking.id, booking.quote_id);
+  const [full, invoices] = await Promise.all([
+    booking.quote_id ? svc.getQuote(booking.quote_id) : null,
+    all('SELECT * FROM invoices WHERE booking_id = ? OR (quote_id = ? AND quote_id IS NOT NULL) ORDER BY id DESC', booking.id, booking.quote_id),
+  ]);
   res.page('admin/booking', { title: `Booking ${booking.code}`, booking, full, invoices });
 }));
 
@@ -511,19 +518,22 @@ async function ledgerQuery(q) {
 
 router.get('/ledger', h(async (req, res) => {
   const f = await ledgerQuery(req.query);
-  const txns = await all(`SELECT t.*, a.name AS agency_name FROM wallet_txns t JOIN agencies a ON a.id = t.agency_id WHERE ${f.where} ORDER BY t.id DESC LIMIT 500`, ...f.args);
-  const byType = await all(`SELECT t.type, COUNT(*) AS n, COALESCE(SUM(t.amount), 0) AS total FROM wallet_txns t WHERE ${f.where} GROUP BY t.type`, ...f.args);
-  const count = await one(`SELECT COUNT(*) AS n FROM wallet_txns t WHERE ${f.where}`, ...f.args);
-  const money = await one(`SELECT COALESCE(SUM(wallet_balance), 0) AS wallets, COALESCE(SUM(credit_used), 0) AS credit,
-      COALESCE(SUM(CASE WHEN wallet_balance > 0 THEN wallet_balance ELSE 0 END), 0) AS held FROM agencies`);
-  const pendingBank = await one("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM topup_requests WHERE status = 'pending' AND method = 'bank'");
-  // Each wallet's balance must equal the sum of its ledger entries; anything else means money moved without a record.
-  const mismatches = await all(`SELECT a.id, a.name, a.wallet_balance, COALESCE(SUM(t.amount), 0) AS ledger
+  const [txns, byType, count, money, pendingBank, mismatches, agencies] = await Promise.all([
+    all(`SELECT t.*, a.name AS agency_name FROM wallet_txns t JOIN agencies a ON a.id = t.agency_id WHERE ${f.where} ORDER BY t.id DESC LIMIT 500`, ...f.args),
+    all(`SELECT t.type, COUNT(*) AS n, COALESCE(SUM(t.amount), 0) AS total FROM wallet_txns t WHERE ${f.where} GROUP BY t.type`, ...f.args),
+    one(`SELECT COUNT(*) AS n FROM wallet_txns t WHERE ${f.where}`, ...f.args),
+    one(`SELECT COALESCE(SUM(wallet_balance), 0) AS wallets, COALESCE(SUM(credit_used), 0) AS credit,
+      COALESCE(SUM(CASE WHEN wallet_balance > 0 THEN wallet_balance ELSE 0 END), 0) AS held FROM agencies`),
+    one("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM topup_requests WHERE status = 'pending' AND method = 'bank'"),
+    // Each wallet's balance must equal the sum of its ledger entries; anything else means money moved without a record.
+    all(`SELECT a.id, a.name, a.wallet_balance, COALESCE(SUM(t.amount), 0) AS ledger
     FROM agencies a LEFT JOIN wallet_txns t ON t.agency_id = a.id GROUP BY a.id, a.name, a.wallet_balance
-    HAVING ABS(a.wallet_balance - COALESCE(SUM(t.amount), 0)) >= 0.01 ORDER BY a.name`);
+    HAVING ABS(a.wallet_balance - COALESCE(SUM(t.amount), 0)) >= 0.01 ORDER BY a.name`),
+    all('SELECT id, name FROM agencies ORDER BY name'),
+  ]);
   res.page('admin/ledger', {
     title: 'Wallet ledger', ...f, txns, total: count.n, byType: Object.fromEntries(byType.map((r) => [r.type, r])), money, pendingBank, mismatches,
-    agencies: await all('SELECT id, name FROM agencies ORDER BY name'), txnLabel, TXN_LABELS,
+    agencies, txnLabel, TXN_LABELS,
   });
 }));
 

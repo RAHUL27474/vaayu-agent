@@ -30,16 +30,21 @@ const STAFF_ROLES = {
   accounts: { label: 'Accounts', hint: 'Wallet, invoices, bookings, quotes (view), customers and reports. No inventory or settings.' },
 };
 const SALES_DENY = /^\/(wallet|settings|api|team|reports|website)(\/|$)/;
-const ACCOUNTS_ALLOW = /^\/($|wallet|invoices|bookings|reports|customers|quotes|notifications|support|search|offers)(\/|$)?/;
-function staffCan(role, p) {
+const ACCOUNTS_ALLOW = /^\/($|wallet|invoices|bookings|reports|customers|quotes|notifications|support|search|offers)(\/|$)/;
+// Accounts staff view quotes but don't build them: on a quote they can only take it to payment and invoices.
+const ACCOUNTS_QUOTE_ACTIONS = /^\/quotes\/\d+\/(book|pay-online|invoice|request-booking|withdraw-request|coupon|coupon\/remove)$/;
+function staffCan(role, p, method = 'GET') {
   if (!role || role === 'owner') return true;
   if (role === 'sales') return !SALES_DENY.test(p);
-  if (role === 'accounts') return p === '/' || p === '' || ACCOUNTS_ALLOW.test(p);
+  if (role === 'accounts') {
+    if (method !== 'GET' && method !== 'HEAD' && /^\/quotes(\/|$)/.test(p)) return ACCOUNTS_QUOTE_ACTIONS.test(p);
+    return p === '/' || p === '' || ACCOUNTS_ALLOW.test(p);
+  }
   return false;
 }
 function limitStaffRole(req, res, next) {
-  if (staffCan(req.user.agency_role, req.path)) return next();
-  req.flash('warn', `Your role (${(STAFF_ROLES[req.user.agency_role] || {}).label || req.user.agency_role}) can't open that page. Ask your agency owner if you need it.`);
+  if (staffCan(req.user.agency_role, req.path, req.method)) return next();
+  req.flash('warn', `Your role (${(STAFF_ROLES[req.user.agency_role] || {}).label || req.user.agency_role}) can't do that. Ask your agency owner if you need it.`);
   return res.redirect('/agent');
 }
 

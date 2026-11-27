@@ -114,14 +114,25 @@ router.get('/', h(async (req, res) => {
   }
   const a = req.agency.id;
   const month = new Date().toISOString().slice(0, 7);
-  // Independent lookups run in parallel.
-  const [followUps, stats, openLeads, quotes, bookings, leads, upcoming, featuredRows, hasPackage, months, offers] = await Promise.all([
+  const prevMonth = (() => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); })();
+  // Independent lookups run in parallel; the small counts share one query (each query is a round trip to the database).
+  const [followUps, counts, quotes, bookings, leads, upcoming, featuredRows, months, offers] = await Promise.all([
     all(`SELECT l.*, u.name AS assignee FROM leads l LEFT JOIN users u ON u.id = l.assigned_to WHERE ${DUE_FOLLOW_UPS} ORDER BY l.follow_up_on, l.id LIMIT 8`, a, indiaToday()),
     one(
-      `SELECT COUNT(*) AS bookings, COALESCE(SUM(total_sell), 0) AS sales, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS earnings
-       FROM bookings WHERE agency_id = ? AND status != 'cancelled' AND substr(created_at, 1, 7) = ?`, a, month,
+      `SELECT
+         COUNT(*) FILTER (WHERE b.status != 'cancelled' AND substr(b.created_at, 1, 7) = ?) AS m_bookings,
+         COALESCE(SUM(b.total_sell) FILTER (WHERE b.status != 'cancelled' AND substr(b.created_at, 1, 7) = ?), 0) AS m_sales,
+         COALESCE(SUM(b.total_sell - b.total_net - b.total_cost) FILTER (WHERE b.status != 'cancelled' AND substr(b.created_at, 1, 7) = ?), 0) AS m_earnings,
+         COALESCE(SUM(b.total_sell - b.total_net - b.total_cost) FILTER (WHERE b.status != 'cancelled' AND substr(b.created_at, 1, 7) = ?), 0) AS prev_earnings,
+         COUNT(*) FILTER (WHERE b.status != 'cancelled') AS life_n,
+         COALESCE(SUM(b.total_sell - b.total_net - b.total_cost) FILTER (WHERE b.status != 'cancelled'), 0) AS life_earnings,
+         MIN(b.created_at) FILTER (WHERE b.status != 'cancelled') AS life_first,
+         (SELECT COUNT(*) FROM leads WHERE agency_id = ? AND status IN ('new', 'contacted')) AS open_leads,
+         (SELECT COUNT(*) FROM customers WHERE agency_id = ?) AS customers,
+         (SELECT COUNT(*) FROM quotes WHERE agency_id = ? AND status = 'sent') AS awaiting,
+         EXISTS (SELECT 1 FROM packages WHERE agency_id = ?) AS has_package
+       FROM bookings b WHERE b.agency_id = ?`, month, month, month, prevMonth, a, a, a, a, a,
     ),
-    one("SELECT COUNT(*) AS n FROM leads WHERE agency_id = ? AND status IN ('new', 'contacted')", a).then((r) => r.n),
     all('SELECT * FROM quotes WHERE agency_id = ? ORDER BY updated_at DESC LIMIT 5', a),
     all('SELECT * FROM bookings WHERE agency_id = ? ORDER BY id DESC LIMIT 5', a),
     all("SELECT * FROM leads WHERE agency_id = ? AND status = 'new' ORDER BY id DESC LIMIT 5", a),
@@ -129,7 +140,6 @@ router.get('/', h(async (req, res) => {
          LEFT JOIN customers c ON c.id = b.customer_id LEFT JOIN quotes q ON q.id = b.quote_id LEFT JOIN packages p ON p.id = q.package_id
          WHERE b.agency_id = ? AND b.status = 'confirmed' AND b.travel_date >= ? ORDER BY b.travel_date LIMIT 5`, a, indiaToday()),
     all("SELECT * FROM products WHERE status = 'published' ORDER BY created_at DESC, id DESC LIMIT 5"),
-    one('SELECT 1 FROM packages WHERE agency_id = ?', a).then(Boolean),
     // Last 6 calendar months, oldest first, including months without bookings.
     all(
       `SELECT substr(created_at, 1, 7) AS month, SUM(total_sell - total_net - total_cost) AS earnings, COUNT(*) AS n FROM bookings
@@ -137,13 +147,13 @@ router.get('/', h(async (req, res) => {
     ),
     liveOffers(3),
   ]);
-  const prevMonth = (() => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7); })();
-  const [prev, life, customersCount, awaiting] = await Promise.all([
-    one("SELECT COALESCE(SUM(total_sell - total_net - total_cost), 0) AS earnings FROM bookings WHERE agency_id = ? AND status != 'cancelled' AND substr(created_at, 1, 7) = ?", a, prevMonth),
-    one("SELECT COUNT(*) AS n, COALESCE(SUM(total_sell - total_net - total_cost), 0) AS earnings, MIN(created_at) AS first FROM bookings WHERE agency_id = ? AND status != 'cancelled'", a),
-    one('SELECT COUNT(*) AS n FROM customers WHERE agency_id = ?', a).then((r) => r.n),
-    one("SELECT COUNT(*) AS n FROM quotes WHERE agency_id = ? AND status = 'sent'", a).then((r) => r.n),
-  ]);
+  const stats = { bookings: counts.m_bookings, sales: counts.m_sales, earnings: counts.m_earnings };
+  const openLeads = counts.open_leads;
+  const hasPackage = Boolean(counts.has_package);
+  const prev = { earnings: counts.prev_earnings };
+  const life = { n: counts.life_n, earnings: counts.life_earnings, first: counts.life_first };
+  const customersCount = counts.customers;
+  const awaiting = counts.awaiting;
   const hour = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }));
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const daysTo = (d) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${indiaToday()}T00:00:00Z`)) / 864e5);
@@ -239,14 +249,17 @@ for (const [path, kind] of Object.entries(KIND_BY_PATH)) {
     const party = partyOf(req.query);
     const lines = productLines(p, party).map((l) => ({ ...l, supplier: 'vaayu', sell: null }));
     const own = ownMarkup(req.query);
-    const more = (await all("SELECT * FROM products WHERE status = 'published' AND kind = ? AND city = ? AND id != ? ORDER BY net_adult LIMIT 4", kind, p.city, p.id))
-      .map(withPrices(req.agency, res.locals.settings));
+    const [moreRows, quotes, packages, customers] = await Promise.all([
+      all("SELECT * FROM products WHERE status = 'published' AND kind = ? AND city = ? AND id != ? ORDER BY net_adult LIMIT 4", kind, p.city, p.id),
+      openQuotes(req.agency.id), ownPackages(req.agency.id), customersOf(req.agency.id),
+    ]);
+    const more = moreRows.map(withPrices(req.agency, res.locals.settings));
     res.page('agent/product', {
       title: p.title, kind, cfg, p: withPrices(req.agency, res.locals.settings)(p), d: parseProductDetails(p.details), party, lines, priced: priceLines(own || req.agency, lines), more,
       own, defaultRule: markupRule(req.agency, kind),
       // What the tier saves on this calculation (net, before markup).
       tierSaving: p.tier ? Math.max(0, priceLines(own || req.agency, productLines(raw, party).map((l) => ({ ...l, supplier: 'vaayu', sell: null }))).net - priceLines(own || req.agency, lines).net) : 0, season: seasonOn(p, party.date), soldOut: soldOutOn(p, party.date), seasons: listOf(p.seasons), blackouts: listOf(p.blackouts),
-      quotes: await openQuotes(req.agency.id), packages: await ownPackages(req.agency.id), customers: await customersOf(req.agency.id), mealPlans: PRODUCT_MEAL_PLANS,
+      quotes, packages, customers, mealPlans: PRODUCT_MEAL_PLANS,
     });
   }));
 
@@ -318,9 +331,11 @@ router.get('/packages', h(async (req, res) => {
   const rows = await all(
     'SELECT p.*, (SELECT COUNT(*) FROM quotes q WHERE q.package_id = p.id) AS quotes FROM packages p WHERE p.agency_id = ? ORDER BY p.updated_at DESC', req.agency.id,
   );
-  const packages = await Promise.all(rows.map(async (p) => {
-    const d = parseDetails(p.details);
-    return { ...p, price: await fromPrice(req.agency, p, d), services: d.items.length, problems: publishProblems(p, d) };
+  const details = rows.map((p) => parseDetails(p.details));
+  const products = await productMap(details.flatMap(itemIds)); // one query for every package's services
+  const packages = await Promise.all(rows.map(async (p, i) => {
+    const d = details[i];
+    return { ...p, price: await fromPrice(req.agency, p, d, products), services: d.items.length, problems: publishProblems(p, d) };
   }));
   res.page('agent/packages', { title: 'My packages', packages });
 }));
@@ -430,11 +445,14 @@ router.post('/packages/:id/quote', h(async (req, res) => {
 
 router.get('/vaayutrip-packages', h(async (req, res) => {
   const dest = str(req.query.destination);
-  const rows = await all(
-    `SELECT * FROM packages WHERE agency_id IS NULL AND status = 'published' ${dest ? 'AND destination = ?' : ''} ORDER BY updated_at DESC`, ...(dest ? [dest] : []),
-  );
-  const packages = await Promise.all(rows.map(async (p) => ({ ...p, price: await fromPrice(req.agency, p, parseDetails(p.details)), next: (await svc.departuresOf(p.id)).find((d) => d.left > 0) || null })));
-  const destinations = (await all("SELECT destination, COUNT(*) AS n FROM packages WHERE agency_id IS NULL AND status = 'published' GROUP BY destination ORDER BY destination"));
+  const [rows, destinations] = await Promise.all([
+    all(`SELECT * FROM packages WHERE agency_id IS NULL AND status = 'published' ${dest ? 'AND destination = ?' : ''} ORDER BY updated_at DESC`, ...(dest ? [dest] : [])),
+    all("SELECT destination, COUNT(*) AS n FROM packages WHERE agency_id IS NULL AND status = 'published' GROUP BY destination ORDER BY destination"),
+  ]);
+  // Products and departures for every card in two queries, not two per package.
+  const details = rows.map((p) => parseDetails(p.details));
+  const [products, deps] = await Promise.all([productMap(details.flatMap(itemIds)), svc.departuresOfMany(rows.map((p) => p.id))]);
+  const packages = await Promise.all(rows.map(async (p, i) => ({ ...p, price: await fromPrice(req.agency, p, details[i], products), next: deps.get(p.id).find((d) => d.left > 0) || null })));
   res.page('agent/vaayu-packages', { title: 'VaayuTrip packages', packages, destinations, dest });
 }));
 
@@ -445,11 +463,14 @@ router.get('/vaayutrip-packages/:id', h(async (req, res, next) => {
   const products = await productMap(itemIds(details));
   const calc = await calcPackage(pkg, details, req.query, products, req.agency);
   const stdNet = res.locals.tierNow.tier !== 'standard' ? priceLines(req.agency, (await calcPackage(pkg, details, req.query, products, null)).lines).net : 0;
+  const [view, from, customers, copies, departures] = await Promise.all([
+    present(pkg, details, products), fromPrice(req.agency, pkg, details, products), customersOf(req.agency.id),
+    all('SELECT id, title FROM packages WHERE agency_id = ? AND copied_from = ?', req.agency.id, pkg.id),
+    svc.departuresOf(pkg.id),
+  ]);
   res.page('agent/vaayu-package', {
     title: pkg.title, pkg, details, calc, priced: priceLines(req.agency, calc.lines),
-    view: await present(pkg, details, products), from: await fromPrice(req.agency, pkg, details, products), customers: await customersOf(req.agency.id),
-    copies: await all('SELECT id, title FROM packages WHERE agency_id = ? AND copied_from = ?', req.agency.id, pkg.id),
-    departures: await svc.departuresOf(pkg.id),
+    view, from, customers, copies, departures,
     tierSaving: stdNet ? Math.max(0, stdNet - priceLines(req.agency, calc.lines).net) : 0,
   });
 }));
@@ -516,16 +537,19 @@ router.post('/quotes', h(async (req, res) => {
 
 router.get('/quotes/:id', h(async (req, res) => {
   const full = await ownQuote(req);
-  // Back from paying online but the return page was missed: confirm it now (the booking is made if it went through).
-  const paying = await one("SELECT order_id FROM payments WHERE purpose = 'booking' AND ref_id = ? AND agency_id = ? AND status = 'pending' ORDER BY id DESC", full.quote.id, req.agency.id);
+  const [paying, settings, invoices, booking, customers] = await Promise.all([
+    // Back from paying online but the return page was missed: confirm it now (the booking is made if it went through).
+    one("SELECT order_id FROM payments WHERE purpose = 'booking' AND ref_id = ? AND agency_id = ? AND status = 'pending' ORDER BY id DESC", full.quote.id, req.agency.id),
+    getSettings(),
+    all('SELECT * FROM invoices WHERE quote_id = ? ORDER BY id DESC', full.quote.id),
+    one('SELECT * FROM bookings WHERE quote_id = ? ORDER BY id DESC', full.quote.id),
+    customersOf(req.agency.id),
+  ]);
   if (paying) {
     const p = await payments.settle(paying.order_id).catch(() => null);
     if (p?.bookingId) { req.flash('success', 'Your online payment went through and the booking is confirmed.'); return res.redirect(`/agent/bookings/${p.bookingId}`); }
     if (p?.status === 'pending') full.payingOnline = true;
   }
-  const settings = await getSettings();
-  const invoices = await all('SELECT * FROM invoices WHERE quote_id = ? ORDER BY id DESC', full.quote.id);
-  const booking = await one('SELECT * FROM bookings WHERE quote_id = ? ORDER BY id DESC', full.quote.id);
   const customerTotal = withTax(full.priced.sell, settings, { international: Boolean(full.quote.is_international) });
   // An offer code applied on this quote: its discount now, or why it no longer works.
   let coupon = null;
@@ -543,7 +567,7 @@ router.get('/quotes/:id', h(async (req, res) => {
     coupon, couponTry, approval,
     kinds: KINDS, kindMarkups, agencyRates: kindMarkups(req.agency),
     title: full.quote.title, ...full, invoices, booking, customerTotal, netPayable, phonepeOn: phonepe.enabled(),
-    customers: await customersOf(req.agency.id), branded: agencyHasBranding(req.agency),
+    customers, branded: agencyHasBranding(req.agency),
     pkgView: full.quote.package_snapshot ? JSON.parse(full.quote.package_snapshot) : null,
   });
 }));
@@ -763,11 +787,13 @@ router.get('/bookings', h(async (req, res) => {
 router.get('/bookings/:id', h(async (req, res, next) => {
   const booking = await one('SELECT * FROM bookings WHERE id = ? AND agency_id = ?', num(req.params.id), req.agency.id);
   if (!booking) return next();
-  const full = booking.quote_id ? await svc.getQuote(booking.quote_id, req.agency.id) : null;
-  const invoices = await all('SELECT * FROM invoices WHERE booking_id = ? OR (quote_id = ? AND quote_id IS NOT NULL) ORDER BY id DESC', booking.id, booking.quote_id);
-  // Trips not built from a package take their cover photo from the first VaayuTrip service in them.
-  const firstItem = full && full.items.find((i) => i.product_id);
-  const heroProduct = firstItem ? await one('SELECT image_url, city, title FROM products WHERE id = ?', firstItem.product_id) : null;
+  const [full, invoices, heroProduct] = await Promise.all([
+    booking.quote_id ? svc.getQuote(booking.quote_id, req.agency.id) : null,
+    all('SELECT * FROM invoices WHERE booking_id = ? OR (quote_id = ? AND quote_id IS NOT NULL) ORDER BY id DESC', booking.id, booking.quote_id),
+    // Trips not built from a package take their cover photo from the first VaayuTrip service in them.
+    booking.quote_id ? one(`SELECT p.image_url, p.city, p.title FROM quote_items i JOIN products p ON p.id = i.product_id
+      WHERE i.quote_id = ? ORDER BY i.sort, i.id LIMIT 1`, booking.quote_id) : null,
+  ]);
   res.page('agent/booking', { title: `Booking ${booking.code}`, booking, full, invoices, heroProduct });
 }));
 
@@ -901,10 +927,14 @@ router.get('/leads', h(async (req, res) => {
      WHERE ${due ? DUE_FOLLOW_UPS : `l.agency_id = ? ${status ? 'AND l.status = ?' : ''}`} ORDER BY ${due ? 'l.follow_up_on, l.id' : 'l.id DESC'}`,
     req.agency.id, ...(due ? [indiaToday()] : status ? [status] : []),
   );
-  const counts = Object.fromEntries((await all('SELECT status, COUNT(*) AS n FROM leads WHERE agency_id = ? GROUP BY status', req.agency.id)).map((r) => [r.status, r.n]));
-  const dueCount = (await one(`SELECT COUNT(*) AS n FROM leads l WHERE ${DUE_FOLLOW_UPS}`, req.agency.id, indiaToday())).n;
-  const staff = await all("SELECT id, name FROM users WHERE agency_id = ? AND is_active = 1 AND agency_role IN ('owner', 'sales') ORDER BY name", req.agency.id);
-  res.page('agent/leads', { title: 'Leads', leads, status, due, dueCount, counts, statuses: LEAD_STATUSES, staff, packages: await ownPackages(req.agency.id) });
+  const [countRows, due1, staff, packages] = await Promise.all([
+    all('SELECT status, COUNT(*) AS n FROM leads WHERE agency_id = ? GROUP BY status', req.agency.id),
+    one(`SELECT COUNT(*) AS n FROM leads l WHERE ${DUE_FOLLOW_UPS}`, req.agency.id, indiaToday()),
+    all("SELECT id, name FROM users WHERE agency_id = ? AND is_active = 1 AND agency_role IN ('owner', 'sales') ORDER BY name", req.agency.id),
+    ownPackages(req.agency.id),
+  ]);
+  const counts = Object.fromEntries(countRows.map((r) => [r.status, r.n]));
+  res.page('agent/leads', { title: 'Leads', leads, status, due, dueCount: due1.n, counts, statuses: LEAD_STATUSES, staff, packages });
 }));
 
 router.post('/leads/:id/follow-up', h(async (req, res, next) => {
@@ -1220,31 +1250,33 @@ router.get('/reports', h(async (req, res) => {
   const { from, to } = reportPeriod(req.query);
   const range = [a, from, to];
   const inRange = "agency_id = ? AND sqldate(created_at) BETWEEN ? AND ?";
-  const totals = await one(
-    `SELECT COUNT(*) FILTER (WHERE status != 'cancelled') AS bookings,
-       COALESCE(SUM(total_sell) FILTER (WHERE status != 'cancelled'), 0) AS sales,
-       COALESCE(SUM(total_net) FILTER (WHERE status != 'cancelled'), 0) AS net,
-       COALESCE(SUM(total_sell - total_net - total_cost) FILTER (WHERE status != 'cancelled'), 0) AS earnings,
-       COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled,
-       COALESCE(SUM(refund_amount) FILTER (WHERE status = 'cancelled'), 0) AS refunds
-     FROM bookings WHERE ${inRange}`, ...range,
-  );
-  const months = await all(
-    `SELECT substr(created_at, 1, 7) AS month, COUNT(*) AS bookings, SUM(total_sell) AS sales, SUM(total_sell - total_net - total_cost) AS earnings
-     FROM bookings WHERE ${inRange} AND status != 'cancelled' GROUP BY month ORDER BY month`, ...range,
-  );
-  const destinations = await all(
-    `SELECT COALESCE(p.destination, 'Custom trips') AS destination, COUNT(*) AS bookings, SUM(b.total_sell) AS sales, SUM(b.total_sell - b.total_net - b.total_cost) AS earnings
-     FROM bookings b LEFT JOIN quotes q ON q.id = b.quote_id LEFT JOIN packages p ON p.id = q.package_id
-     WHERE b.agency_id = ? AND sqldate(b.created_at) BETWEEN ? AND ? AND b.status != 'cancelled'
-     GROUP BY 1 ORDER BY sales DESC LIMIT 8`, ...range,
-  );
-  const customers = await all(
-    `SELECT c.id, c.name, COUNT(*) AS bookings, SUM(b.total_sell) AS sales
-     FROM bookings b JOIN customers c ON c.id = b.customer_id
-     WHERE b.agency_id = ? AND sqldate(b.created_at) BETWEEN ? AND ? AND b.status != 'cancelled'
-     GROUP BY c.id ORDER BY sales DESC LIMIT 5`, ...range,
-  );
+  const [totals, months, destinations, customers] = await Promise.all([
+    one(
+      `SELECT COUNT(*) FILTER (WHERE status != 'cancelled') AS bookings,
+         COALESCE(SUM(total_sell) FILTER (WHERE status != 'cancelled'), 0) AS sales,
+         COALESCE(SUM(total_net) FILTER (WHERE status != 'cancelled'), 0) AS net,
+         COALESCE(SUM(total_sell - total_net - total_cost) FILTER (WHERE status != 'cancelled'), 0) AS earnings,
+         COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled,
+         COALESCE(SUM(refund_amount) FILTER (WHERE status = 'cancelled'), 0) AS refunds
+       FROM bookings WHERE ${inRange}`, ...range,
+    ),
+    all(
+      `SELECT substr(created_at, 1, 7) AS month, COUNT(*) AS bookings, SUM(total_sell) AS sales, SUM(total_sell - total_net - total_cost) AS earnings
+       FROM bookings WHERE ${inRange} AND status != 'cancelled' GROUP BY month ORDER BY month`, ...range,
+    ),
+    all(
+      `SELECT COALESCE(p.destination, 'Custom trips') AS destination, COUNT(*) AS bookings, SUM(b.total_sell) AS sales, SUM(b.total_sell - b.total_net - b.total_cost) AS earnings
+       FROM bookings b LEFT JOIN quotes q ON q.id = b.quote_id LEFT JOIN packages p ON p.id = q.package_id
+       WHERE b.agency_id = ? AND sqldate(b.created_at) BETWEEN ? AND ? AND b.status != 'cancelled'
+       GROUP BY 1 ORDER BY sales DESC LIMIT 8`, ...range,
+    ),
+    all(
+      `SELECT c.id, c.name, COUNT(*) AS bookings, SUM(b.total_sell) AS sales
+       FROM bookings b JOIN customers c ON c.id = b.customer_id
+       WHERE b.agency_id = ? AND sqldate(b.created_at) BETWEEN ? AND ? AND b.status != 'cancelled'
+       GROUP BY c.id ORDER BY sales DESC LIMIT 5`, ...range,
+    ),
+  ]);
   res.page('agent/reports', { title: 'Reports', from, to, totals, months, destinations, customers });
 }));
 
