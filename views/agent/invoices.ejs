@@ -1,12 +1,22 @@
+<%
+  const IK = { customer_agent: ['Your brand', 'Invoices you issued to customers', 'green', 'receipt'], customer_vaayu: ['VaayuTrip → customer', 'Issued by VaayuTrip in your customer’s name', 'blue', 'file'], b2b: ['VaayuTrip → you', 'Net invoices for your bookings', 'violet', 'building'] };
+%>
 <div class="page-head"><div><h1>Invoices</h1><p>Invoices you issued to customers, and VaayuTrip's net invoices to you.</p></div></div>
+<% if (Object.keys(sums).length) { %>
+<div class="grid grid-3 tone-cards" style="margin-bottom:20px">
+  <% Object.entries(IK).forEach(([k, [label, sub, tone, ic]]) => { const t = sums[k] || { n: 0, total: 0, month: 0 }; %>
+    <div class="stat tone-<%= tone %>"><span class="stat-ico"><%- icon(ic) %></span><div class="label"><%= label %></div><div class="value"><%= inr(t.total) %></div><div class="sub"><%= plural(t.n, 'invoice') %><%= t.month ? ` · ${t.month} this month` : '' %></div></div>
+  <% }) %>
+</div>
+<% } %>
 <div class="card flush">
   <% if (!invoices.length) { %><div class="empty"><span class="big"><%- icon('receipt') %></span><b>No invoices yet</b><p>Issue a customer invoice from any quote. VaayuTrip's invoices for your bookings appear here too.</p><div class="empty-actions"><a class="btn btn-primary btn-sm" href="/agent/quotes"><%- icon('file') %>Go to your quotes</a></div></div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Number</th><th>Type</th><th>Billed to</th><th>Trip</th><th class="num">Total</th></tr></thead>
     <% invoices.forEach(i => { %>
       <tr class="click" data-href="/agent/invoices/<%= i.id %>">
-        <td><b><%= i.number %></b><br><small><%= fmtDate(i.created_at) %></small></td>
-        <td><span class="badge <%= i.kind === 'customer_agent' ? 'ok' : i.kind === 'b2b' ? '' : 'info' %>"><%= { customer_agent: 'Your brand', customer_vaayu: 'VaayuTrip → customer', b2b: 'VaayuTrip → you' }[i.kind] %></span></td>
+        <td><span class="inv-id feed-<%= (IK[i.kind] || IK.b2b)[2] %>"><span class="feed-ico"><%- icon((IK[i.kind] || IK.b2b)[3]) %></span><span><b><%= i.number %></b><br><small><%= fmtDate(i.created_at) %></small></span></span></td>
+        <td><span class="feed-tag feed-<%= (IK[i.kind] || IK.b2b)[2] %>"><%= (IK[i.kind] || IK.b2b)[0] %></span></td>
         <td><%= i.doc.buyer.legalName || i.doc.buyer.name %></td>
         <td><%= i.doc.meta.trip %><br><small><%= i.quote_code || '' %></small></td>
         <td class="num"><%= inr(i.total, { decimals: 2 }) %></td>

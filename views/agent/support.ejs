@@ -2,17 +2,28 @@
 <div class="split">
   <div>
     <div class="card flush">
-      <div class="card-head" style="padding:18px 20px 0"><h2 class="h3">Your tickets</h2></div>
+<%
+        const TC = { booking: ['clipboard', 'green'], payment: ['wallet', 'amber'], technical: ['monitor', 'blue'], general: ['help', 'violet'] };
+        const ST = { open: ['Waiting on VaayuTrip', 'amber'], answered: ['VaayuTrip replied', 'green'], closed: ['Closed', 'slate'] };
+        const tally = { open: 0, answered: 0, closed: 0 }; tickets.forEach((t) => { tally[t.status] = (tally[t.status] || 0) + 1; });
+      %>
+      <div class="card-head tk-head"><h2 class="h3">Your tickets</h2>
+        <% if (tickets.length) { %><div class="tk-tally"><% ['answered', 'open', 'closed'].filter((k) => tally[k]).forEach(k => { %><span class="feed-tag feed-<%= ST[k][1] %>"><%= tally[k] %> <%= k === 'answered' ? 'replied' : k %></span><% }) %></div><% } %>
+        <a class="btn btn-sm btn-primary" href="#new"><%- icon('plus') %>New ticket</a>
+      </div>
       <% if (!tickets.length) { %><div class="empty"><span class="big"><%- icon('message') %></span><b>No tickets yet</b><p>Questions about a booking or payment? Open a ticket and our team replies here.</p></div><% } else { %>
-      <div class="table-wrap"><table class="table" style="margin-top:10px">
-        <% tickets.forEach(t => { %>
-          <tr class="click" data-href="/agent/support/<%= t.id %>">
-            <td><b><%= t.subject %></b><br><small><%= t.code %> · <%= categories[t.category] %> · <%= t.messages %> message<%= t.messages === 1 ? '' : 's' %></small></td>
-            <td><span class="badge <%= t.status %>"><%= t.status %></span></td>
-            <td class="num"><small><%= fmtDate(t.updated_at) %></small></td>
-          </tr>
+      <ul class="tk-list">
+        <% tickets.forEach(t => { const c = TC[t.category] || TC.general; const st = ST[t.status] || ST.open; %>
+          <li class="tk feed-<%= c[1] %> <%= t.status === 'closed' ? 'is-closed' : '' %>">
+            <span class="feed-ico"><%- icon(c[0]) %></span>
+            <div class="tk-body">
+              <a href="/agent/support/<%= t.id %>"><b><%= t.subject %></b></a>
+              <small><%= t.code %> · <%= categories[t.category] %> · <%= plural(t.messages, 'message') %></small>
+            </div>
+            <div class="tk-side"><span class="tk-st feed-<%= st[1] %>"><i></i><%= st[0] %></span><small><%= fmtDate(t.updated_at) %></small></div>
+          </li>
         <% }) %>
-      </table></div>
+      </ul>
       <% } %>
     </div>
     <form class="card" id="new" method="post" action="/agent/support">

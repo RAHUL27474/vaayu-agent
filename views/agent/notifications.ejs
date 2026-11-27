@@ -1,13 +1,53 @@
-<div class="page-head"><div><h1>Notifications</h1><p><%= user.role === 'agent' ? 'Booking updates, wallet credits, offers and replies from VaayuTrip.' : 'New agents, top-ups, cancellation requests and tickets that need the team.' %></p></div></div>
-<div class="card notice-list">
-  <% if (!items.length) { %><div class="empty"><span class="big"><%- icon('bell') %></span><b>You're all caught up, <%= user.name.split(' ')[0] %></b><p>Booking updates, wallet credits and replies from VaayuTrip show up here.</p></div><% } %>
-  <% items.forEach(n => { %>
-    <div class="n <%= n.is_read ? '' : 'unread' %>">
-      <div style="flex:1">
-        <b><%= n.title %></b>
-        <% if (n.body) { %><div class="muted"><%= n.body %></div><% } %>
-      </div>
-      <div class="num"><small class="muted"><%= fmtDate(n.created_at) %></small><% if (n.link) { %><br><a href="<%= n.link %>">Open →</a><% } %></div>
-    </div>
+<%
+  // Sort each notification into a kind from its title, so it gets an icon, a colour and a filter tab.
+  const KINDS = [
+    ['trips', 'Trips', 'clipboard', 'green', /booking|trip|cancellation|not booked/i],
+    ['money', 'Money', 'wallet', 'amber', /wallet|top-up|credit|payment|utr/i],
+    ['offers', 'Offers', 'tag', 'pink', /offer|package|new (flight|hotel|activit|transfer|visa|insurance|tour|cruise)/i],
+    ['support', 'Support', 'message', 'blue', /ticket|support/i],
+    ['web', 'Website & leads', 'globe', 'teal', /website|enquiry|api lead/i],
+    ['account', 'Account', 'building', 'violet', /./],
+  ];
+  const URGENT = /mismatch|repeated|overdue|suspended|not verified|need attention|not booked|declined|low wallet|password reset/i;
+  const kindOf = (n) => KINDS.find((k) => k[4].test(n.title));
+  const f = KINDS.some((k) => k[0] === query.f) ? query.f : '';
+  const counts = {}; items.forEach((n) => { const k = kindOf(n)[0]; counts[k] = (counts[k] || 0) + 1; });
+  const shown = f ? items.filter((n) => kindOf(n)[0] === f) : items;
+  const fresh = items.filter((n) => !n.is_read).length;
+  const ist = (t) => new Date(String(t).replace(' ', 'T') + 'Z');
+  const dayKey = (t) => ist(t).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const todayKey = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const yKey = new Date(Date.now() - 864e5).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const dayLabel = (k) => (k === todayKey ? 'Today' : k === yKey ? 'Yesterday' : new Date(k + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }));
+  const days = [];
+  for (const n of shown) { const k = dayKey(n.created_at); if (!days.length || days[days.length - 1].k !== k) days.push({ k, items: [] }); days[days.length - 1].items.push(n); }
+%>
+<div class="page-head"><div><h1>Notifications</h1><p><%= user.role === 'agent' ? 'Booking updates, wallet credits, offers and replies from VaayuTrip.' : 'New agents, top-ups, cancellation requests and tickets that need the team.' %></p></div>
+  <% if (fresh) { %><span class="nt-fresh"><i></i><%= fresh %> new since your last visit</span><% } %>
+</div>
+<% if (items.length) { %>
+<nav class="tabs nt-tabs" aria-label="Filter notifications">
+  <a href="?" class="<%= f ? '' : 'active' %>">All <small class="muted"><%= items.length %></small></a>
+  <% KINDS.filter((k) => counts[k[0]]).forEach(k => { %><a href="?f=<%= k[0] %>" class="feed-<%= k[3] %> <%= f === k[0] ? 'active' : '' %>"><%- icon(k[2]) %><%= k[1] %> <small class="muted"><%= counts[k[0]] %></small></a><% }) %>
+</nav>
+<% } %>
+<div class="card nt-card">
+  <% if (!shown.length) { %><div class="empty"><span class="big"><%- icon('bell') %></span><b>You're all caught up, <%= user.name.split(' ')[0] %></b><p>Booking updates, wallet credits and replies from VaayuTrip show up here.</p></div><% } %>
+  <% days.forEach(d => { %>
+    <section class="nt-day">
+      <h2 class="nt-day-h"><span><%= dayLabel(d.k) %></span><small><%= d.items.length %></small></h2>
+      <ul class="nt-list">
+      <% d.items.forEach(n => { const k = kindOf(n); const urgent = URGENT.test(n.title); %>
+        <li class="nt feed-<%= urgent ? 'red' : k[3] %> <%= n.is_read ? '' : 'unread' %>">
+          <span class="feed-ico"><%- icon(k[2]) %></span>
+          <div class="nt-body">
+            <b><%= n.title %></b><% if (urgent) { %> <span class="nt-flag">Needs a look</span><% } %>
+            <% if (n.body) { %><p><%= n.body %></p><% } %>
+          </div>
+          <div class="nt-side"><time datetime="<%= n.created_at %>"><%= fmtTime(n.created_at).replace(' IST', '') %></time><% if (n.link) { %><a href="<%= n.link %>">Open<%- icon('chevron') %></a><% } %></div>
+        </li>
+      <% }) %>
+      </ul>
+    </section>
   <% }) %>
 </div>

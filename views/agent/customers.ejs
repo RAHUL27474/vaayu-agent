@@ -1,4 +1,12 @@
 <div class="page-head"><div><h1>Customers</h1><p>Your client book: contacts, trips and spend.</p></div></div>
+<% if (Number(book.n)) { const n = Number(book.n), booked = Number(book.booked); %>
+<div class="grid grid-4 tone-cards" style="margin-bottom:20px">
+  <div class="stat tone-blue"><span class="stat-ico"><%- icon('users') %></span><div class="label">Clients</div><div class="value"><%= n.toLocaleString('en-IN') %></div><div class="sub"><%= booked %> have booked with you</div></div>
+  <div class="stat tone-green"><span class="stat-ico"><%- icon('plane') %></span><div class="label">Travelling soon</div><div class="value"><%= Number(book.travelling) %></div><div class="sub">with a confirmed trip ahead</div></div>
+  <div class="stat tone-violet"><span class="stat-ico"><%- icon('target') %></span><div class="label">Booked at least once</div><div class="value"><%= Math.round(booked / n * 100) %>%</div><div class="meter" role="img" aria-label="<%= Math.round(booked / n * 100) %>% of clients have booked"><i style="width:<%= Math.min(100, Math.round(booked / n * 100)) %>%"></i></div></div>
+  <div class="stat tone-amber"><span class="stat-ico"><%- icon('wallet') %></span><div class="label">Lifetime spend</div><div class="value"><%= inr(book.spend) %></div><div class="sub"><%= booked ? inr(Number(book.spend) / booked) + ' per booking client' : 'No bookings yet' %></div></div>
+</div>
+<% } %>
 <div class="split">
   <div class="card flush">
     <form method="get" style="padding:14px 16px;display:flex;gap:8px"><input type="search" name="q" value="<%= q %>" placeholder="Search name, phone or email" aria-label="Search customers"><button class="btn">Search</button></form>

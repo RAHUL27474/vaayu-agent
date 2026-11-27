@@ -2852,3 +2852,59 @@ img.ag-mark { background: #fff; border: 1px solid var(--line); padding: 4px; box
   .q-steps li:is(.next, .wait, .stuck) .qs-label { display: grid; }
   .q-steps:not(:has(li:is(.next, .wait, .stuck))) li:last-child .qs-label { display: grid; }
 }
+
+/* ---------- Design refresh 4: notifications, invoices, support, customers ---------- */
+.feed-red { --c: #b42318; --c-bg: #fde8e6; }
+html[data-theme="dark"] body.app .feed-red { --c: #f59a8f; --c-bg: #3a1714; }
+.nt-fresh { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 99px; background: var(--brand-50, #e8f4fc); color: var(--brand-700, #0b5a8e); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.nt-fresh i { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 0 var(--brand); animation: nt-ping 2s infinite; }
+@keyframes nt-ping { 0% { box-shadow: 0 0 0 0 rgb(14 116 184 / .45); } 70% { box-shadow: 0 0 0 8px rgb(14 116 184 / 0); } 100% { box-shadow: 0 0 0 0 rgb(14 116 184 / 0); } }
+@media (prefers-reduced-motion: reduce) { .nt-fresh i { animation: none; } }
+.nt-tabs a { display: inline-flex; align-items: center; gap: 6px; }
+.nt-tabs a .i { width: 15px; height: 15px; color: var(--c, currentColor); }
+.nt-card { padding: 4px 0 8px; }
+.nt-day + .nt-day { border-top: 1px solid var(--line-2); }
+.nt-day-h { display: flex; align-items: center; gap: 8px; margin: 0; padding: 14px 20px 6px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.nt-day-h small { padding: 0 7px; border-radius: 99px; background: var(--line-2); font-size: 11px; letter-spacing: 0; }
+.nt-list { list-style: none; margin: 0; padding: 0 8px; }
+.nt { position: relative; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; padding: 12px; border-radius: 12px; transition: background .15s; }
+.nt:hover { background: var(--line-2); }
+.nt .feed-ico { margin: 0; border: 0; }
+.nt-body b { font-size: 14.5px; color: var(--ink); }
+.nt-body p { margin: 3px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-3); overflow-wrap: anywhere; }
+.nt.unread { background: color-mix(in srgb, var(--c-bg) 55%, transparent); }
+.nt.unread::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 3px; background: var(--c); }
+.nt-flag { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 4px; background: var(--c-bg); color: var(--c); font-size: 11.5px; font-weight: 700; vertical-align: 1px; }
+.nt-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 12.5px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nt-side a { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; }
+.nt-side a .i { width: 14px; height: 14px; transform: rotate(-90deg); }
+.nt-side a::after { content: ''; position: absolute; inset: 0; border-radius: 12px; }
+.nt-side a:focus-visible::after { outline: 2px solid var(--brand); outline-offset: -2px; }
+@media (max-width: 640px) {
+  .nt { grid-template-columns: auto 1fr; gap: 10px; }
+  .nt-side { grid-column: 2; flex-direction: row; justify-content: space-between; width: 100%; }
+  .nt-day-h { padding: 12px 14px 4px; }
+  .nt-list { padding: 0 4px; }
+}
+.inv-id { display: inline-flex; align-items: center; gap: 10px; }
+.inv-id .feed-ico { margin: 0; border: 0; width: 32px; height: 32px; }
+.inv-id .feed-ico .i { width: 15px; height: 15px; }
+.tk-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 18px 20px 6px; }
+.tk-head h2 { margin: 0; }
+.tk-head .btn { margin-left: auto; }
+.tk-tally { display: flex; gap: 6px; flex-wrap: wrap; }
+.tk-list { list-style: none; margin: 0; padding: 4px 8px 10px; }
+.tk { position: relative; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 11px 12px; border-radius: 12px; transition: background .15s; }
+.tk:hover { background: var(--line-2); }
+.tk .feed-ico { margin: 0; border: 0; }
+.tk-body a { color: var(--ink); }
+.tk-body a::after { content: ''; position: absolute; inset: 0; border-radius: 12px; }
+.tk-body a:focus-visible::after { outline: 2px solid var(--brand); outline-offset: -2px; }
+.tk:hover .tk-body b { color: var(--brand); }
+.tk-body small { display: block; margin-top: 2px; color: var(--muted); }
+.tk-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; white-space: nowrap; }
+.tk-side small { color: var(--muted); }
+.tk-st { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--c); }
+.tk-st i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.tk.is-closed { opacity: .72; }
+@media (max-width: 640px) { .tk { grid-template-columns: auto 1fr; } .tk-side { grid-column: 2; flex-direction: row; justify-content: space-between; } }

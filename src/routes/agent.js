@@ -828,14 +828,25 @@ router.post('/bookings/:id/cancel', h(async (req, res, next) => {
 router.get('/customers', h(async (req, res) => {
   const q = str(req.query.q);
   const p = paging(req);
-  const { rows: customers, pager } = pageOf(await all(
-    `SELECT c.*, (SELECT COUNT(*) FROM bookings b WHERE b.customer_id = c.id) AS trips,
-       (SELECT COALESCE(SUM(total_sell), 0) FROM bookings b WHERE b.customer_id = c.id AND b.status != 'cancelled') AS spend,
-       (SELECT MIN(travel_date) FROM bookings b WHERE b.customer_id = c.id AND b.status = 'confirmed' AND b.travel_date >= ?) AS next_trip
-     FROM customers c WHERE c.agency_id = ? ${q ? 'AND (c.name ILIKE ? OR c.phone ILIKE ? OR c.email ILIKE ?)' : ''} ORDER BY c.name, c.id ${p.sql}`,
-    indiaToday(), req.agency.id, ...(q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []), ...p.params,
-  ), p);
-  res.page('agent/customers', { title: 'Customers', customers, pager, q });
+  const [rows, book] = await Promise.all([
+    all(
+      `SELECT c.*, (SELECT COUNT(*) FROM bookings b WHERE b.customer_id = c.id) AS trips,
+         (SELECT COALESCE(SUM(total_sell), 0) FROM bookings b WHERE b.customer_id = c.id AND b.status != 'cancelled') AS spend,
+         (SELECT MIN(travel_date) FROM bookings b WHERE b.customer_id = c.id AND b.status = 'confirmed' AND b.travel_date >= ?) AS next_trip
+       FROM customers c WHERE c.agency_id = ? ${q ? 'AND (c.name ILIKE ? OR c.phone ILIKE ? OR c.email ILIKE ?)' : ''} ORDER BY c.name, c.id ${p.sql}`,
+      indiaToday(), req.agency.id, ...(q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []), ...p.params,
+    ),
+    // The whole client book, for the figures above the list.
+    one(
+      `SELECT (SELECT COUNT(*) FROM customers WHERE agency_id = ?) AS n,
+         COUNT(DISTINCT customer_id) FILTER (WHERE status = 'confirmed' AND travel_date >= ?) AS travelling,
+         COUNT(DISTINCT customer_id) FILTER (WHERE status != 'cancelled') AS booked,
+         COALESCE(SUM(total_sell) FILTER (WHERE status != 'cancelled'), 0) AS spend
+       FROM bookings WHERE agency_id = ? AND customer_id IS NOT NULL`, req.agency.id, indiaToday(), req.agency.id,
+    ),
+  ]);
+  const { rows: customers, pager } = pageOf(rows, p);
+  res.page('agent/customers', { title: 'Customers', customers, pager, q, book });
 }));
 
 router.post('/customers', h(async (req, res) => {
@@ -1072,10 +1083,14 @@ router.post('/wallet/topup', requireActiveAgency, h(async (req, res) => {
 
 router.get('/invoices', h(async (req, res) => {
   const p = paging(req);
-  const page = pageOf(await all(`SELECT i.*, q.code AS quote_code FROM invoices i LEFT JOIN quotes q ON q.id = i.quote_id WHERE i.agency_id = ? ORDER BY i.id DESC ${p.sql}`, req.agency.id, ...p.params), p);
+  const [list, sums] = await Promise.all([
+    all(`SELECT i.*, q.code AS quote_code FROM invoices i LEFT JOIN quotes q ON q.id = i.quote_id WHERE i.agency_id = ? ORDER BY i.id DESC ${p.sql}`, req.agency.id, ...p.params),
+    all("SELECT kind, COUNT(*) AS n, COALESCE(SUM(total), 0) AS total, SUM(CASE WHEN created_at >= sqldate('now', 'start of month') THEN 1 ELSE 0 END) AS month_n FROM invoices WHERE agency_id = ? GROUP BY kind", req.agency.id),
+  ]);
+  const page = pageOf(list, p);
   const pager = page.pager;
   const invoices = page.rows.map((i) => ({ ...i, doc: JSON.parse(i.data) }));
-  res.page('agent/invoices', { title: 'Invoices', pager, invoices });
+  res.page('agent/invoices', { title: 'Invoices', pager, invoices, sums: Object.fromEntries(sums.map((r) => [r.kind, { n: Number(r.n), total: Number(r.total), month: Number(r.month_n) }])) });
 }));
 
 router.get('/invoices/:id', h(async (req, res, next) => {
