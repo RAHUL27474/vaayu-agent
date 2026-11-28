@@ -373,7 +373,7 @@ router.get('/log', h(async (req, res) => {
   if (f.to) { where.push('sqldate(l.created_at) <= ?'); params.push(f.to); }
   if (!f.logins && f.area !== 'user') where.push("l.action != 'user.login'");
   const page = Math.max(1, Math.round(num(req.query.page, 1)));
-  const [rows, users, agencies, pulse, busy, people] = await Promise.all([
+  const [rows, users, agencies, pulse, busy, people, daily] = await Promise.all([
     all(`${LOG_SQL} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY l.id DESC LIMIT 101 OFFSET ?`, ...params, (page - 1) * 100),
     all("SELECT id, name, role FROM users WHERE role IN ('admin', 'backend') ORDER BY role, name"),
     all('SELECT id, name FROM agencies ORDER BY name'),
@@ -381,9 +381,11 @@ router.get('/log', h(async (req, res) => {
     one("SELECT COUNT(*) FILTER (WHERE sqldate(created_at) = sqldate('now')) AS today, COUNT(*) FILTER (WHERE created_at > datetime('now', '-7 days')) AS week, COUNT(DISTINCT user_id) FILTER (WHERE created_at > datetime('now', '-7 days')) AS people, COUNT(*) FILTER (WHERE action LIKE 'booking.%' AND created_at > datetime('now', '-7 days')) AS bookings FROM audit_log WHERE action != 'user.login'"),
     all("SELECT split_part(action, '.', 1) AS area, COUNT(*)::int AS n FROM audit_log WHERE action != 'user.login' AND created_at > datetime('now', '-30 days') GROUP BY 1 ORDER BY n DESC LIMIT 8"),
     all("SELECT u.id, u.name, l.role, MAX(a.name) AS agency, COUNT(*)::int AS n FROM audit_log l JOIN users u ON u.id = l.user_id LEFT JOIN agencies a ON a.id = l.agency_id WHERE l.action != 'user.login' AND l.created_at > datetime('now', '-30 days') GROUP BY u.id, u.name, l.role ORDER BY n DESC LIMIT 6"),
+    // Changes per day for the 12-week heatmap.
+    all("SELECT sqldate(created_at)::text AS d, COUNT(*)::int AS n FROM audit_log WHERE action != 'user.login' AND created_at > datetime('now', '-84 days') GROUP BY 1"),
   ]);
   res.page('admin/log', {
-    title: 'Activity log', entries: rows.slice(0, 100).map((l) => (l.action === 'settings.updated' ? { ...l, summary: niceSettingKeys(l.summary) } : l)), more: rows.length > 100, page, f, users, agencies, areas: LOG_AREAS, roles: LOG_ROLES, pulse, busy, people,
+    title: 'Activity log', entries: rows.slice(0, 100).map((l) => (l.action === 'settings.updated' ? { ...l, summary: niceSettingKeys(l.summary) } : l)), more: rows.length > 100, page, f, users, agencies, areas: LOG_AREAS, roles: LOG_ROLES, pulse, busy, people, daily,
   });
 }));
 

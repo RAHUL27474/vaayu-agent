@@ -1,23 +1,55 @@
 <%
   const qs = (over) => '?' + new URLSearchParams(Object.entries({ ...f, logins: f.logins ? '1' : '', ...over }).filter(([, v]) => v !== '' && v !== false && v != null)).toString();
+  // Same icon and colour per area as the rows below.
+  const AREA = {
+    booking: ['clipboard', 'green'], quote: ['file', 'blue'], product: ['layers', 'teal'], package: ['briefcase', 'teal'], agency: ['building', 'violet'],
+    topup: ['topup', 'amber'], wallet: ['wallet', 'amber'], user: ['user', 'slate'], offer: ['tag', 'pink'], settings: ['settings', 'slate'], ticket: ['message', 'blue'], enquiry: ['inbox', 'violet'],
+  };
+  const ar = (k) => AREA[k] || ['activity', 'slate'];
+  // 12 weeks of changes, Monday to Sunday, ending this week.
+  const perDay = Object.fromEntries(daily.map((r) => [r.d, Number(r.n)]));
+  const today = new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) + 'T00:00:00Z');
+  const start = new Date(today); start.setUTCDate(start.getUTCDate() - ((today.getUTCDay() + 6) % 7) - 7 * 11);
+  const weeks = [...Array(12)].map((_, w) => [...Array(7)].map((_, d) => {
+    const day = new Date(start); day.setUTCDate(start.getUTCDate() + w * 7 + d);
+    const k = day.toISOString().slice(0, 10);
+    return { k, n: perDay[k] || 0, future: day > today, label: day.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) };
+  }));
+  const peak = Math.max(1, ...daily.map((r) => Number(r.n)));
+  const level = (n) => (!n ? 0 : Math.min(4, Math.ceil(n / peak * 4)));
+  const total84 = daily.reduce((s, r) => s + Number(r.n), 0);
+  const activeDays = daily.filter((r) => Number(r.n)).length;
+  const monthOf = (w) => { const first = new Date(w[0].k + 'T00:00:00Z'); return first.getUTCDate() <= 7 ? first.toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' }) : ''; };
 %>
 <div class="page-head">
   <div><h1>Activity log</h1><p>Everything that changes on VaayuTrip: inventory entered by the backend team, agents' packages, quotes and bookings, and admin decisions.</p></div>
 </div>
-<% if (Number(pulse.week)) { %>
-<div class="log-pulse">
-  <div class="<%= Number(pulse.today) ? '' : 'is-zero' %>"><b><%= pulse.today %></b><span>changes today</span></div>
-  <div><b><%= pulse.week %></b><span>changes in the last 7 days</span></div>
-  <div class="<%= Number(pulse.bookings) ? '' : 'is-zero' %>"><b><%= pulse.bookings %></b><span>booking changes this week</span></div>
-  <div><b><%= pulse.people %></b><span><%= Number(pulse.people) === 1 ? 'person' : 'people' %> made changes this week</span></div>
-</div>
-<% } else { %>
-<p class="log-quiet"><%- icon('activity') %><span><b>Quiet week.</b> Nothing has changed in the last 7 days<% if (entries.length && !f.area && !f.role && !f.user && !f.agency && !f.from && !f.to) { %>; the latest change is below, from <%= new Date(String(entries[0].created_at).replace(' ', 'T') + 'Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %><% } %>.</span></p>
-<% } %>
+<section class="card log-hero">
+  <div class="lh-figs">
+    <div class="<%= Number(pulse.today) ? '' : 'is-zero' %>"><b><%= pulse.today %></b><span>today</span></div>
+    <div class="<%= Number(pulse.week) ? '' : 'is-zero' %>"><b><%= pulse.week %></b><span>last 7 days</span></div>
+    <div class="<%= Number(pulse.bookings) ? '' : 'is-zero' %>"><b><%= pulse.bookings %></b><span>booking changes this week</span></div>
+    <div><b><%= total84 %></b><span>in 12 weeks, on <%= activeDays %> <%= activeDays === 1 ? 'day' : 'days' %></span></div>
+  </div>
+  <div class="lh-map">
+    <div class="lh-grid" role="img" aria-label="<%= total84 %> changes over the last 12 weeks">
+      <div class="lh-days" aria-hidden="true"><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span></div>
+      <% weeks.forEach(w => { %>
+        <div class="lh-week"><small aria-hidden="true"><%= monthOf(w) %></small>
+          <% w.forEach(c => { %><i class="lh-c lv-<%= c.future ? 'x' : level(c.n) %> <%= c.k === today.toISOString().slice(0, 10) ? 'is-today' : '' %>" title="<%= c.label %>: <%= c.n %> <%= c.n === 1 ? 'change' : 'changes' %>"></i><% }) %>
+        </div>
+      <% }) %>
+    </div>
+    <div class="lh-key" aria-hidden="true"><span>Less</span><i class="lh-c lv-0"></i><i class="lh-c lv-1"></i><i class="lh-c lv-2"></i><i class="lh-c lv-3"></i><i class="lh-c lv-4"></i><span>More</span></div>
+  </div>
+  <% if (!Number(pulse.week)) { %>
+  <p class="lh-quiet"><%- icon('moon') %><span><b>Quiet week.</b> Nothing has changed in the last 7 days<% if (entries.length && !f.area && !f.role && !f.user && !f.agency && !f.from && !f.to) { %>; the latest change is below, from <%= new Date(String(entries[0].created_at).replace(' ', 'T') + 'Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %><% } %>.</span></p>
+  <% } %>
+</section>
 <% if (busy.length) { %>
 <nav class="chips filter-chips log-areas" aria-label="Areas">
-  <a class="<%= !f.area ? 'on' : '' %>" href="<%= qs({ area: '', page: '' }) %>">All areas</a>
-  <% busy.forEach(b => { if (!areas[b.area]) return; %><a class="<%= f.area === b.area ? 'on' : '' %>" href="<%= qs({ area: b.area, page: '' }) %>"><%= areas[b.area] %> <small><%= b.n %></small></a><% }) %>
+  <a class="<%= !f.area ? 'on' : '' %>" href="<%= qs({ area: '', page: '' }) %>"><%- icon('activity') %>All areas</a>
+  <% busy.forEach(b => { if (!areas[b.area]) return; %><a class="feed-<%= ar(b.area)[1] %> <%= f.area === b.area ? 'on' : '' %>" href="<%= qs({ area: b.area, page: '' }) %>"><%- icon(ar(b.area)[0]) %><%= areas[b.area] %> <small><%= b.n %></small></a><% }) %>
 </nav>
 <% } %>
 <details class="log-more" <%= f.role || f.user || f.agency || f.from || f.to || f.logins ? 'open' : '' %>>
@@ -62,7 +94,7 @@
   <div class="card">
     <h2 class="h3">By area, 30 days</h2>
     <ul class="log-areas-bars">
-      <% busy.forEach(b => { if (!areas[b.area]) return; %><li><a href="<%= qs({ area: b.area, page: '' }) %>"><span><%= areas[b.area] %></span><b><%= b.n %></b></a><i style="width:<%= Math.round(b.n / topA * 100) %>%"></i></li><% }) %>
+      <% busy.forEach(b => { if (!areas[b.area]) return; %><li class="feed-<%= ar(b.area)[1] %>"><a href="<%= qs({ area: b.area, page: '' }) %>"><span class="la-name"><span class="la-ico"><%- icon(ar(b.area)[0]) %></span><%= areas[b.area] %></span><b><%= b.n %></b></a><i style="width:<%= Math.round(b.n / topA * 100) %>%"></i></li><% }) %>
     </ul>
   </div>
   <% } %>
