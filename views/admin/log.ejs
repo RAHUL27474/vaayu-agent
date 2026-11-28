@@ -22,7 +22,7 @@
   const monthOf = (w) => { const first = new Date(w[0].k + 'T00:00:00Z'); return first.getUTCDate() <= 7 ? first.toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' }) : ''; };
 %>
 <div class="page-head">
-  <div><h1>Activity log</h1><p>Everything that changes on VaayuTrip: inventory entered by the backend team, agents' packages, quotes and bookings, and admin decisions.</p></div>
+  <div><h1>Activity log</h1><p>Everything that changes on VaayuTrip: inventory entered by the backend team, agents' packages, quotes and bookings, and admin decisions.</p></div><%- include('../partials/export-btn', { wrap: true }) %>
 </div>
 <div class="grid grid-4 tone-cards log-figs" style="margin-bottom:16px">
   <div class="stat tone-blue <%= Number(pulse.today) ? '' : 'is-zero' %>"><span class="stat-ico"><%- icon('clock') %></span><div class="label">Changes today</div><div class="value"><%= pulse.today %></div><div class="sub"><%= Number(pulse.today) ? 'Since midnight IST' : 'Nothing yet today' %></div></div>

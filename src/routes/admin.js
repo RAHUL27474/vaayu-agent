@@ -14,6 +14,7 @@ const { KINDS, marginPct, repriceProducts, destinationOf, TIERS } = require('../
 const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = require('../kyc');
 const { restoreFile } = require('../files');
 const { paging, pageOf } = require('../paging');
+const { wantsXlsx, MAX_ROWS } = require('../exports');
 const { reportPeriod, sendCsv, txnLabel, TXN_LABELS, normUtr } = require('../report-utils');
 const { destinationPhoto, cityPhoto } = require('../destination-photos');
 const indiaToday = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
@@ -376,7 +377,7 @@ router.get('/log', h(async (req, res) => {
   if (!f.logins && f.area !== 'user') where.push("l.action != 'user.login'");
   const page = Math.max(1, Math.round(num(req.query.page, 1)));
   const [rows, users, agencies, pulse, busy, people, daily] = await Promise.all([
-    all(`${LOG_SQL} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY l.id DESC LIMIT 101 OFFSET ?`, ...params, (page - 1) * 100),
+    all(`${LOG_SQL} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY l.id DESC LIMIT ? OFFSET ?`, ...params, ...(wantsXlsx(req) ? [MAX_ROWS, 0] : [101, (page - 1) * 100])),
     all("SELECT id, name, role FROM users WHERE role IN ('admin', 'backend') ORDER BY role, name"),
     all('SELECT id, name FROM agencies ORDER BY name'),
     // Headline numbers and the busiest areas this week (logins left out).
@@ -387,7 +388,7 @@ router.get('/log', h(async (req, res) => {
     all("SELECT sqldate(created_at)::text AS d, COUNT(*)::int AS n FROM audit_log WHERE action != 'user.login' AND created_at > datetime('now', '-84 days') GROUP BY 1"),
   ]);
   res.page('admin/log', {
-    title: 'Activity log', entries: rows.slice(0, 100).map((l) => (l.action === 'settings.updated' ? { ...l, summary: niceSettingKeys(l.summary) } : l)), more: rows.length > 100, page, f, users, agencies, areas: LOG_AREAS, roles: LOG_ROLES, pulse, busy, people, daily,
+    title: 'Activity log', entries: rows.slice(0, wantsXlsx(req) ? MAX_ROWS : 100).map((l) => (l.action === 'settings.updated' ? { ...l, summary: niceSettingKeys(l.summary) } : l)), more: rows.length > 100, page, f, users, agencies, areas: LOG_AREAS, roles: LOG_ROLES, pulse, busy, people, daily,
   });
 }));
 
@@ -549,7 +550,7 @@ async function ledgerQuery(q) {
 router.get('/ledger', h(async (req, res) => {
   const f = await ledgerQuery(req.query);
   const [txns, byType, count, money, pendingBank, mismatches, agencies] = await Promise.all([
-    all(`SELECT t.*, a.name AS agency_name FROM wallet_txns t JOIN agencies a ON a.id = t.agency_id WHERE ${f.where} ORDER BY t.id DESC LIMIT 500`, ...f.args),
+    all(`SELECT t.*, a.name AS agency_name FROM wallet_txns t JOIN agencies a ON a.id = t.agency_id WHERE ${f.where} ORDER BY t.id DESC LIMIT ?`, ...f.args, wantsXlsx(req) ? MAX_ROWS : 500),
     all(`SELECT t.type, COUNT(*) AS n, COALESCE(SUM(t.amount), 0) AS total FROM wallet_txns t WHERE ${f.where} GROUP BY t.type`, ...f.args),
     one(`SELECT COUNT(*) AS n FROM wallet_txns t WHERE ${f.where}`, ...f.args),
     one(`SELECT COALESCE(SUM(wallet_balance), 0) AS wallets, COALESCE(SUM(credit_used), 0) AS credit,
@@ -630,7 +631,7 @@ router.get('/search', h(async (req, res) => {
 }));
 
 router.get('/notifications', h(async (req, res) => {
-  const items = await all('SELECT * FROM notifications WHERE agency_id IS NULL ORDER BY id DESC LIMIT 100');
+  const items = await all('SELECT * FROM notifications WHERE agency_id IS NULL ORDER BY id DESC LIMIT ?', wantsXlsx(req) ? MAX_ROWS : 100);
   await run('UPDATE notifications SET is_read = 1 WHERE agency_id IS NULL');
   res.locals.unread = 0;
   res.page('agent/notifications', { title: 'Notifications', items });

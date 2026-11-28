@@ -16,6 +16,7 @@ const {
 const { withCover, coverFrom } = require('../photos');
 const { readXlsx, XlsxError } = require('../xlsx');
 const { paging, pageOf } = require('../paging');
+const { wantsXlsx, MAX_ROWS } = require('../exports');
 const { readRateCard, isRateCard } = require('../ratecard');
 
 const router = express.Router();
@@ -110,7 +111,7 @@ router.get('/booking-requests', h(async (req, res) => {
     `SELECT q.id, q.code, q.title, q.travel_date, q.adults, q.children, q.approval_status, q.approval_net, q.approval_requested_at, q.approval_decided_at, q.approval_until,
        a.name AS agency, u.name AS requested_by, d.name AS decided_by
      FROM quotes q JOIN agencies a ON a.id = q.agency_id LEFT JOIN users u ON u.id = q.approval_requested_by LEFT JOIN users d ON d.id = q.approval_decided_by
-     WHERE q.approval_status = ? ORDER BY ${show === 'requested' ? 'q.approval_requested_at ASC' : 'q.approval_decided_at DESC'} LIMIT 200`, show,
+     WHERE q.approval_status = ? ORDER BY ${show === 'requested' ? 'q.approval_requested_at ASC' : 'q.approval_decided_at DESC'} LIMIT ?`, show, wantsXlsx(req) ? MAX_ROWS : 200,
   );
   const counts = Object.fromEntries((await all("SELECT approval_status AS s, COUNT(*)::int AS n FROM quotes WHERE approval_status IS NOT NULL GROUP BY approval_status")).map((r) => [r.s, r.n]));
   res.page('backend/booking-requests', { title: 'Booking requests', rows, counts, show });
@@ -162,7 +163,7 @@ router.get('/enquiries', h(async (req, res) => {
   const [rows, countRows, dueRow] = await Promise.all([
     all(
       `SELECT e.*, u.name AS assignee FROM enquiries e LEFT JOIN users u ON u.id = e.assigned_to
-       ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY (e.status = 'new') DESC, e.created_at DESC LIMIT 200`, ...params,
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY (e.status = 'new') DESC, e.created_at DESC LIMIT ?`, ...params, wantsXlsx(req) ? MAX_ROWS : 200,
     ),
     all('SELECT status, COUNT(*)::int AS n FROM enquiries GROUP BY status'),
     one("SELECT COUNT(*)::int AS n FROM enquiries WHERE status IN ('new', 'contacted') AND follow_up_on IS NOT NULL AND follow_up_on <= sqldate('now')"),

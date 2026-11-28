@@ -1,7 +1,7 @@
 <%# VaayuTrip's ready-made packages, built and published by the backend team. Locals: packages %>
 <div class="page-head">
   <div><h1>VaayuTrip packages</h1><p>Ready-made holidays for agents to sell. Build them from published inventory; agents see them at net plus VaayuTrip's margin, add their own markup, and can copy them to customise.</p></div>
-  <div class="actions"><a class="btn btn-primary" href="/backend/packages/new"><%- icon('plus') %>New package</a></div>
+  <div class="actions"><%- include('../partials/export-btn') %><a class="btn btn-primary" href="/backend/packages/new"><%- icon('plus') %>New package</a></div>
 </div>
 <% if (!packages.length) { %>
   <div class="card empty"><span class="big"><%- icon('briefcase') %></span><b>No VaayuTrip packages yet.</b><br>Build the first one: lay out the days and add hotels, activities, transfers and flights from the inventory.

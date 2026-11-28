@@ -1,5 +1,5 @@
 <div class="page-head"><div><h1>Wallet &amp; credit</h1><p>Bookings are paid from your wallet first, then your credit line.</p></div>
-  <div class="actions"><a class="btn" href="/agent/wallet/statement"><%- icon('file') %>Account statement</a></div></div>
+  <div class="actions"><%- include('../partials/export-btn') %><a class="btn" href="/agent/wallet/statement"><%- icon('file') %>Account statement</a></div></div>
 <div class="grid grid-3 tone-cards" style="margin-bottom:20px">
   <div class="stat tone-blue"><span class="stat-ico"><%- icon('wallet') %></span><div class="label">Wallet balance</div><div class="value"><%= inr(agency.wallet_balance, { decimals: agency.wallet_balance % 1 ? 2 : 0 }) %></div><div class="sub">ready for your next booking</div></div>
   <% const usedPct = agency.credit_limit > 0 ? Math.min(100, Math.round(agency.credit_used / agency.credit_limit * 100)) : 0; %>

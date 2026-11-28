@@ -1,4 +1,4 @@
-<div class="page-head"><div><h1>Bookings</h1><p>Confirmed trips, cancellations and refunds.</p></div></div>
+<div class="page-head"><div><h1>Bookings</h1><p>Confirmed trips, cancellations and refunds.</p></div><%- include('../partials/export-btn', { wrap: true }) %></div>
 <% const daysTo = (d) => Math.round((Date.parse(d + 'T00:00:00Z') - Date.parse(today + 'T00:00:00Z')) / 864e5); %>
 <% if (upcoming.length) { %>
 <section class="trip-strip" aria-label="Next departures">

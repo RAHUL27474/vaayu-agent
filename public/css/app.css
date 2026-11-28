@@ -2946,3 +2946,8 @@ html[data-theme="dark"] body.app .bk-when.soon { color: #7cc4f0; } html[data-the
 .bk-row.is-cancel_requested td:first-child { box-shadow: inset 3px 0 0 #d97706; }
 /* Wide agency logos: the mark next to the name shows the logo's left end (usually its symbol), filling the square. */
 img.ag-mark { object-fit: cover; object-position: left center; background: #fff; border: 1px solid var(--line); box-shadow: none; }
+
+/* Excel download button */
+.btn-excel svg { color: #15803d; }
+:root[data-theme="dark"] .btn-excel svg { color: #4ade80; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn-excel svg { color: #4ade80; } }

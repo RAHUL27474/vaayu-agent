@@ -8,7 +8,7 @@
 %>
 <div class="page-head">
   <div><h1>Wallet ledger</h1><p>Every rupee that moved in agents' wallets. Use it to match your bank account with what VaayuTrip owes agents.</p></div>
-  <div class="actions"><a class="btn" href="/admin/ledger.csv?<%= qs %>"><%- icon('download') %>Download CSV</a></div>
+  <div class="actions"><%- include('../partials/export-btn') %><a class="btn" href="/admin/ledger.csv?<%= qs %>"><%- icon('download') %>Download CSV</a></div>
 </div>
 
 <% if (mismatches.length) { %>

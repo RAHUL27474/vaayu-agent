@@ -1,4 +1,4 @@
-<div class="page-head"><div><h1>Customers</h1><p>Your client book: contacts, trips and spend.</p></div></div>
+<div class="page-head"><div><h1>Customers</h1><p>Your client book: contacts, trips and spend.</p></div><%- include('../partials/export-btn', { wrap: true }) %></div>
 <% if (Number(book.n)) { const n = Number(book.n), booked = Number(book.booked); %>
 <div class="grid grid-4 tone-cards" style="margin-bottom:20px">
   <div class="stat tone-blue"><span class="stat-ico"><%- icon('users') %></span><div class="label">Clients</div><div class="value"><%= n.toLocaleString('en-IN') %></div><div class="sub"><%= booked %> have booked with you</div></div>

@@ -26,6 +26,7 @@ const { withCover, coverFrom } = require('../photos');
 const { persistFile, writePersisted, restoreFile, deleteFile } = require('../files');
 const { INDIAN_STATES } = require('../invoice-view');
 const { paging, pageOf } = require('../paging');
+const { wantsXlsx, MAX_ROWS } = require('../exports');
 const { reportPeriod, sendCsv, txnLabel, normUtr, UTR_SQL } = require('../report-utils');
 const { COUNTRIES, isIndia, kycLabel, requiredFiles, withKycDocs, checkTax, checkKycFiles, missingKyc, profileGaps, removeDoc, removeUploaded } = require('../kyc');
 
@@ -1016,7 +1017,7 @@ router.post('/leads/:id/quote', h(async (req, res, next) => {
 
 router.get('/wallet', h(async (req, res) => {
   await payments.settlePending({ agencyId: req.agency.id, olderThanMinutes: 1 }).catch(() => 0);
-  const txns = await all('SELECT * FROM wallet_txns WHERE agency_id = ? ORDER BY id DESC LIMIT 100', req.agency.id);
+  const txns = await all('SELECT * FROM wallet_txns WHERE agency_id = ? ORDER BY id DESC LIMIT ?', req.agency.id, wantsXlsx(req) ? MAX_ROWS : 100);
   const requests = await all('SELECT * FROM topup_requests WHERE agency_id = ? ORDER BY id DESC LIMIT 10', req.agency.id);
   res.page('agent/wallet', { title: 'Wallet & credit', txns, requests, phonepeOn: phonepe.enabled(), credit: svc.creditStatus(req.agency) });
 }));
@@ -1198,7 +1199,7 @@ router.get('/search', h(async (req, res) => {
 }));
 
 router.get('/notifications', h(async (req, res) => {
-  const items = await all('SELECT * FROM notifications WHERE agency_id = ? ORDER BY id DESC LIMIT 100', req.agency.id);
+  const items = await all('SELECT * FROM notifications WHERE agency_id = ? ORDER BY id DESC LIMIT ?', req.agency.id, wantsXlsx(req) ? MAX_ROWS : 100);
   await run('UPDATE notifications SET is_read = 1 WHERE agency_id = ?', req.agency.id);
   res.locals.unread = 0;
   res.page('agent/notifications', { title: 'Notifications', items });

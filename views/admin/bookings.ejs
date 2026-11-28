@@ -14,7 +14,7 @@
   const STATUS = { confirmed: 'Confirmed', cancel_requested: 'Cancellation requested', cancelled: 'Cancelled' };
   const cancelN = byStatus.cancel_requested || 0;
 %>
-<div class="page-head"><div><h1>Bookings</h1><p>All agent bookings across the network.</p></div></div>
+<div class="page-head"><div><h1>Bookings</h1><p>All agent bookings across the network.</p></div><%- include('../partials/export-btn', { wrap: true }) %></div>
 
 <div class="grid grid-4 tone-cards" style="margin-bottom:20px">
   <div class="stat tone-green"><span class="stat-ico"><%- icon('chart') %></span><div class="label">Booked this month (net)</div><div class="value"><%= inr(figs.month_net) %></div><div class="sub"><%= plural(figs.month_n, 'booking') %></div></div>

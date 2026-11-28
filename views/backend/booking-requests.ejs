@@ -1,6 +1,6 @@
 <% const when = (t) => t ? new Date(String(t).replace(' ', 'T') + 'Z').toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : '—'; %>
 <div class="page-head">
-  <div><h1>Booking requests</h1><p>Agents send a quote here before paying. Check availability and rates with suppliers, then approve or reject. Agents can pay only after approval.</p></div>
+  <div><h1>Booking requests</h1><p>Agents send a quote here before paying. Check availability and rates with suppliers, then approve or reject. Agents can pay only after approval.</p></div><%- include('../partials/export-btn', { wrap: true }) %>
 </div>
 <nav class="chips filter-chips enq-tabs" aria-label="Filter requests">
   <% [['requested', 'Waiting'], ['approved', 'Approved'], ['rejected', 'Rejected']].forEach(([k, l]) => { %><a class="<%= show === k ? 'on' : '' %>" href="/backend/booking-requests<%= k === 'requested' ? '' : '?show=' + k %>"><%= l %> <small><%= counts[k] || 0 %></small></a><% }) %>

@@ -1,6 +1,6 @@
 <div class="page-head">
   <div><h1>My packages</h1><p>Your own holidays from VaayuTrip services and yours. Price them, quote them, publish them to your website.</p></div>
-  <div class="actions"><a class="btn" href="/agent/hotels">Browse hotels</a><a class="btn" href="/agent/activities">Browse activities</a><a class="btn btn-primary" href="/agent/packages/new"><%- icon('plus') %>New package</a></div>
+  <div class="actions"><%- include('../partials/export-btn') %><a class="btn" href="/agent/hotels">Browse hotels</a><a class="btn" href="/agent/activities">Browse activities</a><a class="btn btn-primary" href="/agent/packages/new"><%- icon('plus') %>New package</a></div>
 </div>
 <% if (!packages.length) { %>
   <div class="card empty">

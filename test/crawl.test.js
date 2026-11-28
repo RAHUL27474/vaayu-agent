@@ -8,7 +8,7 @@ const SLOW_MS = 1500;
 // Pages making more queries than this probably query once per row (N+1).
 const MAX_QUERIES = 25;
 // Links that change state or leave the site; everything else is fair game for a GET.
-const SKIP = [/^\/logout/, /^\/uploads\//, /^\/img\//, /^\/css\//, /^\/js\//, /\.csv$/, /^\/cover\//];
+const SKIP = [/^\/logout/, /download=xlsx/, /^\/uploads\//, /^\/img\//, /^\/css\//, /^\/js\//, /\.csv$/, /^\/cover\//];
 const LEAKS = [/\[object (Promise|Object)\]/, />\s*NaN\s*</, /₹NaN/, />\s*undefined\s*</, /Invalid Date/, /\bnull\s*(nights?|rooms?|guests?)\b/];
 
 const heavy = [];

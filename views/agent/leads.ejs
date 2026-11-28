@@ -1,4 +1,4 @@
-<div class="page-head"><div><h1>Leads</h1><p>Enquiries you add yourself, and those from your website when VaayuTrip builds one for you.</p></div></div>
+<div class="page-head"><div><h1>Leads</h1><p>Enquiries you add yourself, and those from your website when VaayuTrip builds one for you.</p></div><%- include('../partials/export-btn', { wrap: true }) %></div>
 <%
   const total = statuses.reduce((t, k) => t + Number(counts[k] || 0), 0);
   const closed = Number(counts.won || 0) + Number(counts.lost || 0);

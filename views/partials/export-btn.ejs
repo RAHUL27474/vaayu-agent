@@ -1,0 +1,2 @@
+<%# Excel download of the list on this page (res.page sets exportHref for views listed in src/exports.js). Pass wrap: true outside an .actions box. %>
+<% if (locals.exportHref) { %><%- locals.wrap ? '<div class="actions">' : '' %><a class="btn btn-excel" href="<%= exportHref %>" title="Download this list, with the filters you have on, as an Excel file"><%- icon('download') %>Excel</a><%- locals.wrap ? '</div>' : '' %><% } %>

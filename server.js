@@ -15,6 +15,7 @@ const { ensureProductCosts } = require('./src/products');
 const { inr, fmtDate, fmtTime } = require('./src/util');
 const { icon, SPRITE } = require('./src/icons');
 const { AppError } = require('./src/services');
+const { hasExport, wantsXlsx, exportHref, sendXlsx } = require('./src/exports');
 
 // Database start-up (schema check, demo data on an empty database) runs once; requests wait for it.
 // Retried on the next request if it fails (e.g. the database was briefly unreachable).
@@ -182,6 +183,10 @@ app.use(async (req, res, next) => {
 
   // Renders a view inside a layout: res.page('agent/dashboard', { title }, 'app').
   res.page = (view, data = {}, layout = 'app') => {
+    if (hasExport(view)) {
+      if (wantsXlsx(req)) return sendXlsx(req, res, view, data);
+      res.locals.exportHref = exportHref(req);
+    }
     res.render(view, data, (err, body) => {
       if (err) return next(err);
       res.render(`layouts/${layout}`, { ...data, body });

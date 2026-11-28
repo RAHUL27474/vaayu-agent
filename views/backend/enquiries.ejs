@@ -3,7 +3,7 @@
   const ago = (t) => { const m = Math.round((Date.now() - Date.parse(String(t).replace(' ', 'T') + 'Z')) / 60000); return m < 60 ? `${Math.max(1, m)} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : fmtDate(String(t).slice(0, 10)); };
 %>
 <div class="page-head">
-  <div><h1>Enquiries</h1><p>Sent from the VaayuTrip website. Call back, note what was agreed, and move each one along.</p></div>
+  <div><h1>Enquiries</h1><p>Sent from the VaayuTrip website. Call back, note what was agreed, and move each one along.</p></div><%- include('../partials/export-btn', { wrap: true }) %>
 </div>
 
 <nav class="chips filter-chips enq-tabs" aria-label="Filter enquiries">

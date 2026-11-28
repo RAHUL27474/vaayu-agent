@@ -1,7 +1,7 @@
 <%# Ready-made VaayuTrip packages for agents. Locals: packages (with price), destinations, dest %>
 <div class="page-head">
   <div><h1>VaayuTrip packages</h1><p>Ready-made holidays by VaayuTrip: hotels, sightseeing, transfers and more, day by day. Quote them to your customers as they are, or copy one into My packages to make it your own.</p></div>
-  <div class="actions"><a class="btn" href="/agent/packages">My packages</a></div>
+  <div class="actions"><%- include('../partials/export-btn') %><a class="btn" href="/agent/packages">My packages</a></div>
 </div>
 <% if (destinations.length > 1) { %>
 <div class="tabs">

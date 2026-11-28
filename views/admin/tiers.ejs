@@ -5,7 +5,7 @@
 %>
 <div class="page-head">
   <div><h1>Silver / Gold</h1><p>Give chosen agents lower net rates. Silver lowers VaayuTrip's margin by <b><%= pct('tier_silver_pct') %></b>, Gold by <b><%= pct('tier_gold_pct') %></b>.</p></div>
-  <div class="actions"><a class="btn" href="/admin/settings#tiers">Change % and offer for everyone</a></div>
+  <div class="actions"><%- include('../partials/export-btn') %><a class="btn" href="/admin/settings#tiers">Change % and offer for everyone</a></div>
 </div>
 
 <% if (offerOn) { %>

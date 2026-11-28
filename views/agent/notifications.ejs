@@ -22,7 +22,7 @@
   const days = [];
   for (const n of shown) { const k = dayKey(n.created_at); if (!days.length || days[days.length - 1].k !== k) days.push({ k, items: [] }); days[days.length - 1].items.push(n); }
 %>
-<div class="page-head"><div><h1>Notifications</h1><p><%= user.role === 'agent' ? 'Booking updates, wallet credits, offers and replies from VaayuTrip.' : 'New agents, top-ups, cancellation requests and tickets that need the team.' %></p></div>
+<div class="page-head"><div><h1>Notifications</h1><p><%= user.role === 'agent' ? 'Booking updates, wallet credits, offers and replies from VaayuTrip.' : 'New agents, top-ups, cancellation requests and tickets that need the team.' %></p></div><%- include('../partials/export-btn', { wrap: true }) %>
   <% if (fresh) { %><span class="nt-fresh"><i></i><%= fresh %> new since your last visit</span><% } %>
 </div>
 <% if (items.length) { %>

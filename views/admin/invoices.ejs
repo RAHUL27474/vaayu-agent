@@ -9,7 +9,7 @@
   const sum = Object.values(totals).reduce((s, x) => ({ n: s.n + x.n, monthTotal: s.monthTotal + x.monthTotal, monthN: s.monthN + x.monthN }), { n: 0, monthTotal: 0, monthN: 0 });
   const mark = (name) => name.split(' ').filter((w) => /^[A-Za-z0-9]/.test(w)).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 %>
-<div class="page-head"><div><h1>Invoices</h1><p>VaayuTrip's B2B invoices to agents, and the invoices agents issue to their customers under their own brand.</p></div></div>
+<div class="page-head"><div><h1>Invoices</h1><p>VaayuTrip's B2B invoices to agents, and the invoices agents issue to their customers under their own brand.</p></div><%- include('../partials/export-btn', { wrap: true }) %></div>
 
 <div class="grid grid-4 tone-cards" style="margin-bottom:20px">
   <div class="stat tone-green"><span class="stat-ico"><%- icon('chart') %></span><div class="label">Invoiced this month</div><div class="value"><%= inr(sum.monthTotal) %></div><div class="sub"><%= plural(sum.monthN, 'invoice') %> across all types</div></div>

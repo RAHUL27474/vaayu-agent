@@ -1,6 +1,6 @@
 <%# Wallet top-up requests. Locals: requests (with dupOf), pendingTotal, pendingCount %>
 <div class="page-head"><div><h1>Wallet top-up requests</h1><p>Bank transfers: find the UTR <b>and the same amount</b> in your bank statement, then approve to credit the agent's wallet. PhonePe top-ups are credited automatically.</p></div>
-  <div class="actions"><a class="btn" href="/admin/ledger"><%- icon('wallet') %>Wallet ledger</a></div></div>
+  <div class="actions"><%- include('../partials/export-btn') %><a class="btn" href="/admin/ledger"><%- icon('wallet') %>Wallet ledger</a></div></div>
 <% if (pendingCount) { %><div class="alert warn"><b><%= plural(pendingCount, 'request') %></b> waiting, <b><%= inr(pendingTotal) %></b> in all. Approve only what you can see in the bank.</div><% } %>
 <div class="card flush">
   <% if (!requests.length) { %><div class="empty"><span class="big"><%- icon('topup') %></span><b>No top-up requests</b><p>Agents' wallet top-up requests appear here for you to verify.</p></div><% } else { %>

@@ -1,7 +1,7 @@
 <%
   const IK = { customer_agent: ['Your brand', 'Invoices you issued to customers', 'green', 'receipt'], customer_vaayu: ['VaayuTrip → customer', 'Issued by VaayuTrip in your customer’s name', 'blue', 'file'], b2b: ['VaayuTrip → you', 'Net invoices for your bookings', 'violet', 'building'] };
 %>
-<div class="page-head"><div><h1>Invoices</h1><p>Invoices you issued to customers, and VaayuTrip's net invoices to you.</p></div></div>
+<div class="page-head"><div><h1>Invoices</h1><p>Invoices you issued to customers, and VaayuTrip's net invoices to you.</p></div><%- include('../partials/export-btn', { wrap: true }) %></div>
 <% if (Object.keys(sums).length) { %>
 <div class="grid grid-3 tone-cards" style="margin-bottom:20px">
   <% Object.entries(IK).forEach(([k, [label, sub, tone, ic]]) => { const t = sums[k] || { n: 0, total: 0, month: 0 }; %>

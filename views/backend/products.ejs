@@ -1,7 +1,7 @@
 <% const cfg = f.kind ? kinds[f.kind] : null; %>
 <div class="page-head">
   <div><h1><%= cfg ? cfg.plural : 'All inventory' %></h1><p>Net prices are what agents pay VaayuTrip. Drafts are hidden from agents until published.</p></div>
-  <div class="actions">
+  <div class="actions"><%- include('../partials/export-btn') %>
     <a class="btn" href="/backend/import"><%- icon('upload') %>Bulk import</a>
     <a class="btn btn-primary" href="/backend/products/new<%= f.kind ? `?kind=${f.kind}` : '' %>"><%- icon('plus') %>Add <%= cfg ? cfg.label.toLowerCase() : 'inventory' %></a>
   </div>

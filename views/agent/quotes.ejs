@@ -1,5 +1,5 @@
 <div class="page-head">
-  <div><h1>Quotes</h1><p>Build, share and convert quotes into bookings.</p></div>
+  <div><h1>Quotes</h1><p>Build, share and convert quotes into bookings.</p></div><%- include('../partials/export-btn', { wrap: true }) %>
   <% if (!(user && user.agency_role === 'accounts')) { %><details class="more">
     <summary class="btn btn-primary" style="list-style:none"><%- icon('plus') %>New blank quote</summary>
     <form class="card" method="post" action="/agent/quotes" style="position:absolute;right:28px;z-index:4;width:320px;margin-top:8px">

@@ -11,7 +11,7 @@
   }[kind];
 %>
 <div class="page-head">
-  <div><h1><%= cfg.plural %></h1><p><%= intro %>. Add services to a quote or package. Your default markup is <strong><%= mk %></strong>.</p></div>
+  <div><h1><%= cfg.plural %></h1><p><%= intro %>. Add services to a quote or package. Your default markup is <strong><%= mk %></strong>.</p></div><%- include('../partials/export-btn', { wrap: true }) %>
   <a class="btn btn-primary" href="/agent/packages/new"><%- icon('plus') %>Build a package</a>
 </div>
 <nav class="svc-nav catalogue-services" aria-label="Services">
