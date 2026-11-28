@@ -566,12 +566,33 @@ router.post('/topups/:id/reject', h(async (req, res) => {
 router.get('/invoices', h(async (req, res) => {
   const kind = ['b2b', 'customer_vaayu', 'customer_agent'].includes(req.query.kind) ? req.query.kind : '';
   const p = paging(req);
-  const page = pageOf(await all(
-    `SELECT i.*, a.name AS agency_name FROM invoices i JOIN agencies a ON a.id = i.agency_id ${kind ? 'WHERE i.kind = ?' : ''} ORDER BY i.id DESC ${p.sql}`, ...(kind ? [kind] : []), ...p.params,
-  ), p);
+  const [list, sums, byMonth, top] = await Promise.all([
+    all(
+      `SELECT i.*, a.name AS agency_name, a.brand_color, a.logo_path FROM invoices i JOIN agencies a ON a.id = i.agency_id ${kind ? 'WHERE i.kind = ?' : ''} ORDER BY i.id DESC ${p.sql}`, ...(kind ? [kind] : []), ...p.params,
+    ),
+    all(`SELECT kind, COUNT(*) AS n, COALESCE(SUM(total), 0) AS total,
+           COALESCE(SUM(total) FILTER (WHERE created_at >= sqldate('now', 'start of month')), 0) AS month_total,
+           COUNT(*) FILTER (WHERE created_at >= sqldate('now', 'start of month')) AS month_n
+         FROM invoices GROUP BY kind`),
+    all(`SELECT substr(created_at, 1, 7) AS month, COALESCE(SUM(total), 0) AS total, COUNT(*) AS n FROM invoices
+         WHERE kind = 'b2b' AND created_at >= sqldate('now', 'start of month', '-5 months') GROUP BY 1`),
+    all(`SELECT a.id, a.name, COALESCE(SUM(i.total), 0) AS total, COUNT(*) AS n FROM invoices i JOIN agencies a ON a.id = i.agency_id
+         WHERE i.kind = 'b2b' GROUP BY a.id, a.name ORDER BY total DESC LIMIT 5`),
+  ]);
+  const page = pageOf(list, p);
   const pager = page.pager;
   const invoices = page.rows.map((i) => ({ ...i, doc: JSON.parse(i.data) }));
-  res.page('admin/invoices', { title: 'Invoices', pager, invoices, kind });
+  const totals = Object.fromEntries(sums.map((r) => [r.kind, { n: Number(r.n), total: Number(r.total), monthTotal: Number(r.month_total), monthN: Number(r.month_n) }]));
+  const got = Object.fromEntries(byMonth.map((r) => [r.month, r]));
+  const months = [...Array(6)].map((_, i) => {
+    const d = new Date();
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() - 5 + i);
+    const k = d.toISOString().slice(0, 7);
+    return { label: d.toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' }), value: Math.round(Number(got[k]?.total || 0)), note: `${Number(got[k]?.n || 0)} invoices` };
+  });
+  const topAgencies = top.map((r) => ({ label: r.name, value: Math.round(Number(r.total)), sub: `${r.n} invoice${Number(r.n) === 1 ? '' : 's'}`, href: `/admin/agents/${r.id}` }));
+  res.page('admin/invoices', { title: 'Invoices', pager, invoices, kind, totals, months, topAgencies });
 }));
 
 router.get('/invoices/:id', h(async (req, res, next) => {

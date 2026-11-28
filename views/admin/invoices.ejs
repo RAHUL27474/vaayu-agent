@@ -1,20 +1,46 @@
+<%
+  const IK = {
+    b2b: ['VaayuTrip → agent', 'violet', 'building'],
+    customer_vaayu: ['VaayuTrip → customer', 'blue', 'file'],
+    customer_agent: ["Agent's own", 'green', 'receipt'],
+  };
+  const short = (v) => v >= 1e7 ? `₹${(v / 1e7).toFixed(1)}Cr` : v >= 1e5 ? `₹${(v / 1e5).toFixed(1)}L` : v >= 1e3 ? `₹${Math.round(v / 1e3)}k` : inr(v);
+  const t = (k) => totals[k] || { n: 0, total: 0, monthTotal: 0, monthN: 0 };
+  const sum = Object.values(totals).reduce((s, x) => ({ n: s.n + x.n, monthTotal: s.monthTotal + x.monthTotal, monthN: s.monthN + x.monthN }), { n: 0, monthTotal: 0, monthN: 0 });
+  const mark = (name) => name.split(' ').filter((w) => /^[A-Za-z0-9]/.test(w)).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+%>
 <div class="page-head"><div><h1>Invoices</h1><p>VaayuTrip's B2B invoices to agents, and the invoices agents issue to their customers under their own brand.</p></div></div>
+
+<div class="grid grid-4 tone-cards" style="margin-bottom:20px">
+  <div class="stat tone-green"><span class="stat-ico"><%- icon('chart') %></span><div class="label">Invoiced this month</div><div class="value"><%= inr(sum.monthTotal) %></div><div class="sub"><%= plural(sum.monthN, 'invoice') %> across all types</div></div>
+  <a class="stat tone-violet" href="/admin/invoices?kind=b2b" style="color:inherit;text-decoration:none"><span class="stat-ico"><%- icon('building') %></span><div class="label">VaayuTrip → agents</div><div class="value"><%= inr(t('b2b').total) %></div><div class="sub"><%= plural(t('b2b').n, 'invoice') %> · <%= short(t('b2b').monthTotal) %> this month</div></a>
+  <a class="stat tone-teal" href="/admin/invoices?kind=customer_agent" style="color:inherit;text-decoration:none"><span class="stat-ico"><%- icon('receipt') %></span><div class="label">Agents → customers</div><div class="value"><%= inr(t('customer_agent').total) %></div><div class="sub"><%= t('customer_agent').n ? plural(t('customer_agent').n, 'invoice') + ' under agents’ own brands' : 'None issued by agents yet' %></div></a>
+  <div class="stat tone-amber"><span class="stat-ico"><%- icon('file') %></span><div class="label">All invoices</div><div class="value"><%= sum.n.toLocaleString('en-IN') %></div><div class="sub"><%= t('b2b').n ? 'Avg B2B ' + short(t('b2b').total / t('b2b').n) : 'No B2B invoices yet' %></div></div>
+</div>
+
+<% if (sum.n) { %>
+<div class="grid grid-2" style="margin-bottom:20px">
+  <div class="card"><h2 class="h3">B2B invoiced by month</h2><%- include('../partials/bar-chart', { id: 'invoiced', bars: months, format: short }) %></div>
+  <div class="card"><h2 class="h3">Most invoiced agencies</h2><%- include('../partials/hbars', { id: 'inv-agencies', rows: topAgencies, format: short }) %></div>
+</div>
+<% } %>
+
 <div class="tabs">
-  <% [['', 'All'], ['b2b', 'VaayuTrip → agent'], ['customer_agent', 'Agents → customers']].forEach(([k, label]) => { %>
-    <a href="/admin/invoices<%= k ? '?kind=' + k : '' %>" class="<%= kind === k ? 'active' : '' %>"><%= label %></a>
+  <% [['', 'All', sum.n], ['b2b', 'VaayuTrip → agent', t('b2b').n], ['customer_agent', 'Agents → customers', t('customer_agent').n]].forEach(([k, label, n]) => { %>
+    <a href="/admin/invoices<%= k ? '?kind=' + k : '' %>" class="<%= kind === k ? 'active' : '' %>"><%= label %> <small class="muted"><%= n %></small></a>
   <% }) %>
 </div>
 <div class="card flush">
-  <% if (!invoices.length) { %><div class="empty"><span class="big"><%- icon('receipt') %></span><b>No invoices yet</b></div><% } else { %>
+  <% if (!invoices.length) { %><div class="empty"><span class="big"><%- icon('receipt') %></span><b>No invoices here yet</b><p>B2B invoices are issued automatically when a booking is confirmed.</p></div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Number</th><th>Type</th><th>Agent</th><th>Billed to</th><th class="num">Total</th></tr></thead>
-    <% invoices.forEach(i => { %>
+    <% invoices.forEach(i => { const k = IK[i.kind] || IK.b2b; %>
       <tr class="click" data-href="/admin/invoices/<%= i.id %>">
-        <td><b><%= i.number %></b><br><small><%= fmtDate(i.created_at) %></small></td>
-        <td><span class="badge"><%= { customer_agent: "Agent's own", customer_vaayu: 'VaayuTrip → customer', b2b: 'VaayuTrip → agent' }[i.kind] %></span></td>
-        <td><%= i.agency_name %></td>
-        <td><%= i.doc.buyer.legalName || i.doc.buyer.name %></td>
-        <td class="num"><%= inr(i.total, { decimals: 2 }) %></td>
+        <td><span class="inv-id feed-<%= k[1] %>"><span class="feed-ico"><%- icon(k[2]) %></span><span><b><%= i.number %></b><br><small><%= fmtDate(i.created_at) %></small></span></span></td>
+        <td><span class="feed-tag feed-<%= k[1] %>"><%= k[0] %></span></td>
+        <td><span class="ag-id ag-sm"><% if (i.logo_path) { %><img class="ag-mark" src="<%= i.logo_path %>" alt=""><% } else { %><span class="ag-mark" style="--ac:<%= /^#[0-9a-f]{6}$/i.test(i.brand_color || '') ? i.brand_color : '#0e7490' %>"><%= mark(i.agency_name) %></span><% } %><span><%= i.agency_name %></span></span></td>
+        <td><%= i.doc.buyer.legalName || i.doc.buyer.name %><% if (i.doc.meta && i.doc.meta.trip) { %><br><small><%= i.doc.meta.trip %></small><% } %></td>
+        <td class="num"><b><%= inr(i.total, { decimals: 2 }) %></b></td>
       </tr>
     <% }) %>
   </table></div>
