@@ -15,6 +15,8 @@ const { KYC_DIR, KYC_FILES, missingKyc, kycLabel, requiredFiles, imageSize } = r
 const { restoreFile } = require('../files');
 const { paging, pageOf } = require('../paging');
 const { reportPeriod, sendCsv, txnLabel, TXN_LABELS, normUtr } = require('../report-utils');
+const { destinationPhoto, cityPhoto } = require('../destination-photos');
+const indiaToday = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
 
 const router = express.Router();
 router.param('id', idParam);
@@ -452,11 +454,30 @@ router.post('/team/:id/password', h(async (req, res, next) => {
 router.get('/bookings', h(async (req, res) => {
   const status = ['confirmed', 'cancel_requested', 'cancelled'].includes(req.query.status) ? req.query.status : '';
   const p = paging(req);
-  const { rows: bookings, pager } = pageOf(await all(
-    `SELECT b.*, a.name AS agency_name, c.name AS customer_name FROM bookings b JOIN agencies a ON a.id = b.agency_id
-     LEFT JOIN customers c ON c.id = b.customer_id ${status ? 'WHERE b.status = ?' : ''} ORDER BY b.id DESC ${p.sql}`, ...(status ? [status] : []), ...p.params,
-  ), p);
-  res.page('admin/bookings', { title: 'Bookings', bookings, pager, status });
+  const today = indiaToday();
+  const [rows, counts, figs] = await Promise.all([
+    all(
+      `SELECT b.*, a.name AS agency_name, a.brand_color, a.logo_path, c.name AS customer_name, p.destination AS pkg_dest,
+         (SELECT pr.image_url FROM quote_items i JOIN products pr ON pr.id = i.product_id WHERE i.quote_id = b.quote_id ORDER BY i.sort, i.id LIMIT 1) AS item_image,
+         (SELECT pr.city FROM quote_items i JOIN products pr ON pr.id = i.product_id WHERE i.quote_id = b.quote_id ORDER BY i.sort, i.id LIMIT 1) AS item_city
+       FROM bookings b JOIN agencies a ON a.id = b.agency_id
+       LEFT JOIN customers c ON c.id = b.customer_id LEFT JOIN quotes q ON q.id = b.quote_id LEFT JOIN packages p ON p.id = q.package_id
+       ${status ? 'WHERE b.status = ?' : ''} ORDER BY b.id DESC ${p.sql}`, ...(status ? [status] : []), ...p.params,
+    ),
+    all('SELECT status, COUNT(*)::int AS n FROM bookings GROUP BY status'),
+    one(`SELECT COUNT(*) FILTER (WHERE status != 'cancelled' AND created_at >= sqldate('now', 'start of month'))::int AS month_n,
+           COALESCE(SUM(total_net) FILTER (WHERE status != 'cancelled' AND created_at >= sqldate('now', 'start of month')), 0) AS month_net,
+           COUNT(*) FILTER (WHERE status = 'confirmed' AND travel_date >= ? AND travel_date <= sqldate(?, '+30 days'))::int AS soon,
+           COUNT(*) FILTER (WHERE status = 'confirmed' AND travel_date >= ?)::int AS ahead,
+           COALESCE(SUM(paid_wallet + paid_credit) FILTER (WHERE status != 'cancelled'), 0) AS paid,
+           COUNT(DISTINCT agency_id) FILTER (WHERE status != 'cancelled')::int AS agencies
+         FROM bookings`, today, today, today),
+  ]);
+  const { rows: list, pager } = pageOf(rows, p);
+  const bookings = list.map((b) => ({ ...b, place: b.pkg_dest || b.item_city || '', photo: b.item_image || destinationPhoto(b.pkg_dest) || cityPhoto(b.item_city) || null }));
+  const byStatus = Object.fromEntries(counts.map((r) => [r.status, r.n]));
+  byStatus[''] = counts.reduce((s, r) => s + r.n, 0);
+  res.page('admin/bookings', { title: 'Bookings', bookings, pager, status, byStatus, figs, today });
 }));
 
 router.get('/bookings/:id', h(async (req, res, next) => {

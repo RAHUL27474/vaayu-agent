@@ -2910,46 +2910,39 @@ html[data-theme="dark"] body.app .feed-red { --c: #f59a8f; --c-bg: #3a1714; }
 @media (max-width: 640px) { .tk { grid-template-columns: auto 1fr; } .tk-side { grid-column: 2; flex-direction: row; justify-content: space-between; } }
 .ag-id.ag-sm { gap: 10px; }
 .ag-id.ag-sm .ag-mark { width: 30px; height: 30px; border-radius: 9px; font-size: 11.5px; }
-/* Activity log header: figures and a 12-week heatmap */
-.log-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px 32px; align-items: center; margin-bottom: 16px; padding: 20px 24px; background: radial-gradient(120% 140% at 100% 0%, var(--brand-50) 0%, transparent 55%), var(--card); }
-.lh-figs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
-.lh-figs > div { display: flex; flex-direction: column; padding-left: 12px; border-left: 3px solid var(--brand); }
-.lh-figs > div:nth-child(2) { border-color: #6d3fc0; } .lh-figs > div:nth-child(3) { border-color: #2f7d0a; } .lh-figs > div:nth-child(4) { border-color: #a15c00; }
-.lh-figs b { font: 700 28px/1.1 var(--font-head, var(--font)); color: var(--ink); font-variant-numeric: tabular-nums; }
-.lh-figs span { font-size: 13px; color: var(--muted); }
-.lh-figs .is-zero b { color: var(--muted); }
-.lh-map { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+/* Activity log: 12-week heatmap card in the side column */
+.lh-card .lh-map { display: flex; flex-direction: column; gap: 10px; }
 .lh-grid { display: flex; gap: 4px; }
-.lh-days, .lh-week { display: grid; grid-template-rows: 14px repeat(7, 14px); gap: 4px; }
-.lh-days span { font-size: 10px; line-height: 14px; color: var(--muted); padding-right: 4px; }
+.lh-days, .lh-week { display: grid; grid-template-rows: 14px repeat(7, 16px); gap: 4px; }
 .lh-days::before { content: ''; }
-.lh-week small { font-size: 10px; line-height: 14px; color: var(--muted); white-space: nowrap; width: 14px; overflow: visible; }
-.lh-c { display: block; width: 14px; height: 14px; border-radius: 4px; background: var(--line-2); }
+.lh-days span { font-size: 10px; line-height: 16px; color: var(--muted); padding-right: 4px; }
+.lh-week small { font-size: 10px; line-height: 14px; color: var(--muted); white-space: nowrap; width: 16px; overflow: visible; }
+.lh-c { display: block; width: 16px; height: 16px; border-radius: 4px; background: var(--line-2); }
 .lh-c.lv-1 { background: #b9dcf3; } .lh-c.lv-2 { background: #6db6e6; } .lh-c.lv-3 { background: #1f8ad0; } .lh-c.lv-4 { background: var(--brand-700); }
 .lh-c.lv-x { background: transparent; border: 1px dashed var(--line); box-sizing: border-box; }
 .lh-c.is-today { outline: 2px solid #4caf1a; outline-offset: 1px; }
-.lh-key { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+.lh-key { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 11px; color: var(--muted); }
 .lh-key .lh-c { width: 11px; height: 11px; border-radius: 3px; }
 .lh-key span:first-child { margin-right: 2px; } .lh-key span:last-child { margin-left: 2px; }
-.lh-quiet { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 14px; border-radius: 10px; background: var(--line-2); color: var(--ink-2); font-size: 14px; }
-.lh-quiet .i { width: 17px; height: 17px; color: var(--muted); flex: none; }
+.log-figs .stat.is-zero .value { color: var(--muted); }
+.log-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
+.log-bar .log-areas, .log-bar .log-more { margin: 0; }
+.log-bar .log-more[open] { flex-basis: 100%; order: 2; }
 .log-areas a .i { color: var(--c, currentColor); }
 .log-areas a.on .i { color: inherit; }
 .log-areas-bars .la-name { display: inline-flex; align-items: center; gap: 9px; }
 .la-ico { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; background: var(--c-bg); color: var(--c); }
 .la-ico .i { width: 14px; height: 14px; }
 .log-areas-bars li i { background: var(--c, var(--brand)); opacity: .8; }
-html[data-theme="dark"] body.app .log-hero { background: radial-gradient(120% 140% at 100% 0%, rgb(14 116 184 / .16) 0%, transparent 55%), var(--card); }
 html[data-theme="dark"] body.app .lh-c.lv-1 { background: #123a57; } html[data-theme="dark"] body.app .lh-c.lv-2 { background: #1b5f8f; }
 html[data-theme="dark"] body.app .lh-c.lv-3 { background: #2f8fd0; } html[data-theme="dark"] body.app .lh-c.lv-4 { background: #7cc4f0; }
-html[data-theme="dark"] body.app .lh-figs > div:nth-child(2) { border-color: #c4a9f5; } html[data-theme="dark"] body.app .lh-figs > div:nth-child(3) { border-color: #8fd46a; } html[data-theme="dark"] body.app .lh-figs > div:nth-child(4) { border-color: #f2b84b; }
-@media (max-width: 900px) { .log-hero { grid-template-columns: minmax(0, 1fr); } .lh-map { align-items: flex-start; overflow-x: auto; max-width: 100%; } }
-@media (max-width: 640px) { .log-hero { padding: 16px; } .lh-figs b { font-size: 24px; } .lh-grid { gap: 3px; } .lh-days, .lh-week { grid-template-rows: 12px repeat(7, 12px); gap: 3px; } .lh-c { width: 12px; height: 12px; } .lh-days span { font-size: 9px; } }
-@media (min-width: 1200px) {
-  .lh-figs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .lh-days, .lh-week { grid-template-rows: 16px repeat(7, 17px); }
-  .lh-c { width: 17px; height: 17px; }
-  .lh-week small { width: 17px; }
-  .lh-days span { line-height: 17px; }
-  .lh-week small, .lh-days span { font-size: 10.5px; }
-}
+.tone-cards .stat.tone-red { --tc: #b42318; --tb: #fde8e6; } .tone-cards .stat.tone-slate { --tc: #475569; --tb: #eef1f5; }
+html[data-theme="dark"] body.app .tone-cards .stat.tone-red { --tc: #f59a8f; --tb: #3a1714; } html[data-theme="dark"] body.app .tone-cards .stat.tone-slate { --tc: #b6c2cf; --tb: #1c2733; }
+.bk-when { font-weight: 600; color: var(--muted); }
+.bk-when.soon { color: #0b6aa8; } .bk-when.now { color: #2f7d0a; }
+html[data-theme="dark"] body.app .bk-when.soon { color: #7cc4f0; } html[data-theme="dark"] body.app .bk-when.now { color: #8fd46a; }
+.bk-row.is-cancelled td { color: var(--muted); }
+.bk-row.is-cancelled .bk-trip img { filter: grayscale(1); opacity: .6; }
+.bk-row.is-cancel_requested td:first-child { box-shadow: inset 3px 0 0 #d97706; }
+/* Wide agency logos: the mark next to the name shows the logo's left end (usually its symbol), filling the square. */
+img.ag-mark { object-fit: cover; object-position: left center; background: #fff; border: 1px solid var(--line); box-shadow: none; }

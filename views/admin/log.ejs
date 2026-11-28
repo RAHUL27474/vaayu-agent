@@ -24,28 +24,17 @@
 <div class="page-head">
   <div><h1>Activity log</h1><p>Everything that changes on VaayuTrip: inventory entered by the backend team, agents' packages, quotes and bookings, and admin decisions.</p></div>
 </div>
-<section class="card log-hero">
-  <div class="lh-figs">
-    <div class="<%= Number(pulse.today) ? '' : 'is-zero' %>"><b><%= pulse.today %></b><span>today</span></div>
-    <div class="<%= Number(pulse.week) ? '' : 'is-zero' %>"><b><%= pulse.week %></b><span>last 7 days</span></div>
-    <div class="<%= Number(pulse.bookings) ? '' : 'is-zero' %>"><b><%= pulse.bookings %></b><span>booking changes this week</span></div>
-    <div><b><%= total84 %></b><span>in 12 weeks, on <%= activeDays %> <%= activeDays === 1 ? 'day' : 'days' %></span></div>
-  </div>
-  <div class="lh-map">
-    <div class="lh-grid" role="img" aria-label="<%= total84 %> changes over the last 12 weeks">
-      <div class="lh-days" aria-hidden="true"><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span></div>
-      <% weeks.forEach(w => { %>
-        <div class="lh-week"><small aria-hidden="true"><%= monthOf(w) %></small>
-          <% w.forEach(c => { %><i class="lh-c lv-<%= c.future ? 'x' : level(c.n) %> <%= c.k === today.toISOString().slice(0, 10) ? 'is-today' : '' %>" title="<%= c.label %>: <%= c.n %> <%= c.n === 1 ? 'change' : 'changes' %>"></i><% }) %>
-        </div>
-      <% }) %>
-    </div>
-    <div class="lh-key" aria-hidden="true"><span>Less</span><i class="lh-c lv-0"></i><i class="lh-c lv-1"></i><i class="lh-c lv-2"></i><i class="lh-c lv-3"></i><i class="lh-c lv-4"></i><span>More</span></div>
-  </div>
-  <% if (!Number(pulse.week)) { %>
-  <p class="lh-quiet"><%- icon('moon') %><span><b>Quiet week.</b> Nothing has changed in the last 7 days<% if (entries.length && !f.area && !f.role && !f.user && !f.agency && !f.from && !f.to) { %>; the latest change is below, from <%= new Date(String(entries[0].created_at).replace(' ', 'T') + 'Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %><% } %>.</span></p>
-  <% } %>
-</section>
+<div class="grid grid-4 tone-cards log-figs" style="margin-bottom:16px">
+  <div class="stat tone-blue <%= Number(pulse.today) ? '' : 'is-zero' %>"><span class="stat-ico"><%- icon('clock') %></span><div class="label">Changes today</div><div class="value"><%= pulse.today %></div><div class="sub"><%= Number(pulse.today) ? 'Since midnight IST' : 'Nothing yet today' %></div></div>
+  <div class="stat tone-violet <%= Number(pulse.week) ? '' : 'is-zero' %>"><span class="stat-ico"><%- icon('activity') %></span><div class="label">Last 7 days</div><div class="value"><%= pulse.week %></div><div class="sub"><%= plural(pulse.people, 'person', 'people') %> made changes</div></div>
+  <div class="stat tone-green <%= Number(pulse.bookings) ? '' : 'is-zero' %>"><span class="stat-ico"><%- icon('clipboard') %></span><div class="label">Booking changes</div><div class="value"><%= pulse.bookings %></div><div class="sub">this week</div></div>
+  <div class="stat tone-amber"><span class="stat-ico"><%- icon('chart') %></span><div class="label">Last 12 weeks</div><div class="value"><%= total84 %></div><div class="sub">on <%= plural(activeDays, 'day') %></div></div>
+</div>
+<% if (!Number(pulse.week)) { %>
+<p class="log-quiet"><%- icon('moon') %><span><b>Quiet week.</b> Nothing has changed in the last 7 days<% if (entries.length && !f.area && !f.role && !f.user && !f.agency && !f.from && !f.to) { %>; the latest change is below, from <%= new Date(String(entries[0].created_at).replace(' ', 'T') + 'Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' }) %><% } %>.</span></p>
+<% } %>
+
+<div class="log-bar">
 <% if (busy.length) { %>
 <nav class="chips filter-chips log-areas" aria-label="Areas">
   <a class="<%= !f.area ? 'on' : '' %>" href="<%= qs({ area: '', page: '' }) %>"><%- icon('activity') %>All areas</a>
@@ -66,6 +55,7 @@
   <a class="btn btn-ghost" href="/admin/log">Clear</a>
 </form>
 </details>
+</div>
 <div class="log-layout">
 <div class="card log-card">
   <%- include('../partials/log-feed', { entries }) %>
@@ -77,6 +67,20 @@
   <% } %>
 </div>
 <aside class="log-side">
+  <div class="card lh-card">
+    <h2 class="h3">Last 12 weeks</h2>
+    <div class="lh-map">
+      <div class="lh-grid" role="img" aria-label="<%= total84 %> changes over the last 12 weeks">
+        <div class="lh-days" aria-hidden="true"><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span></div>
+        <% weeks.forEach(w => { %>
+          <div class="lh-week"><small aria-hidden="true"><%= monthOf(w) %></small>
+            <% w.forEach(c => { %><i class="lh-c lv-<%= c.future ? 'x' : level(c.n) %> <%= c.k === today.toISOString().slice(0, 10) ? 'is-today' : '' %>" title="<%= c.label %>: <%= c.n %> <%= c.n === 1 ? 'change' : 'changes' %>"></i><% }) %>
+          </div>
+        <% }) %>
+      </div>
+      <div class="lh-key" aria-hidden="true"><span>Less</span><i class="lh-c lv-0"></i><i class="lh-c lv-1"></i><i class="lh-c lv-2"></i><i class="lh-c lv-3"></i><i class="lh-c lv-4"></i><span>More</span></div>
+    </div>
+  </div>
   <div class="card">
     <h2 class="h3">Most active, 30 days</h2>
     <% if (!people.length) { %><p class="muted" style="font-size:13px;margin:0">No activity yet.</p><% } %>

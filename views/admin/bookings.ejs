@@ -1,22 +1,46 @@
+<%
+  const mark = (name) => name.split(' ').filter((w) => /^[A-Za-z0-9]/.test(w)).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  const daysTo = (d) => Math.round((new Date(d + 'T00:00:00Z') - new Date(today + 'T00:00:00Z')) / 864e5);
+  const when = (b) => {
+    if (!b.travel_date) return '';
+    const d = daysTo(b.travel_date);
+    if (b.status === 'cancelled') return '';
+    if (d < 0) return ['Travelled', 'past'];
+    if (d === 0) return ['Today', 'now'];
+    if (d === 1) return ['Tomorrow', 'now'];
+    if (d <= 30) return [`In ${d} days`, 'soon'];
+    return [`In ${Math.round(d / 30.4)} month${Math.round(d / 30.4) === 1 ? '' : 's'}`, ''];
+  };
+  const STATUS = { confirmed: 'Confirmed', cancel_requested: 'Cancellation requested', cancelled: 'Cancelled' };
+  const cancelN = byStatus.cancel_requested || 0;
+%>
 <div class="page-head"><div><h1>Bookings</h1><p>All agent bookings across the network.</p></div></div>
+
+<div class="grid grid-4 tone-cards" style="margin-bottom:20px">
+  <div class="stat tone-green"><span class="stat-ico"><%- icon('chart') %></span><div class="label">Booked this month (net)</div><div class="value"><%= inr(figs.month_net) %></div><div class="sub"><%= plural(figs.month_n, 'booking') %></div></div>
+  <div class="stat tone-blue"><span class="stat-ico"><%- icon('plane') %></span><div class="label">Departing in 30 days</div><div class="value"><%= figs.soon %></div><div class="sub"><%= plural(figs.ahead, 'confirmed trip') %> still ahead</div></div>
+  <a class="stat <%= cancelN ? 'tone-red' : 'tone-slate' %>" href="/admin/bookings?status=cancel_requested" style="color:inherit;text-decoration:none"><span class="stat-ico"><%- icon('clock') %></span><div class="label">Cancellation requests</div><div class="value"><%= cancelN %></div><div class="sub"><%= cancelN ? 'Waiting for your decision' : 'Nothing waiting' %></div></a>
+  <div class="stat tone-violet"><span class="stat-ico"><%- icon('wallet') %></span><div class="label">Collected from agents</div><div class="value"><%= inr(figs.paid) %></div><div class="sub">from <%= plural(figs.agencies, 'agency', 'agencies') %>, wallet and credit</div></div>
+</div>
+
 <div class="tabs">
   <% [['', 'All'], ['confirmed', 'Confirmed'], ['cancel_requested', 'Cancellation requests'], ['cancelled', 'Cancelled']].forEach(([s, label]) => { %>
-    <a href="/admin/bookings<%= s ? '?status=' + s : '' %>" class="<%= status === s ? 'active' : '' %>"><%= label %></a>
+    <a href="/admin/bookings<%= s ? '?status=' + s : '' %>" class="<%= status === s ? 'active' : '' %>"><%= label %> <small class="<%= s === 'cancel_requested' && cancelN ? 'count-due' : 'muted' %>"><%= byStatus[s] || 0 %></small></a>
   <% }) %>
 </div>
 <div class="card flush">
-  <% if (!bookings.length) { %><div class="empty"><span class="big"><%- icon('clipboard') %></span><b>No bookings here</b></div><% } else { %>
+  <% if (!bookings.length) { %><div class="empty"><span class="big"><%- icon('clipboard') %></span><b>No bookings here</b><p>Bookings appear here as soon as an agent books a quote.</p></div><% } else { %>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Booking</th><th>Agent</th><th>Customer</th><th>Travel</th><th>Status</th><th class="num">Net (pre-tax)</th><th class="num">Paid<%= gstOn ? ' incl. GST' : '' %></th></tr></thead>
-    <% bookings.forEach(b => { %>
-      <tr class="click" data-href="/admin/bookings/<%= b.id %>">
-        <td><b><%= b.title %></b><br><small><%= b.code %> · <%= fmtDate(b.created_at) %></small></td>
-        <td><%= b.agency_name %></td>
+    <% bookings.forEach(b => { const w = when(b); %>
+      <tr class="click bk-row is-<%= b.status %>" data-href="/admin/bookings/<%= b.id %>">
+        <td><span class="bk-trip"><% if (b.photo) { %><img src="<%= b.photo.startsWith('/img/') ? pic(b.photo).small : b.photo %>" alt="" loading="lazy"><% } else { %><span class="bk-ph"><%- icon('mapPin') %></span><% } %><span><b><%= b.title.split(' — ')[0] %></b><br><small class="nowrap"><%= b.code %><%= b.place ? ` · ${b.place}` : '' %> · booked <%= fmtDate(b.created_at) %></small></span></span></td>
+        <td><span class="ag-id ag-sm"><% if (b.logo_path) { %><img class="ag-mark" src="<%= b.logo_path %>" alt=""><% } else { %><span class="ag-mark" style="--ac:<%= /^#[0-9a-f]{6}$/i.test(b.brand_color || '') ? b.brand_color : '#0e7490' %>"><%= mark(b.agency_name) %></span><% } %><span><%= b.agency_name %></span></span></td>
         <td><%= b.customer_name || b.title.split(' — ')[1] || '—' %></td>
-        <td><%= fmtDate(b.travel_date) || '—' %></td>
-        <td><span class="badge <%= b.status %>"><%= b.status.replace('_', ' ') %></span></td>
+        <td><span class="nowrap"><%= fmtDate(b.travel_date) || '—' %></span><% if (w) { %><br><small class="bk-when <%= w[1] %>"><%= w[0] %></small><% } %></td>
+        <td><span class="badge <%= b.status %>"><%= STATUS[b.status] || b.status.replace('_', ' ') %></span></td>
         <td class="num"><%= inr(b.total_net) %></td>
-        <td class="num"><%= inr(b.paid_wallet + b.paid_credit) %></td>
+        <td class="num"><b><%= inr(b.paid_wallet + b.paid_credit) %></b></td>
       </tr>
     <% }) %>
   </table></div>
